@@ -1,3 +1,14 @@
 spring:
   application:
     name: mecanica
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mecanica
+    username: admin
+    password: admin
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+  liquibase:
+    enabled: true
