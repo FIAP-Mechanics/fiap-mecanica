@@ -1,1 +1,34 @@
 databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: gustavo.moraes
+      changes:
+        - createTable:
+            tableName: funcionario
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: senha
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: nome
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: funcao
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
