@@ -21,5 +21,6 @@ public class Funcionario {
     private String nome;
     @Enumerated(EnumType.STRING)
     private Funcao funcao;
-    private boolean ativo;
+    @Builder.Default
+    private boolean ativo = true;
 }

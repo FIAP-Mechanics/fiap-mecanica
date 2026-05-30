@@ -32,3 +32,8 @@ databaseChangeLog:
                   type: VARCHAR(50)
                   constraints:
                     nullable: false
+              - column:
+                  name: ativo
+                  type: boolean
+                  constraints:
+                    nullable: false
