@@ -28,9 +28,10 @@ public class ServicoService {
     public Servico atualizarServico(Long idServico, ServicoDto servicoDto) {
         Servico servico = this.buscarServicoPorId(idServico);
 
-        atualizaSeExistente(servicoDto.tipo(), servico::setTipo);
+        atualizaSeExistente(servicoDto.nome(), servico::setNome);
         atualizaSeExistente(servicoDto.descricao(), servico::setDescricao);
         atualizaSeExistente(servicoDto.valor(), servico::setValor);
+        atualizaSeExistente(servicoDto.insumos(), servico::atualizarInsumos);
 
         return repository.save(servico);
     }
