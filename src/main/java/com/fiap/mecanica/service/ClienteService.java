@@ -2,6 +2,7 @@ package com.fiap.mecanica.service;
 
 import com.fiap.mecanica.domain.Cliente;
 import com.fiap.mecanica.dto.ClienteDto;
+import com.fiap.mecanica.exception.ClienteExistente;
 import com.fiap.mecanica.exception.ClienteNotFound;
 import com.fiap.mecanica.repository.ClienteRepository;
 import lombok.AllArgsConstructor;
@@ -25,7 +26,13 @@ public class ClienteService {
         return repository.findById(id).orElseThrow(() -> new ClienteNotFound(id));
     }
 
-    public Cliente cadastrarCliente(Cliente cliente) {return repository.save(cliente);}
+    public Cliente cadastrarCliente(Cliente cliente) {
+        boolean clienteEncontrado = repository.existsByDocumento(cliente.getDocumento());
+        if(clienteEncontrado) {
+            throw new ClienteExistente(cliente.getDocumento());
+        }
+        return repository.save(cliente);
+    }
 
     public Cliente atualizarCliente(Long id, ClienteDto clienteDto){
         Cliente cliente = repository.findById(id).orElseThrow(() -> new ClienteNotFound(id));

@@ -61,7 +61,8 @@ public class ClienteController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Cliente cadastrado com sucesso",
                 content = @Content(schema = @Schema(implementation = ClienteDto.class))),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos", content = @Content)
+            @ApiResponse(responseCode = "400", description = "Dados inválidos", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Já existe um cliente com esse documento", content = @Content)
     })
     @PostMapping
     public ClienteDto create(@Valid @RequestBody CadastrarClienteRequest request) {

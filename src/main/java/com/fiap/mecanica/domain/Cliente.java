@@ -16,6 +16,7 @@ public class Cliente {
     @Id()
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
+    @Column(unique = true)
     private String documento;
     private String email;
     private String telefone;
