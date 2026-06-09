@@ -38,6 +38,12 @@ class ClienteControllerTest {
     private static final Endereco ENDERECO_NOVO = Endereco.builder()
             .cep("31000-000").estado("MG").cidade("Contagem")
             .bairro("Industrial").rua("Rua B").numero("20").build();
+    private static final Endereco ENDERECO_SANITIZADO = Endereco.builder()
+            .cep("30000000").estado("MG").cidade("Belo Horizonte")
+            .bairro("Centro").rua("Rua A").numero("10").build();
+    private static final Endereco ENDERECO_NOVO_SANITIZADO = Endereco.builder()
+            .cep("31000000").estado("MG").cidade("Contagem")
+            .bairro("Industrial").rua("Rua B").numero("20").build();
 
     @Mock
     private ClienteService service;
@@ -121,10 +127,10 @@ class ClienteControllerTest {
         controller.create(request);
 
         Cliente capturado = clienteCaptor.getValue();
-        assertThat(capturado.getDocumento()).isEqualTo(DOCUMENTO);
+        assertThat(capturado.getDocumento()).isEqualTo("12345678900");
         assertThat(capturado.getEmail()).isEqualTo(EMAIL);
         assertThat(capturado.getTelefone()).isEqualTo(TELEFONE);
-        assertThat(capturado.getEndereco()).isEqualTo(ENDERECO);
+        assertThat(capturado.getEndereco()).isEqualTo(ENDERECO_SANITIZADO);
     }
 
     @Test
@@ -154,10 +160,21 @@ class ClienteControllerTest {
         controller.update(ID_EXISTENTE, request);
 
         ClienteDto dto = dtoCaptor.getValue();
-        assertThat(dto.documento()).isEqualTo(DOCUMENTO_NOVO);
+        assertThat(dto.documento()).isEqualTo("98765432100");
         assertThat(dto.email()).isEqualTo(EMAIL_NOVO);
         assertThat(dto.telefone()).isEqualTo(TELEFONE_NOVO);
-        assertThat(dto.endereco()).isEqualTo(ENDERECO_NOVO);
+        assertThat(dto.endereco()).isEqualTo(ENDERECO_NOVO_SANITIZADO);
+    }
+
+    @Test
+    void deveLancarClienteExistenteAoCadastrarQuandoDocumentoJaExistir() {
+        CadastrarClienteRequest request = criarCadastrarRequest();
+        when(service.cadastrarCliente(any(Cliente.class)))
+                .thenThrow(new com.fiap.mecanica.exception.ClienteExistente(DOCUMENTO));
+
+        assertThatThrownBy(() -> controller.create(request))
+                .isInstanceOf(com.fiap.mecanica.exception.ClienteExistente.class)
+                .hasMessage("Já existe um cliente com o documento: " + DOCUMENTO);
     }
 
     @Test

@@ -187,6 +187,35 @@ class ClienteServiceTest {
     }
 
     @Test
+    void deveLancarClienteExistenteAoCadastrarQuandoDocumentoJaExistir() {
+        Cliente cliente = criarCliente();
+        when(repository.existsByDocumento(DOCUMENTO_ORIGINAL)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.cadastrarCliente(cliente))
+                .isInstanceOf(com.fiap.mecanica.exception.ClienteExistente.class)
+                .hasMessage("Já existe um cliente com o documento: " + DOCUMENTO_ORIGINAL);
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void deveNaoAtualizarCampoQuandoValorNovoForIgualAoValorAtual() {
+        Cliente cliente = criarCliente();
+        when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
+        when(repository.save(any())).thenReturn(cliente);
+
+        ClienteDto dto = new ClienteDto(null, DOCUMENTO_ORIGINAL, EMAIL_ORIGINAL, TELEFONE_ORIGINAL, ENDERECO_ORIGINAL);
+        service.atualizarCliente(ID_EXISTENTE, dto);
+
+        verify(repository).save(clienteCaptor.capture());
+        Cliente salvo = clienteCaptor.getValue();
+        assertThat(salvo.getDocumento()).isEqualTo(DOCUMENTO_ORIGINAL);
+        assertThat(salvo.getEmail()).isEqualTo(EMAIL_ORIGINAL);
+        assertThat(salvo.getTelefone()).isEqualTo(TELEFONE_ORIGINAL);
+        assertThat(salvo.getEndereco()).isEqualTo(ENDERECO_ORIGINAL);
+    }
+
+    @Test
     void deveAtualizarSomenteDocumentoQuandoApenasDocumentoForInformado() {
         Cliente cliente = criarCliente();
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
