@@ -1,14 +1,5 @@
 package com.fiap.mecanica.controller;
 
-import com.fiap.mecanica.controller.request.AtualizarFuncionarioRequest;
-import com.fiap.mecanica.controller.request.CadastrarFuncionarioRequest;
-import com.fiap.mecanica.domain.Funcao;
-import com.fiap.mecanica.domain.Funcionario;
-import com.fiap.mecanica.dto.FuncionarioDto;
-import com.fiap.mecanica.exception.FuncionarioInativoException;
-import com.fiap.mecanica.exception.FuncionarioJaAtivoException;
-import com.fiap.mecanica.exception.FuncionarioNotFound;
-import com.fiap.mecanica.service.FuncionarioService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;

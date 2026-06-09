@@ -1,12 +1,5 @@
 package com.fiap.mecanica.controller;
 
-import com.fiap.mecanica.controller.request.AtualizarServicoRequest;
-import com.fiap.mecanica.controller.request.CadastrarServicoRequest;
-import com.fiap.mecanica.domain.Insumo;
-import com.fiap.mecanica.domain.Servico;
-import com.fiap.mecanica.domain.ServicoInsumo;
-import com.fiap.mecanica.dto.ServicoDto;
-import com.fiap.mecanica.service.ServicoService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;

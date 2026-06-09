@@ -1,15 +1,7 @@
 package com.fiap.mecanica.service;
 
-import com.fiap.mecanica.domain.Insumo;
-import com.fiap.mecanica.domain.Servico;
-import com.fiap.mecanica.domain.ServicoInsumo;
-import com.fiap.mecanica.dto.ServicoDto;
-import com.fiap.mecanica.exception.ServicoInativoException;
-import com.fiap.mecanica.exception.ServicoNotFound;
-import com.fiap.mecanica.repository.ServicoRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;

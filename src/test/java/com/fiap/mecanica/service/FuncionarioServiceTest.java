@@ -1,12 +1,5 @@
 package com.fiap.mecanica.service;
 
-import com.fiap.mecanica.domain.Funcao;
-import com.fiap.mecanica.domain.Funcionario;
-import com.fiap.mecanica.dto.FuncionarioDto;
-import com.fiap.mecanica.exception.FuncionarioInativoException;
-import com.fiap.mecanica.exception.FuncionarioJaAtivoException;
-import com.fiap.mecanica.exception.FuncionarioNotFound;
-import com.fiap.mecanica.repository.FuncionarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
