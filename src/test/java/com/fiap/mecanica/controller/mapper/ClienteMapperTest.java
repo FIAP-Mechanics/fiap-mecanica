@@ -14,6 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ClienteMapperTest {
 
     private static final Long ID = 1L;
+    private static final String NOME = "José da Silva";
     private static final String DOCUMENTO_LIMPO = "12345678999";
     private static final String EMAIL = "cliente@email.com";
     private static final String TELEFONE_LIMPO = "31998000000";
@@ -40,6 +41,7 @@ class ClienteMapperTest {
     @Test
     void deveConverterCadastrarRequestParaEntidadeRemovendoMascaras() {
         CadastrarClienteRequest request = CadastrarClienteRequest.builder()
+                .nome(NOME)
                 .documento("123.456.789-99")
                 .email(EMAIL)
                 .telefone("(31) 9 9800-0000")
@@ -48,6 +50,7 @@ class ClienteMapperTest {
 
         Cliente cliente = ClienteMapper.toEntity(request);
 
+        assertThat(cliente.getNome()).isEqualTo(NOME);
         assertThat(cliente.getDocumento()).isEqualTo(DOCUMENTO_LIMPO);
         assertThat(cliente.getTelefone()).isEqualTo(TELEFONE_LIMPO);
         assertThat(cliente.getEndereco().getCep()).isEqualTo(CEP_LIMPO);
@@ -58,6 +61,7 @@ class ClienteMapperTest {
     @Test
     void deveConverterCadastrarRequestComCnpjFormatado() {
         CadastrarClienteRequest request = CadastrarClienteRequest.builder()
+                .nome(NOME)
                 .documento("12.345.678/0001-99")
                 .email(EMAIL)
                 .telefone(TELEFONE_LIMPO)
@@ -72,6 +76,7 @@ class ClienteMapperTest {
     @Test
     void devePreservarCamposDeEnderecoQueNaoSaoNumericos() {
         CadastrarClienteRequest request = CadastrarClienteRequest.builder()
+                .nome(NOME)
                 .documento(DOCUMENTO_LIMPO)
                 .email(EMAIL)
                 .telefone(TELEFONE_LIMPO)
@@ -93,10 +98,11 @@ class ClienteMapperTest {
     @Test
     void deveConverterAtualizarRequestParaDtoRemovendoMascaras() {
         AtualizarClienteRequest request = new AtualizarClienteRequest(
-                "123.456.789-99", EMAIL, "(31) 9 9800-0000", enderecoFormatado());
+                NOME, "123.456.789-99", EMAIL, "(31) 9 9800-0000", enderecoFormatado());
 
         ClienteDto dto = ClienteMapper.toDto(request);
 
+        assertThat(dto.nome()).isEqualTo(NOME);
         assertThat(dto.documento()).isEqualTo(DOCUMENTO_LIMPO);
         assertThat(dto.telefone()).isEqualTo(TELEFONE_LIMPO);
         assertThat(dto.endereco().getCep()).isEqualTo(CEP_LIMPO);
@@ -106,10 +112,11 @@ class ClienteMapperTest {
 
     @Test
     void deveConverterAtualizarRequestComCamposNulos() {
-        AtualizarClienteRequest request = new AtualizarClienteRequest(null, null, null, null);
+        AtualizarClienteRequest request = new AtualizarClienteRequest(null, null, null, null, null);
 
         ClienteDto dto = ClienteMapper.toDto(request);
 
+        assertThat(dto.nome()).isNull();
         assertThat(dto.documento()).isNull();
         assertThat(dto.telefone()).isNull();
         assertThat(dto.endereco()).isNull();
@@ -121,6 +128,7 @@ class ClienteMapperTest {
     void deveConverterClienteParaDtoSemAlterarValores() {
         Cliente cliente = Cliente.builder()
                 .id(ID)
+                .nome(NOME)
                 .documento(DOCUMENTO_LIMPO)
                 .email(EMAIL)
                 .telefone(TELEFONE_LIMPO)
@@ -130,6 +138,7 @@ class ClienteMapperTest {
         ClienteDto dto = ClienteMapper.toDto(cliente);
 
         assertThat(dto.id()).isEqualTo(ID);
+        assertThat(dto.nome()).isEqualTo(NOME);
         assertThat(dto.documento()).isEqualTo(DOCUMENTO_LIMPO);
         assertThat(dto.email()).isEqualTo(EMAIL);
         assertThat(dto.telefone()).isEqualTo(TELEFONE_LIMPO);
