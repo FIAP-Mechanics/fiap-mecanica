@@ -25,17 +25,19 @@ class ClienteServiceTest {
 
     private static final Long ID_EXISTENTE = 1L;
     private static final Long ID_INEXISTENTE = 99L;
-    private static final String DOCUMENTO_ORIGINAL = "123.456.789-00";
-    private static final String DOCUMENTO_NOVO = "987.654.321-00";
+    private static final String NOME_ORIGINAL = "José da Silva";
+    private static final String NOME_NOVO = "Maria Santos";
+    private static final String DOCUMENTO_ORIGINAL = "12345678900";
+    private static final String DOCUMENTO_NOVO = "98765432100";
     private static final String EMAIL_ORIGINAL = "cliente@email.com";
     private static final String EMAIL_NOVO = "novo@email.com";
     private static final String TELEFONE_ORIGINAL = "31998000000";
     private static final String TELEFONE_NOVO = "31999111111";
     private static final Endereco ENDERECO_ORIGINAL = Endereco.builder()
-            .cep("30000-000").estado("MG").cidade("Belo Horizonte")
+            .cep("30000000").estado("MG").cidade("Belo Horizonte")
             .bairro("Centro").rua("Rua A").numero("10").build();
     private static final Endereco ENDERECO_NOVO = Endereco.builder()
-            .cep("31000-000").estado("MG").cidade("Contagem")
+            .cep("31000000").estado("MG").cidade("Contagem")
             .bairro("Industrial").rua("Rua B").numero("20").build();
 
     @Mock
@@ -118,11 +120,11 @@ class ClienteServiceTest {
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
         when(repository.save(any())).thenReturn(cliente);
 
-        ClienteDto dto = criarDtoCompleto();
-        service.atualizarCliente(ID_EXISTENTE, dto);
+        service.atualizarCliente(ID_EXISTENTE, criarDtoCompleto());
 
         verify(repository).save(clienteCaptor.capture());
         Cliente salvo = clienteCaptor.getValue();
+        assertThat(salvo.getNome()).isEqualTo(NOME_NOVO);
         assertThat(salvo.getDocumento()).isEqualTo(DOCUMENTO_NOVO);
         assertThat(salvo.getEmail()).isEqualTo(EMAIL_NOVO);
         assertThat(salvo.getTelefone()).isEqualTo(TELEFONE_NOVO);
@@ -135,11 +137,12 @@ class ClienteServiceTest {
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
         when(repository.save(any())).thenReturn(cliente);
 
-        ClienteDto dto = new ClienteDto(null, DOCUMENTO_NOVO, null, null, null);
+        ClienteDto dto = new ClienteDto(null, null, DOCUMENTO_NOVO, null, null, null);
         service.atualizarCliente(ID_EXISTENTE, dto);
 
         verify(repository).save(clienteCaptor.capture());
         Cliente salvo = clienteCaptor.getValue();
+        assertThat(salvo.getNome()).isEqualTo(NOME_ORIGINAL);
         assertThat(salvo.getDocumento()).isEqualTo(DOCUMENTO_NOVO);
         assertThat(salvo.getEmail()).isEqualTo(EMAIL_ORIGINAL);
         assertThat(salvo.getTelefone()).isEqualTo(TELEFONE_ORIGINAL);
@@ -152,11 +155,12 @@ class ClienteServiceTest {
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
         when(repository.save(any())).thenReturn(cliente);
 
-        ClienteDto dto = new ClienteDto(null, null, null, null, null);
+        ClienteDto dto = new ClienteDto(null, null, null, null, null, null);
         service.atualizarCliente(ID_EXISTENTE, dto);
 
         verify(repository).save(clienteCaptor.capture());
         Cliente salvo = clienteCaptor.getValue();
+        assertThat(salvo.getNome()).isEqualTo(NOME_ORIGINAL);
         assertThat(salvo.getDocumento()).isEqualTo(DOCUMENTO_ORIGINAL);
         assertThat(salvo.getEmail()).isEqualTo(EMAIL_ORIGINAL);
         assertThat(salvo.getTelefone()).isEqualTo(TELEFONE_ORIGINAL);
@@ -204,15 +208,29 @@ class ClienteServiceTest {
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
         when(repository.save(any())).thenReturn(cliente);
 
-        ClienteDto dto = new ClienteDto(null, DOCUMENTO_ORIGINAL, EMAIL_ORIGINAL, TELEFONE_ORIGINAL, ENDERECO_ORIGINAL);
+        ClienteDto dto = new ClienteDto(NOME_ORIGINAL, null, DOCUMENTO_ORIGINAL, EMAIL_ORIGINAL, TELEFONE_ORIGINAL, ENDERECO_ORIGINAL);
         service.atualizarCliente(ID_EXISTENTE, dto);
 
         verify(repository).save(clienteCaptor.capture());
         Cliente salvo = clienteCaptor.getValue();
+        assertThat(salvo.getNome()).isEqualTo(NOME_ORIGINAL);
         assertThat(salvo.getDocumento()).isEqualTo(DOCUMENTO_ORIGINAL);
         assertThat(salvo.getEmail()).isEqualTo(EMAIL_ORIGINAL);
         assertThat(salvo.getTelefone()).isEqualTo(TELEFONE_ORIGINAL);
         assertThat(salvo.getEndereco()).isEqualTo(ENDERECO_ORIGINAL);
+    }
+
+    @Test
+    void deveAtualizarSomenteNomeQuandoApenasNomeForInformado() {
+        Cliente cliente = criarCliente();
+        when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
+        when(repository.save(any())).thenReturn(cliente);
+
+        service.atualizarCliente(ID_EXISTENTE, new ClienteDto(NOME_NOVO, null, null, null, null, null));
+
+        verify(repository).save(clienteCaptor.capture());
+        assertThat(clienteCaptor.getValue().getNome()).isEqualTo(NOME_NOVO);
+        assertThat(clienteCaptor.getValue().getDocumento()).isEqualTo(DOCUMENTO_ORIGINAL);
     }
 
     @Test
@@ -221,7 +239,7 @@ class ClienteServiceTest {
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
         when(repository.save(any())).thenReturn(cliente);
 
-        service.atualizarCliente(ID_EXISTENTE, new ClienteDto(null, DOCUMENTO_NOVO, null, null, null));
+        service.atualizarCliente(ID_EXISTENTE, new ClienteDto(null, null, DOCUMENTO_NOVO, null, null, null));
 
         verify(repository).save(clienteCaptor.capture());
         assertThat(clienteCaptor.getValue().getDocumento()).isEqualTo(DOCUMENTO_NOVO);
@@ -233,7 +251,7 @@ class ClienteServiceTest {
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
         when(repository.save(any())).thenReturn(cliente);
 
-        service.atualizarCliente(ID_EXISTENTE, new ClienteDto(null, null, EMAIL_NOVO, null, null));
+        service.atualizarCliente(ID_EXISTENTE, new ClienteDto(null, null, null, EMAIL_NOVO, null, null));
 
         verify(repository).save(clienteCaptor.capture());
         assertThat(clienteCaptor.getValue().getEmail()).isEqualTo(EMAIL_NOVO);
@@ -245,7 +263,7 @@ class ClienteServiceTest {
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
         when(repository.save(any())).thenReturn(cliente);
 
-        service.atualizarCliente(ID_EXISTENTE, new ClienteDto(null, null, null, TELEFONE_NOVO, null));
+        service.atualizarCliente(ID_EXISTENTE, new ClienteDto(null, null, null, null, TELEFONE_NOVO, null));
 
         verify(repository).save(clienteCaptor.capture());
         assertThat(clienteCaptor.getValue().getTelefone()).isEqualTo(TELEFONE_NOVO);
@@ -257,7 +275,7 @@ class ClienteServiceTest {
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
         when(repository.save(any())).thenReturn(cliente);
 
-        service.atualizarCliente(ID_EXISTENTE, new ClienteDto(null, null, null, null, ENDERECO_NOVO));
+        service.atualizarCliente(ID_EXISTENTE, new ClienteDto(null, null, null, null, null, ENDERECO_NOVO));
 
         verify(repository).save(clienteCaptor.capture());
         assertThat(clienteCaptor.getValue().getEndereco()).isEqualTo(ENDERECO_NOVO);
@@ -266,6 +284,7 @@ class ClienteServiceTest {
     private Cliente criarCliente() {
         return Cliente.builder()
                 .id(ID_EXISTENTE)
+                .nome(NOME_ORIGINAL)
                 .documento(DOCUMENTO_ORIGINAL)
                 .email(EMAIL_ORIGINAL)
                 .telefone(TELEFONE_ORIGINAL)
@@ -276,6 +295,7 @@ class ClienteServiceTest {
     private Cliente criarClienteAtualizado() {
         return Cliente.builder()
                 .id(ID_EXISTENTE)
+                .nome(NOME_NOVO)
                 .documento(DOCUMENTO_NOVO)
                 .email(EMAIL_NOVO)
                 .telefone(TELEFONE_NOVO)
@@ -284,6 +304,6 @@ class ClienteServiceTest {
     }
 
     private ClienteDto criarDtoCompleto() {
-        return new ClienteDto(null, DOCUMENTO_NOVO, EMAIL_NOVO, TELEFONE_NOVO, ENDERECO_NOVO);
+        return new ClienteDto(NOME_NOVO, null, DOCUMENTO_NOVO, EMAIL_NOVO, TELEFONE_NOVO, ENDERECO_NOVO);
     }
 }

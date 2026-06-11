@@ -12,6 +12,7 @@ public class ClienteMapper {
 
     public static Cliente toEntity(CadastrarClienteRequest request){
         return Cliente.builder()
+                .nome(request.nome())
                 .documento(apenasDigitos(request.documento()))
                 .email(request.email())
                 .telefone(apenasDigitos(request.telefone()))
@@ -21,6 +22,7 @@ public class ClienteMapper {
 
     public static ClienteDto toDto(AtualizarClienteRequest request){
         return ClienteDto.builder()
+                .nome(request.nome())
                 .documento(apenasDigitos(request.documento()))
                 .email(request.email())
                 .telefone(apenasDigitos(request.telefone()))
@@ -31,6 +33,7 @@ public class ClienteMapper {
     public static ClienteDto toDto(Cliente cliente){
         return ClienteDto.builder()
                 .id(cliente.getId())
+                .nome(cliente.getNome())
                 .documento(cliente.getDocumento())
                 .email(cliente.getEmail())
                 .telefone(cliente.getTelefone())

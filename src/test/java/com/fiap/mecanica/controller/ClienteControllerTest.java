@@ -5,6 +5,7 @@ import com.fiap.mecanica.controller.request.CadastrarClienteRequest;
 import com.fiap.mecanica.domain.Cliente;
 import com.fiap.mecanica.domain.Endereco;
 import com.fiap.mecanica.dto.ClienteDto;
+import com.fiap.mecanica.exception.ClienteExistente;
 import com.fiap.mecanica.exception.ClienteNotFound;
 import com.fiap.mecanica.service.ClienteService;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,8 @@ class ClienteControllerTest {
 
     private static final Long ID_EXISTENTE = 1L;
     private static final Long ID_INEXISTENTE = 99L;
+    private static final String NOME = "José da Silva";
+    private static final String NOME_NOVO = "Maria Santos";
     private static final String DOCUMENTO = "123.456.789-00";
     private static final String DOCUMENTO_NOVO = "987.654.321-00";
     private static final String EMAIL = "cliente@email.com";
@@ -84,6 +87,7 @@ class ClienteControllerTest {
 
         assertThat(resultado).isNotNull();
         assertThat(resultado.id()).isEqualTo(ID_EXISTENTE);
+        assertThat(resultado.nome()).isEqualTo(NOME);
         assertThat(resultado.documento()).isEqualTo(DOCUMENTO);
         assertThat(resultado.email()).isEqualTo(EMAIL);
         assertThat(resultado.telefone()).isEqualTo(TELEFONE);
@@ -113,6 +117,7 @@ class ClienteControllerTest {
 
         assertThat(resultado).isNotNull();
         assertThat(resultado.id()).isEqualTo(ID_EXISTENTE);
+        assertThat(resultado.nome()).isEqualTo(NOME);
         assertThat(resultado.documento()).isEqualTo(DOCUMENTO);
         assertThat(resultado.email()).isEqualTo(EMAIL);
         assertThat(resultado.telefone()).isEqualTo(TELEFONE);
@@ -127,6 +132,7 @@ class ClienteControllerTest {
         controller.create(request);
 
         Cliente capturado = clienteCaptor.getValue();
+        assertThat(capturado.getNome()).isEqualTo(NOME);
         assertThat(capturado.getDocumento()).isEqualTo("12345678900");
         assertThat(capturado.getEmail()).isEqualTo(EMAIL);
         assertThat(capturado.getTelefone()).isEqualTo(TELEFONE);
@@ -143,6 +149,7 @@ class ClienteControllerTest {
         ClienteDto resultado = controller.update(ID_EXISTENTE, request);
 
         assertThat(resultado).isNotNull();
+        assertThat(resultado.nome()).isEqualTo(NOME_NOVO);
         assertThat(resultado.documento()).isEqualTo(DOCUMENTO_NOVO);
         assertThat(resultado.email()).isEqualTo(EMAIL_NOVO);
         assertThat(resultado.telefone()).isEqualTo(TELEFONE_NOVO);
@@ -160,6 +167,7 @@ class ClienteControllerTest {
         controller.update(ID_EXISTENTE, request);
 
         ClienteDto dto = dtoCaptor.getValue();
+        assertThat(dto.nome()).isEqualTo(NOME_NOVO);
         assertThat(dto.documento()).isEqualTo("98765432100");
         assertThat(dto.email()).isEqualTo(EMAIL_NOVO);
         assertThat(dto.telefone()).isEqualTo(TELEFONE_NOVO);
@@ -170,10 +178,10 @@ class ClienteControllerTest {
     void deveLancarClienteExistenteAoCadastrarQuandoDocumentoJaExistir() {
         CadastrarClienteRequest request = criarCadastrarRequest();
         when(service.cadastrarCliente(any(Cliente.class)))
-                .thenThrow(new com.fiap.mecanica.exception.ClienteExistente(DOCUMENTO));
+                .thenThrow(new ClienteExistente(DOCUMENTO));
 
         assertThatThrownBy(() -> controller.create(request))
-                .isInstanceOf(com.fiap.mecanica.exception.ClienteExistente.class)
+                .isInstanceOf(ClienteExistente.class)
                 .hasMessage("Já existe um cliente com o documento: " + DOCUMENTO);
     }
 
@@ -191,6 +199,7 @@ class ClienteControllerTest {
     private Cliente criarCliente() {
         return Cliente.builder()
                 .id(ID_EXISTENTE)
+                .nome(NOME)
                 .documento(DOCUMENTO)
                 .email(EMAIL)
                 .telefone(TELEFONE)
@@ -201,6 +210,7 @@ class ClienteControllerTest {
     private Cliente criarClienteAtualizado() {
         return Cliente.builder()
                 .id(ID_EXISTENTE)
+                .nome(NOME_NOVO)
                 .documento(DOCUMENTO_NOVO)
                 .email(EMAIL_NOVO)
                 .telefone(TELEFONE_NOVO)
@@ -210,6 +220,7 @@ class ClienteControllerTest {
 
     private CadastrarClienteRequest criarCadastrarRequest() {
         return CadastrarClienteRequest.builder()
+                .nome(NOME)
                 .documento(DOCUMENTO)
                 .email(EMAIL)
                 .telefone(TELEFONE)
@@ -218,6 +229,6 @@ class ClienteControllerTest {
     }
 
     private AtualizarClienteRequest criarAtualizarRequest() {
-        return new AtualizarClienteRequest(DOCUMENTO_NOVO, EMAIL_NOVO, TELEFONE_NOVO, ENDERECO_NOVO);
+        return new AtualizarClienteRequest(NOME_NOVO, DOCUMENTO_NOVO, EMAIL_NOVO, TELEFONE_NOVO, ENDERECO_NOVO);
     }
 }

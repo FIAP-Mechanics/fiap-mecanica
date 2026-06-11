@@ -36,6 +36,7 @@ public class ClienteService {
 
     public Cliente atualizarCliente(Long id, ClienteDto clienteDto){
         Cliente cliente = repository.findById(id).orElseThrow(() -> new ClienteNotFound(id));
+        atualizarCampo(clienteDto.nome(), cliente.getNome(), cliente::setNome);
         atualizarCampo(clienteDto.documento(), cliente.getDocumento(), cliente::setDocumento);
         atualizarCampo(clienteDto.email(), cliente.getEmail(), cliente::setEmail);
         atualizarCampo(clienteDto.telefone(), cliente.getTelefone(), cliente::setTelefone);
