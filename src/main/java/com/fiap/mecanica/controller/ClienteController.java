@@ -70,13 +70,13 @@ public class ClienteController {
         return toDto(service.cadastrarCliente(cliente));
     }
 
-    @Operation(summary = "Atualizar cliente", description = "Atualiza parcialmente os dados de um cliente existente")
+    @Operation(summary = "Atualizar cliente", description = "Atualiza todos os dados de um cliente existente")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Cliente atualizado com sucesso",
                     content = @Content(schema = @Schema(implementation = ClienteDto.class))),
             @ApiResponse(responseCode = "404", description = "Cliente não encontrado", content = @Content)
     })
-    @PatchMapping("/{id}")
+    @PutMapping("/{id}")
     public ClienteDto update(
             @Parameter(description = "ID do cliente") @PathVariable Long id,
             @RequestBody AtualizarClienteRequest request){

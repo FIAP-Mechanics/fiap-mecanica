@@ -108,17 +108,6 @@ class ClienteMapperTest {
         assertThat(dto.id()).isNull();
     }
 
-    @Test
-    void deveConverterAtualizarRequestComCamposNulos() {
-        AtualizarClienteRequest request = new AtualizarClienteRequest(null, null, null, null, null);
-
-        ClienteDto dto = ClienteMapper.toDto(request);
-
-        assertThat(dto.nome()).isNull();
-        assertThat(dto.documento()).isNull();
-        assertThat(dto.telefone()).isNull();
-        assertThat(dto.endereco()).isNull();
-    }
 
     // --- toDto (Cliente) ---
 
