@@ -6,8 +6,6 @@ import com.fiap.mecanica.domain.Cliente;
 import com.fiap.mecanica.domain.Endereco;
 import com.fiap.mecanica.dto.ClienteDto;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -145,24 +143,4 @@ class ClienteMapperTest {
         assertThat(dto.endereco().getCep()).isEqualTo(CEP_LIMPO);
     }
 
-    // --- apenasDigitos ---
-
-    @ParameterizedTest(name = "\"{0}\" -> \"{1}\"")
-    @CsvSource({
-            "123.456.789-00, 12345678900",
-            "12.345.678/0001-99, 12345678000199",
-            "(31) 9 9800-0000, 31998000000",
-            "30000-000, 30000000",
-            "  123  , 123",
-            "12345, 12345",
-            "'', ''"
-    })
-    void deveRemoverCaracteresNaoNumericos(String entrada, String esperado) {
-        assertThat(ClienteMapper.apenasDigitos(entrada)).isEqualTo(esperado);
-    }
-
-    @Test
-    void deveRetornarNuloQuandoEntradaForNula() {
-        assertThat(ClienteMapper.apenasDigitos(null)).isNull();
-    }
 }

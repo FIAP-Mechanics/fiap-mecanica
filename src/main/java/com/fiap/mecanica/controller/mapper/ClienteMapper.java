@@ -41,13 +41,11 @@ public class ClienteMapper {
                 .build();
     }
 
-    static String apenasDigitos(String valor) {
-        if (valor == null) return null;
+    private static String apenasDigitos(String valor) {
         return valor.replaceAll("\\D", "");
     }
 
     private static Endereco sanitizarEndereco(Endereco endereco) {
-        if (endereco == null) return null;
         return Endereco.builder()
                 .cep(apenasDigitos(endereco.getCep()))
                 .estado(endereco.getEstado())
