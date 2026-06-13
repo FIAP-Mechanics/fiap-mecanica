@@ -22,13 +22,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
 
 import static com.fiap.mecanica.controller.mapper.ServicoMapper.toDto;
 import static com.fiap.mecanica.controller.mapper.ServicoMapper.toEntity;
 
 @AllArgsConstructor
 @RestController
-@RequestMapping("/servico")
+@RequestMapping("/servicos")
 @Tag(name = "Servicos", description = "Operacoes de gerenciamento de servicos")
 public class ServicoController {
 
@@ -79,5 +80,11 @@ public class ServicoController {
     @DeleteMapping("/{idServico}")
     public ServicoDto delete(@Parameter(description = "ID do servico") @PathVariable Long idServico) {
         return toDto(service.excluirServico(idServico));
+    }
+
+    @Operation(summary = "Reativar servico", description = "Reativa um servico previamente desativado")
+    @PutMapping("/{idServico}/reativar")
+    public ServicoDto reativar(@Parameter(description = "ID do servico") @PathVariable Long idServico) {
+        return toDto(service.reativarServico(idServico));
     }
 }

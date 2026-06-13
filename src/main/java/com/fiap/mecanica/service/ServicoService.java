@@ -3,6 +3,7 @@ package com.fiap.mecanica.service;
 import com.fiap.mecanica.domain.Servico;
 import com.fiap.mecanica.dto.ServicoDto;
 import com.fiap.mecanica.exception.ServicoInativoException;
+import com.fiap.mecanica.exception.ServicoJaAtivoException;
 import com.fiap.mecanica.exception.ServicoNotFound;
 import com.fiap.mecanica.repository.ServicoRepository;
 import lombok.AllArgsConstructor;
@@ -31,14 +32,19 @@ public class ServicoService {
         atualizaSeExistente(servicoDto.nome(), servico::setNome);
         atualizaSeExistente(servicoDto.descricao(), servico::setDescricao);
         atualizaSeExistente(servicoDto.valor(), servico::setValor);
-        atualizaSeExistente(servicoDto.insumos(), servico::atualizarInsumos);
-
         return repository.save(servico);
     }
 
     public Servico excluirServico(Long idServico) {
         Servico servico = this.buscarServicoPorId(idServico);
         servico.setAtivo(false);
+        return repository.save(servico);
+    }
+
+    public Servico reativarServico(Long idServico) {
+        Servico servico = repository.findById(idServico).orElseThrow(() -> new ServicoNotFound(idServico));
+        if (servico.isAtivo()) throw new ServicoJaAtivoException(idServico);
+        servico.setAtivo(true);
         return repository.save(servico);
     }
 

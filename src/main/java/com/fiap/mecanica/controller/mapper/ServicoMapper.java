@@ -5,21 +5,17 @@ import com.fiap.mecanica.controller.request.CadastrarServicoRequest;
 import com.fiap.mecanica.domain.Servico;
 import com.fiap.mecanica.dto.ServicoDto;
 
-import java.util.ArrayList;
-
 public class ServicoMapper {
     private ServicoMapper() {
         /* This utility class should not be instantiated */
     }
 
     public static Servico toEntity(CadastrarServicoRequest request) {
-        Servico servico = Servico.builder()
+        return Servico.builder()
                 .nome(request.nome())
                 .descricao(request.descricao())
                 .valor(request.valor())
                 .build();
-        servico.atualizarInsumos(request.insumos() == null ? new ArrayList<>() : request.insumos());
-        return servico;
     }
 
     public static ServicoDto toDto(AtualizarServicoRequest request) {
@@ -27,7 +23,6 @@ public class ServicoMapper {
                 .nome(request.nome())
                 .descricao(request.descricao())
                 .valor(request.valor())
-                .insumos(request.insumos())
                 .build();
     }
 
@@ -37,7 +32,6 @@ public class ServicoMapper {
                 .nome(servico.getNome())
                 .descricao(servico.getDescricao())
                 .valor(servico.getValor())
-                .insumos(servico.getInsumos())
                 .build();
     }
 }
