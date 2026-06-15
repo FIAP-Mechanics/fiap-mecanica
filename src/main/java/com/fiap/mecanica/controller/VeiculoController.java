@@ -74,4 +74,19 @@ public class VeiculoController {
     public VeiculoDto delete(@Parameter(description = "ID do veículo") @PathVariable Long id) {
         return toDto(service.excluirVeiculo(id));
     }
+
+    @Operation(summary = "Reativar veículo", description = "Reativa um veículo previamente desativado")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Veículo reativado com sucesso",
+                    content = @Content(schema = @Schema(implementation = VeiculoDto.class))),
+            @ApiResponse(responseCode = "404", description = "Veículo não encontrado",
+                    content = @Content)
+    })
+    @PutMapping("/{id}/reativar")
+    public VeiculoDto reativar(
+            @Parameter(description = "ID do veículo")
+            @PathVariable Long id) {
+
+        return toDto(service.reativarVeiculo(id));
+    }
 }

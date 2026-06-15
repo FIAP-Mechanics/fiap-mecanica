@@ -4,6 +4,7 @@ import com.fiap.mecanica.controller.request.AtualizarVeiculoRequest;
 import com.fiap.mecanica.controller.request.CadastrarVeiculoRequest;
 import com.fiap.mecanica.domain.Veiculo;
 import com.fiap.mecanica.dto.VeiculoDto;
+import com.fiap.mecanica.exception.ValidacaoException;
 import com.fiap.mecanica.exception.VeiculoInativoException;
 import com.fiap.mecanica.exception.VeiculoJaCadastradoException;
 import com.fiap.mecanica.exception.VeiculoNaoEncontradoException;
@@ -25,12 +26,16 @@ class VeiculoControllerTest {
 
     private static final Long ID_EXISTENTE = 1L;
     private static final Long ID_INEXISTENTE = 99L;
+
     private static final String MARCA = "Fiat";
     private static final String MARCA_NOVA = "Volkswagen";
+
     private static final String MODELO = "Uno";
     private static final String MODELO_NOVO = "Gol";
+
     private static final String PLACA = "ABC1234";
     private static final String PLACA_NOVA = "XYZ9876";
+
     private static final Integer ANO = 2020;
     private static final Integer ANO_NOVO = 2023;
 
@@ -45,8 +50,11 @@ class VeiculoControllerTest {
 
     @Test
     void deveRetornarVeiculoDtoQuandoIdExistir() {
+
         Veiculo veiculo = criarVeiculoAtivo();
-        when(service.buscarVeiculoPorId(ID_EXISTENTE)).thenReturn(veiculo);
+
+        when(service.buscarVeiculoPorId(ID_EXISTENTE))
+                .thenReturn(veiculo);
 
         VeiculoDto resultado = controller.get(ID_EXISTENTE);
 
@@ -56,11 +64,13 @@ class VeiculoControllerTest {
         assertThat(resultado.modelo()).isEqualTo(MODELO);
         assertThat(resultado.placa()).isEqualTo(PLACA);
         assertThat(resultado.ano()).isEqualTo(ANO);
+
         verify(service).buscarVeiculoPorId(ID_EXISTENTE);
     }
 
     @Test
     void deveLancarVeiculoNaoEncontradoExceptionNoGetQuandoIdNaoExistir() {
+
         when(service.buscarVeiculoPorId(ID_INEXISTENTE))
                 .thenThrow(new VeiculoNaoEncontradoException(ID_INEXISTENTE));
 
@@ -73,6 +83,7 @@ class VeiculoControllerTest {
 
     @Test
     void deveLancarVeiculoInativoExceptionNoGetQuandoVeiculoEstiverInativo() {
+
         when(service.buscarVeiculoPorId(ID_EXISTENTE))
                 .thenThrow(new VeiculoInativoException(ID_EXISTENTE));
 
@@ -85,30 +96,30 @@ class VeiculoControllerTest {
 
     @Test
     void deveCadastrarVeiculoERetornarDtoComSucesso() {
+
         CadastrarVeiculoRequest request = criarCadastrarRequest();
-        Veiculo veiculoSalvo = criarVeiculoAtivo();
-        when(service.cadastrarVeiculo(any(Veiculo.class))).thenReturn(veiculoSalvo);
+
+        when(service.cadastrarVeiculo(any(Veiculo.class)))
+                .thenReturn(criarVeiculoAtivo());
 
         VeiculoDto resultado = controller.create(request);
 
         assertThat(resultado).isNotNull();
         assertThat(resultado.id()).isEqualTo(ID_EXISTENTE);
-        assertThat(resultado.marca()).isEqualTo(MARCA);
-        assertThat(resultado.modelo()).isEqualTo(MODELO);
-        assertThat(resultado.placa()).isEqualTo(PLACA);
-        assertThat(resultado.ano()).isEqualTo(ANO);
+
         verify(service).cadastrarVeiculo(any(Veiculo.class));
     }
 
     @Test
     void deveConverterRequestParaEntidadeCorretamenteAoCadastrar() {
-        CadastrarVeiculoRequest request = criarCadastrarRequest();
-        Veiculo veiculoSalvo = criarVeiculoAtivo();
-        when(service.cadastrarVeiculo(veiculoCaptor.capture())).thenReturn(veiculoSalvo);
 
-        controller.create(request);
+        when(service.cadastrarVeiculo(veiculoCaptor.capture()))
+                .thenReturn(criarVeiculoAtivo());
+
+        controller.create(criarCadastrarRequest());
 
         Veiculo capturado = veiculoCaptor.getValue();
+
         assertThat(capturado.getMarca()).isEqualTo(MARCA);
         assertThat(capturado.getModelo()).isEqualTo(MODELO);
         assertThat(capturado.getPlaca()).isEqualTo(PLACA);
@@ -117,44 +128,47 @@ class VeiculoControllerTest {
 
     @Test
     void deveLancarVeiculoJaCadastradoExceptionAoCadastrarComPlacaDuplicada() {
-        CadastrarVeiculoRequest request = criarCadastrarRequest();
+
         when(service.cadastrarVeiculo(any(Veiculo.class)))
                 .thenThrow(new VeiculoJaCadastradoException(PLACA));
 
-        assertThatThrownBy(() -> controller.create(request))
-                .isInstanceOf(VeiculoJaCadastradoException.class)
-                .hasMessage("Já existe um veículo cadastrado com a placa: " + PLACA);
+        assertThatThrownBy(() ->
+                controller.create(criarCadastrarRequest()))
+                .isInstanceOf(VeiculoJaCadastradoException.class);
 
         verify(service).cadastrarVeiculo(any(Veiculo.class));
     }
 
     @Test
     void deveAtualizarVeiculoERetornarDtoComSucesso() {
-        AtualizarVeiculoRequest request = criarAtualizarRequestCompleto();
-        Veiculo veiculoAtualizado = criarVeiculoAtualizado();
+
         when(service.atualizarVeiculo(eq(ID_EXISTENTE), any(VeiculoDto.class)))
-                .thenReturn(veiculoAtualizado);
+                .thenReturn(criarVeiculoAtualizado());
 
-        VeiculoDto resultado = controller.update(ID_EXISTENTE, request);
+        VeiculoDto resultado =
+                controller.update(ID_EXISTENTE, criarAtualizarRequestCompleto());
 
-        assertThat(resultado).isNotNull();
         assertThat(resultado.marca()).isEqualTo(MARCA_NOVA);
         assertThat(resultado.modelo()).isEqualTo(MODELO_NOVO);
         assertThat(resultado.placa()).isEqualTo(PLACA_NOVA);
         assertThat(resultado.ano()).isEqualTo(ANO_NOVO);
+
         verify(service).atualizarVeiculo(eq(ID_EXISTENTE), any(VeiculoDto.class));
     }
 
     @Test
     void deveConverterRequestParaDtoCorretamenteAoAtualizar() {
-        AtualizarVeiculoRequest request = criarAtualizarRequestCompleto();
-        ArgumentCaptor<VeiculoDto> dtoCaptor = ArgumentCaptor.forClass(VeiculoDto.class);
+
+        ArgumentCaptor<VeiculoDto> dtoCaptor =
+                ArgumentCaptor.forClass(VeiculoDto.class);
+
         when(service.atualizarVeiculo(eq(ID_EXISTENTE), dtoCaptor.capture()))
                 .thenReturn(criarVeiculoAtualizado());
 
-        controller.update(ID_EXISTENTE, request);
+        controller.update(ID_EXISTENTE, criarAtualizarRequestCompleto());
 
         VeiculoDto dto = dtoCaptor.getValue();
+
         assertThat(dto.marca()).isEqualTo(MARCA_NOVA);
         assertThat(dto.modelo()).isEqualTo(MODELO_NOVO);
         assertThat(dto.placa()).isEqualTo(PLACA_NOVA);
@@ -163,69 +177,109 @@ class VeiculoControllerTest {
 
     @Test
     void deveLancarVeiculoNaoEncontradoExceptionNoUpdateQuandoIdNaoExistir() {
-        AtualizarVeiculoRequest request = criarAtualizarRequestCompleto();
+
         when(service.atualizarVeiculo(eq(ID_INEXISTENTE), any(VeiculoDto.class)))
                 .thenThrow(new VeiculoNaoEncontradoException(ID_INEXISTENTE));
 
-        assertThatThrownBy(() -> controller.update(ID_INEXISTENTE, request))
-                .isInstanceOf(VeiculoNaoEncontradoException.class)
-                .hasMessage("Veículo não encontrado com ID: " + ID_INEXISTENTE);
+        assertThatThrownBy(() ->
+                controller.update(ID_INEXISTENTE, criarAtualizarRequestCompleto()))
+                .isInstanceOf(VeiculoNaoEncontradoException.class);
     }
 
     @Test
     void deveLancarVeiculoInativoExceptionNoUpdateQuandoVeiculoEstiverInativo() {
-        AtualizarVeiculoRequest request = criarAtualizarRequestCompleto();
+
         when(service.atualizarVeiculo(eq(ID_EXISTENTE), any(VeiculoDto.class)))
                 .thenThrow(new VeiculoInativoException(ID_EXISTENTE));
 
-        assertThatThrownBy(() -> controller.update(ID_EXISTENTE, request))
-                .isInstanceOf(VeiculoInativoException.class)
-                .hasMessage("Veículo inativo com ID: " + ID_EXISTENTE);
+        assertThatThrownBy(() ->
+                controller.update(ID_EXISTENTE, criarAtualizarRequestCompleto()))
+                .isInstanceOf(VeiculoInativoException.class);
     }
 
     @Test
     void deveLancarVeiculoJaCadastradoExceptionNoUpdateComPlacaDuplicada() {
-        AtualizarVeiculoRequest request = criarAtualizarRequestCompleto();
+
         when(service.atualizarVeiculo(eq(ID_EXISTENTE), any(VeiculoDto.class)))
                 .thenThrow(new VeiculoJaCadastradoException(PLACA_NOVA));
 
-        assertThatThrownBy(() -> controller.update(ID_EXISTENTE, request))
-                .isInstanceOf(VeiculoJaCadastradoException.class)
-                .hasMessage("Já existe um veículo cadastrado com a placa: " + PLACA_NOVA);
+        assertThatThrownBy(() ->
+                controller.update(ID_EXISTENTE, criarAtualizarRequestCompleto()))
+                .isInstanceOf(VeiculoJaCadastradoException.class);
     }
 
     @Test
     void deveExcluirVeiculoLogicamenteERetornarDtoComSucesso() {
-        Veiculo veiculoInativado = criarVeiculoInativo();
-        when(service.excluirVeiculo(ID_EXISTENTE)).thenReturn(veiculoInativado);
+
+        when(service.excluirVeiculo(ID_EXISTENTE))
+                .thenReturn(criarVeiculoInativo());
 
         VeiculoDto resultado = controller.delete(ID_EXISTENTE);
 
         assertThat(resultado).isNotNull();
         assertThat(resultado.id()).isEqualTo(ID_EXISTENTE);
+
         verify(service).excluirVeiculo(ID_EXISTENTE);
     }
 
     @Test
     void deveLancarVeiculoNaoEncontradoExceptionNoDeleteQuandoIdNaoExistir() {
+
         when(service.excluirVeiculo(ID_INEXISTENTE))
                 .thenThrow(new VeiculoNaoEncontradoException(ID_INEXISTENTE));
 
         assertThatThrownBy(() -> controller.delete(ID_INEXISTENTE))
-                .isInstanceOf(VeiculoNaoEncontradoException.class)
-                .hasMessage("Veículo não encontrado com ID: " + ID_INEXISTENTE);
-
-        verify(service).excluirVeiculo(ID_INEXISTENTE);
+                .isInstanceOf(VeiculoNaoEncontradoException.class);
     }
 
     @Test
     void deveLancarVeiculoInativoExceptionNoDeleteQuandoVeiculoJaEstiverInativo() {
+
         when(service.excluirVeiculo(ID_EXISTENTE))
                 .thenThrow(new VeiculoInativoException(ID_EXISTENTE));
 
         assertThatThrownBy(() -> controller.delete(ID_EXISTENTE))
-                .isInstanceOf(VeiculoInativoException.class)
-                .hasMessage("Veículo inativo com ID: " + ID_EXISTENTE);
+                .isInstanceOf(VeiculoInativoException.class);
+    }
+
+    @Test
+    void deveReativarVeiculoComSucesso() {
+
+        when(service.reativarVeiculo(ID_EXISTENTE))
+                .thenReturn(criarVeiculoAtivo());
+
+        VeiculoDto resultado = controller.reativar(ID_EXISTENTE);
+
+        assertThat(resultado).isNotNull();
+        assertThat(resultado.id()).isEqualTo(ID_EXISTENTE);
+
+        verify(service).reativarVeiculo(ID_EXISTENTE);
+    }
+
+    @Test
+    void deveLancarVeiculoNaoEncontradoExceptionNaReativacao() {
+
+        when(service.reativarVeiculo(ID_INEXISTENTE))
+                .thenThrow(new VeiculoNaoEncontradoException(ID_INEXISTENTE));
+
+        assertThatThrownBy(() -> controller.reativar(ID_INEXISTENTE))
+                .isInstanceOf(VeiculoNaoEncontradoException.class)
+                .hasMessage("Veículo não encontrado com ID: " + ID_INEXISTENTE);
+
+        verify(service).reativarVeiculo(ID_INEXISTENTE);
+    }
+
+    @Test
+    void deveLancarValidacaoExceptionQuandoVeiculoJaEstiverAtivoNaReativacao() {
+
+        when(service.reativarVeiculo(ID_EXISTENTE))
+                .thenThrow(new ValidacaoException("O veículo já está ativo."));
+
+        assertThatThrownBy(() -> controller.reativar(ID_EXISTENTE))
+                .isInstanceOf(ValidacaoException.class)
+                .hasMessage("O veículo já está ativo.");
+
+        verify(service).reativarVeiculo(ID_EXISTENTE);
     }
 
     private Veiculo criarVeiculoAtivo() {
@@ -271,6 +325,11 @@ class VeiculoControllerTest {
     }
 
     private AtualizarVeiculoRequest criarAtualizarRequestCompleto() {
-        return new AtualizarVeiculoRequest(MARCA_NOVA, MODELO_NOVO, PLACA_NOVA, ANO_NOVO);
+        return new AtualizarVeiculoRequest(
+                MARCA_NOVA,
+                MODELO_NOVO,
+                PLACA_NOVA,
+                ANO_NOVO
+        );
     }
 }

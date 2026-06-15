@@ -79,6 +79,22 @@ public class VeiculoService {
         return repository.save(veiculo);
     }
 
+    public Veiculo reativarVeiculo(Long id) {
+
+        Veiculo veiculo = repository.findById(id)
+                .orElseThrow(() -> new VeiculoNaoEncontradoException(id));
+
+        if (veiculo.isAtivo()) {
+            throw new ValidacaoException(
+                    "O veículo já está ativo."
+            );
+        }
+
+        veiculo.setAtivo(true);
+
+        return repository.save(veiculo);
+    }
+
     private <T> void atualizaSeExistente(T valor, Consumer<T> setter) {
         if (valor != null) setter.accept(valor);
     }
