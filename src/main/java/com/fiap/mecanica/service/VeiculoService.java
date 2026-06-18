@@ -20,18 +20,16 @@ public class VeiculoService {
     private final VeiculoRepository repository;
 
     public Veiculo cadastrarVeiculo(Veiculo veiculo) {
-        if (veiculo.getPlaca() != null) {
-            veiculo.setPlaca(veiculo.getPlaca().toUpperCase(Locale.ROOT));
-        }
+        veiculo.setPlaca(veiculo.getPlaca().toUpperCase(Locale.ROOT));
 
-        int ano = veiculo.getAno() == null ? 0 : veiculo.getAno();
+        int ano = veiculo.getAno();
         int maxAno = Year.now().getValue() + 1;
         if (ano < 1900 || ano > maxAno) {
             String mensagem = String.format("Ano inválido. Deve estar entre 1900 e %d.", maxAno);
             throw new ValidacaoException(mensagem);
         }
 
-        if (veiculo.getPlaca() != null && repository.existsByPlaca(veiculo.getPlaca())) {
+        if (repository.existsByPlaca(veiculo.getPlaca())) {
             throw new VeiculoJaCadastradoException(veiculo.getPlaca());
         }
 
