@@ -282,6 +282,47 @@ class VeiculoControllerTest {
         verify(service).reativarVeiculo(ID_EXISTENTE);
     }
 
+    @Test
+    void deveAtualizarSomenteMarcaNoController() {
+
+        AtualizarVeiculoRequest request =
+                new AtualizarVeiculoRequest(MARCA_NOVA, null, null, null);
+
+        Veiculo atualizado = Veiculo.builder()
+                .id(ID_EXISTENTE)
+                .marca(MARCA_NOVA)
+                .modelo(MODELO)
+                .placa(PLACA)
+                .ano(ANO)
+                .ativo(true)
+                .build();
+
+        when(service.atualizarVeiculo(eq(ID_EXISTENTE), any()))
+                .thenReturn(atualizado);
+
+        VeiculoDto resultado =
+                controller.update(ID_EXISTENTE, request);
+
+        assertThat(resultado.marca()).isEqualTo(MARCA_NOVA);
+    }
+
+    @Test
+    void deveAtualizarComRequestVazio() {
+
+        AtualizarVeiculoRequest request =
+                new AtualizarVeiculoRequest(null, null, null, null);
+
+        when(service.atualizarVeiculo(eq(ID_EXISTENTE), any()))
+                .thenReturn(criarVeiculoAtivo());
+
+        VeiculoDto resultado =
+                controller.update(ID_EXISTENTE, request);
+
+        assertThat(resultado).isNotNull();
+
+        verify(service).atualizarVeiculo(eq(ID_EXISTENTE), any());
+    }
+
     private Veiculo criarVeiculoAtivo() {
         return Veiculo.builder()
                 .id(ID_EXISTENTE)

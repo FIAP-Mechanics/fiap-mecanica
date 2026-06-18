@@ -264,6 +264,127 @@ class VeiculoServiceTest {
         verify(repository, never()).save(any());
     }
 
+    @Test
+    void deveLancarVeiculoNaoEncontradoExceptionAoReativarVeiculoInexistente() {
+
+        when(repository.findById(ID_INEXISTENTE))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                service.reativarVeiculo(ID_INEXISTENTE))
+                .isInstanceOf(VeiculoNaoEncontradoException.class)
+                .hasMessage("Veículo não encontrado com ID: " + ID_INEXISTENTE);
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void deveNormalizarPlacaAoAtualizar() {
+
+        Veiculo veiculo = criarVeiculoAtivo();
+
+        VeiculoDto dto = new VeiculoDto(
+                null,
+                null,
+                null,
+                "xyz9876",
+                null
+        );
+
+        when(repository.findById(ID_EXISTENTE))
+                .thenReturn(Optional.of(veiculo));
+
+        when(repository.existsByPlaca("XYZ9876"))
+                .thenReturn(false);
+
+        when(repository.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Veiculo resultado = service.atualizarVeiculo(ID_EXISTENTE, dto);
+
+        assertThat(resultado.getPlaca()).isEqualTo("XYZ9876");
+    }
+
+    @Test
+    void deveAtualizarVeiculoComDtoVazio() {
+
+        Veiculo veiculo = criarVeiculoAtivo();
+
+        VeiculoDto dto = VeiculoDto.builder().build();
+
+        when(repository.findById(ID_EXISTENTE))
+                .thenReturn(Optional.of(veiculo));
+
+        when(repository.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Veiculo resultado = service.atualizarVeiculo(ID_EXISTENTE, dto);
+
+        assertThat(resultado.getMarca()).isEqualTo(MARCA);
+        assertThat(resultado.getModelo()).isEqualTo(MODELO);
+        assertThat(resultado.getPlaca()).isEqualTo(PLACA);
+        assertThat(resultado.getAno()).isEqualTo(ANO);
+
+        verify(repository, never()).existsByPlaca(any());
+    }
+
+    @Test
+    void deveAtualizarSomenteMarca() {
+
+        Veiculo veiculo = criarVeiculoAtivo();
+
+        VeiculoDto dto = VeiculoDto.builder()
+                .marca(MARCA_NOVA)
+                .build();
+
+        when(repository.findById(ID_EXISTENTE))
+                .thenReturn(Optional.of(veiculo));
+
+        when(repository.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Veiculo resultado = service.atualizarVeiculo(ID_EXISTENTE, dto);
+
+        assertThat(resultado.getMarca()).isEqualTo(MARCA_NOVA);
+        assertThat(resultado.getModelo()).isEqualTo(MODELO);
+        assertThat(resultado.getPlaca()).isEqualTo(PLACA);
+        assertThat(resultado.getAno()).isEqualTo(ANO);
+    }
+
+    @Test
+    void deveLancarValidacaoExceptionQuandoAtualizarComAnoMenorQue1900() {
+
+        VeiculoDto dto = VeiculoDto.builder()
+                .ano(1899)
+                .build();
+
+        when(repository.findById(ID_EXISTENTE))
+                .thenReturn(Optional.of(criarVeiculoAtivo()));
+
+        assertThatThrownBy(() ->
+                service.atualizarVeiculo(ID_EXISTENTE, dto))
+                .isInstanceOf(ValidacaoException.class);
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void deveLancarValidacaoExceptionQuandoAtualizarComAnoMaiorQuePermitido() {
+
+        VeiculoDto dto = VeiculoDto.builder()
+                .ano(Year.now().getValue() + 2)
+                .build();
+
+        when(repository.findById(ID_EXISTENTE))
+                .thenReturn(Optional.of(criarVeiculoAtivo()));
+
+        assertThatThrownBy(() ->
+                service.atualizarVeiculo(ID_EXISTENTE, dto))
+                .isInstanceOf(ValidacaoException.class);
+
+        verify(repository, never()).save(any());
+    }
+
     private Veiculo criarVeiculoAtivo() {
         return Veiculo.builder()
                 .id(ID_EXISTENTE)
