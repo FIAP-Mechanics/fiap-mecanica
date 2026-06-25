@@ -14,6 +14,7 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
@@ -34,9 +35,13 @@ class FuncionarioServiceTest {
     private static final String NOME_NOVO = "Carlos Souza";
     private static final Funcao FUNCAO_ORIGINAL = Funcao.MECANICO;
     private static final Funcao FUNCAO_NOVA = Funcao.ADMIN;
+    private static final String SENHA_ORIGINAL_CODIFICADA = "senha-original-codificada";
+    private static final String SENHA_NOVA_CODIFICADA = "senha-nova-codificada";
 
     @Mock
     private FuncionarioRepository repository;
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private FuncionarioService service;
@@ -46,7 +51,8 @@ class FuncionarioServiceTest {
 
     @Test
     void deveCadastrarFuncionarioComSucesso() {
-        Funcionario funcionario = criarFuncionarioAtivo();
+        Funcionario funcionario = criarFuncionarioParaCadastro();
+        when(passwordEncoder.encode(SENHA_ORIGINAL)).thenReturn(SENHA_ORIGINAL_CODIFICADA);
         when(repository.save(funcionario)).thenReturn(funcionario);
 
         Funcionario resultado = service.cadastrarFuncionario(funcionario);
@@ -57,13 +63,17 @@ class FuncionarioServiceTest {
 
     @Test
     void devePersistirFuncionarioExatamenteComoRecebido() {
-        Funcionario funcionario = criarFuncionarioAtivo();
+        Funcionario funcionario = criarFuncionarioParaCadastro();
+        when(passwordEncoder.encode(SENHA_ORIGINAL)).thenReturn(SENHA_ORIGINAL_CODIFICADA);
         when(repository.save(any())).thenReturn(funcionario);
 
         service.cadastrarFuncionario(funcionario);
 
         verify(repository).save(funcionarioCaptor.capture());
-        assertThat(funcionarioCaptor.getValue()).isEqualTo(funcionario);
+        assertThat(funcionarioCaptor.getValue().getEmail()).isEqualTo(EMAIL_ORIGINAL);
+        assertThat(funcionarioCaptor.getValue().getSenha()).isEqualTo(SENHA_ORIGINAL_CODIFICADA);
+        assertThat(funcionarioCaptor.getValue().getNome()).isEqualTo(NOME_ORIGINAL);
+        assertThat(funcionarioCaptor.getValue().getFuncao()).isEqualTo(FUNCAO_ORIGINAL);
     }
 
 
@@ -106,6 +116,7 @@ class FuncionarioServiceTest {
         Funcionario funcionario = criarFuncionarioAtivo();
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(funcionario));
         when(repository.save(any())).thenReturn(funcionario);
+        when(passwordEncoder.encode(SENHA_NOVA)).thenReturn(SENHA_NOVA_CODIFICADA);
 
         FuncionarioDto dto = criarDtoCompleto();
         service.atualizarFuncionario(ID_EXISTENTE, dto);
@@ -113,7 +124,7 @@ class FuncionarioServiceTest {
         verify(repository).save(funcionarioCaptor.capture());
         Funcionario salvo = funcionarioCaptor.getValue();
         assertThat(salvo.getEmail()).isEqualTo(EMAIL_NOVO);
-        assertThat(salvo.getSenha()).isEqualTo(SENHA_NOVA);
+        assertThat(salvo.getSenha()).isEqualTo(SENHA_NOVA_CODIFICADA);
         assertThat(salvo.getNome()).isEqualTo(NOME_NOVO);
         assertThat(salvo.getFuncao()).isEqualTo(FUNCAO_NOVA);
     }
@@ -130,7 +141,7 @@ class FuncionarioServiceTest {
         verify(repository).save(funcionarioCaptor.capture());
         Funcionario salvo = funcionarioCaptor.getValue();
         assertThat(salvo.getEmail()).isEqualTo(EMAIL_NOVO);
-        assertThat(salvo.getSenha()).isEqualTo(SENHA_ORIGINAL);
+        assertThat(salvo.getSenha()).isEqualTo(SENHA_ORIGINAL_CODIFICADA);
         assertThat(salvo.getNome()).isEqualTo(NOME_ORIGINAL);
         assertThat(salvo.getFuncao()).isEqualTo(FUNCAO_ORIGINAL);
     }
@@ -147,7 +158,7 @@ class FuncionarioServiceTest {
         verify(repository).save(funcionarioCaptor.capture());
         Funcionario salvo = funcionarioCaptor.getValue();
         assertThat(salvo.getEmail()).isEqualTo(EMAIL_ORIGINAL);
-        assertThat(salvo.getSenha()).isEqualTo(SENHA_ORIGINAL);
+        assertThat(salvo.getSenha()).isEqualTo(SENHA_ORIGINAL_CODIFICADA);
         assertThat(salvo.getNome()).isEqualTo(NOME_ORIGINAL);
         assertThat(salvo.getFuncao()).isEqualTo(FUNCAO_ORIGINAL);
     }
@@ -210,12 +221,13 @@ class FuncionarioServiceTest {
         Funcionario funcionario = criarFuncionarioAtivo();
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(funcionario));
         when(repository.save(any())).thenReturn(funcionario);
+        when(passwordEncoder.encode(SENHA_NOVA)).thenReturn(SENHA_NOVA_CODIFICADA);
 
         FuncionarioDto dto = new FuncionarioDto(null, null, SENHA_NOVA, null, null);
         service.atualizarFuncionario(ID_EXISTENTE, dto);
 
         verify(repository).save(funcionarioCaptor.capture());
-        assertThat(funcionarioCaptor.getValue().getSenha()).isEqualTo(SENHA_NOVA);
+        assertThat(funcionarioCaptor.getValue().getSenha()).isEqualTo(SENHA_NOVA_CODIFICADA);
     }
 
     @Test
@@ -356,7 +368,7 @@ class FuncionarioServiceTest {
         return Funcionario.builder()
                 .id(ID_EXISTENTE)
                 .email(EMAIL_ORIGINAL)
-                .senha(SENHA_ORIGINAL)
+                .senha(SENHA_ORIGINAL_CODIFICADA)
                 .nome(NOME_ORIGINAL)
                 .funcao(FUNCAO_ORIGINAL)
                 .ativo(true)
@@ -367,10 +379,20 @@ class FuncionarioServiceTest {
         return Funcionario.builder()
                 .id(ID_EXISTENTE)
                 .email(EMAIL_ORIGINAL)
-                .senha(SENHA_ORIGINAL)
+                .senha(SENHA_ORIGINAL_CODIFICADA)
                 .nome(NOME_ORIGINAL)
                 .funcao(FUNCAO_ORIGINAL)
                 .ativo(false)
+                .build();
+    }
+
+    private Funcionario criarFuncionarioParaCadastro() {
+        return Funcionario.builder()
+                .email(EMAIL_ORIGINAL)
+                .senha(SENHA_ORIGINAL)
+                .nome(NOME_ORIGINAL)
+                .funcao(FUNCAO_ORIGINAL)
+                .ativo(true)
                 .build();
     }
 

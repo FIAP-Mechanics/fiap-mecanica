@@ -1,6 +1,8 @@
 spring:
   application:
     name: mecanica
+  config:
+    import: optional:file:.env[.properties]
   datasource:
     url: jdbc:postgresql://localhost:5432/mecanica
     username: admin
@@ -12,3 +14,9 @@ spring:
     show-sql: true
   liquibase:
     enabled: true
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
+    issuer: ${JWT_ISSUER:http://localhost:8080}

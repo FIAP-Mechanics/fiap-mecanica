@@ -7,6 +7,7 @@ import com.fiap.mecanica.exception.FuncionarioJaAtivoException;
 import com.fiap.mecanica.exception.FuncionarioNotFound;
 import com.fiap.mecanica.repository.FuncionarioRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.function.Consumer;
@@ -15,8 +16,10 @@ import java.util.function.Consumer;
 @Service
 public class FuncionarioService {
     private final FuncionarioRepository repository;
+    private final PasswordEncoder passwordEncoder;
 
     public Funcionario cadastrarFuncionario(Funcionario funcionario) {
+        funcionario.setSenha(passwordEncoder.encode(funcionario.getSenha()));
         return repository.save(funcionario);
     }
 
@@ -30,7 +33,7 @@ public class FuncionarioService {
         Funcionario funcionario = this.buscarFuncionarioPorId(id);
 
         atualizaSeExistente(funcionarioDto.email(), funcionario::setEmail);
-        atualizaSeExistente(funcionarioDto.senha(), funcionario::setSenha);
+        atualizaSeExistente(funcionarioDto.senha(), senha -> funcionario.setSenha(passwordEncoder.encode(senha)));
         atualizaSeExistente(funcionarioDto.nome(), funcionario::setNome);
         atualizaSeExistente(funcionarioDto.funcao(), funcionario::setFuncao);
 

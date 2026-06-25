@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -106,6 +108,34 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new RespostaErro(erros));
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<RespostaErro> handleAuthentication(AuthenticationException ex) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(new RespostaErro(
+                        List.of(
+                                new ErroDetalhe(
+                                        CodigoErro.NAO_AUTORIZADO.getCodigo(),
+                                        "Credenciais invalidas."
+                                )
+                        )
+                ));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<RespostaErro> handleAccessDenied(AccessDeniedException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(new RespostaErro(
+                        List.of(
+                                new ErroDetalhe(
+                                        CodigoErro.ACESSO_NEGADO.getCodigo(),
+                                        "Acesso negado para esta operacao."
+                                )
+                        )
+                ));
     }
 
     @ExceptionHandler(Exception.class)
