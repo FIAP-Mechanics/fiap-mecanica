@@ -19,7 +19,7 @@ public class EstoqueMapper {
                 .build();
         return Estoque.builder()
                 .insumo(insumo)
-                .quantidadeInsumo(request.quantidadeInsumo())
+                .quantidadeInsumo(request.quantidade())
                 .build();
     }
 

@@ -97,6 +97,7 @@ public class OrdemServicoMapper {
                 .cliente(ClienteMapper.toDto(ordemServico.getCliente()))
                 .veiculo(VeiculoMapper.toDto(ordemServico.getVeiculo()))
                 .relatoCliente(ordemServico.getRelatoCliente())
+                .observacoesDiagnostico(ordemServico.getObservacoesDiagnostico())
                 .orcamento(toOrcamentoDto(ordemServico.getOrcamento()))
                 .build();
     }

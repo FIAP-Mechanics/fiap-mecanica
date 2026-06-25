@@ -25,6 +25,9 @@ public record OrdemServicoDto(
         @Schema(description = "Relato do cliente sobre os problemas a serem verificados", example = "Barulho na suspensão dianteira ao passar por buracos")
         String relatoCliente,
 
+        @Schema(description = "Observações do mecânico durante o diagnóstico", example = "Amortecedores dianteiros com vazamento")
+        String observacoesDiagnostico,
+
         @Schema(description = "Orçamento da ordem de serviço")
         OrcamentoDto orcamento
 ) {
