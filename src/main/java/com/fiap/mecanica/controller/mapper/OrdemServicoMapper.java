@@ -5,6 +5,7 @@ import com.fiap.mecanica.dto.OrcamentoDto;
 import com.fiap.mecanica.dto.OrcamentoInsumoDto;
 import com.fiap.mecanica.dto.OrdemServicoDto;
 import com.fiap.mecanica.dto.OrdemServicoServicoDto;
+import com.fiap.mecanica.dto.TrocaStatusDto;
 
 import java.util.Collections;
 import java.util.List;
@@ -16,12 +17,13 @@ public class OrdemServicoMapper {
     }
 
     public static OrdemServico toEntity(Cliente cliente, Veiculo veiculo, String relatoCliente) {
-        return OrdemServico.builder()
+        OrdemServico ordemServico = OrdemServico.builder()
                 .cliente(cliente)
                 .veiculo(veiculo)
                 .relatoCliente(relatoCliente)
-                .status(Status.RECEBIDA)
                 .build();
+        ordemServico.setStatus(Status.RECEBIDA);
+        return ordemServico;
     }
 
     public static OrdemServicoServico toServicoEntity(Orcamento orcamento, Servico servico, Integer quantidade) {
@@ -89,7 +91,20 @@ public class OrdemServicoMapper {
                 .build();
     }
 
+    public static TrocaStatusDto toTrocaStatusDto(TrocaStatus trocaStatus) {
+        return TrocaStatusDto.builder()
+                .status(trocaStatus.getStatus())
+                .dataHora(trocaStatus.getDataHora())
+                .build();
+    }
+
     public static OrdemServicoDto toDto(OrdemServico ordemServico) {
+        List<TrocaStatusDto> historico = ordemServico.getHistoricoDeEventos() != null
+                ? ordemServico.getHistoricoDeEventos().stream()
+                .map(OrdemServicoMapper::toTrocaStatusDto)
+                .collect(Collectors.toList())
+                : Collections.emptyList();
+
         return OrdemServicoDto.builder()
                 .id(ordemServico.getId())
                 .status(ordemServico.getStatus())
@@ -99,7 +114,7 @@ public class OrdemServicoMapper {
                 .relatoCliente(ordemServico.getRelatoCliente())
                 .observacoesDiagnostico(ordemServico.getObservacoesDiagnostico())
                 .orcamento(toOrcamentoDto(ordemServico.getOrcamento()))
-                .dataHoraAutorizacao(ordemServico.getDataHoraAutorizacao())
+                .historicoDeEventos(historico)
                 .build();
     }
 }
