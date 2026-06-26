@@ -99,6 +99,7 @@ public class OrdemServicoMapper {
                 .relatoCliente(ordemServico.getRelatoCliente())
                 .observacoesDiagnostico(ordemServico.getObservacoesDiagnostico())
                 .orcamento(toOrcamentoDto(ordemServico.getOrcamento()))
+                .dataHoraAutorizacao(ordemServico.getDataHoraAutorizacao())
                 .build();
     }
 }

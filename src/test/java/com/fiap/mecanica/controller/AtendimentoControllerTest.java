@@ -100,7 +100,7 @@ class AtendimentoControllerTest {
     }
 
     @Test
-    void deveAdicionarItensAoOrcamentoComSucesso() {
+    void deveFinalizarDiagnosticoAoOrcamentoComSucesso() {
         // Arrange
         List<IniciarAtendimentoRequest.ServicoQuantidade> servicos = List.of(new IniciarAtendimentoRequest.ServicoQuantidade(1L, 1));
         AdicionarItensOrcamentoRequest request = new AdicionarItensOrcamentoRequest(servicos, null, "Obs");
@@ -108,13 +108,31 @@ class AtendimentoControllerTest {
                 .id(UUID_ORDEM)
                 .build();
 
-        when(service.adicionarItens(UUID_ORDEM, servicos, null, "Obs")).thenReturn(dto);
+        when(service.realizarDiagnostico(UUID_ORDEM, servicos, null, "Obs")).thenReturn(dto);
 
         // Act
-        OrdemServicoDto resultado = controller.adicionarItens(UUID_ORDEM, request);
+        OrdemServicoDto resultado = controller.finalizarDiagnostico(UUID_ORDEM, request);
 
         // Assert
         assertThat(resultado).isEqualTo(dto);
-        verify(service).adicionarItens(UUID_ORDEM, servicos, null, "Obs");
+        verify(service).realizarDiagnostico(UUID_ORDEM, servicos, null, "Obs");
+    }
+
+    @Test
+    void deveAprovarOrdemServicoComSucesso() {
+        // Arrange
+        OrdemServicoDto dto = OrdemServicoDto.builder()
+                .id(UUID_ORDEM)
+                .status(Status.EM_EXECUCAO)
+                .build();
+
+        when(service.aprovarOrdemServico(UUID_ORDEM)).thenReturn(dto);
+
+        // Act
+        OrdemServicoDto resultado = controller.aprovarOrdemServico(UUID_ORDEM);
+
+        // Assert
+        assertThat(resultado).isEqualTo(dto);
+        verify(service).aprovarOrdemServico(UUID_ORDEM);
     }
 }

@@ -2,8 +2,10 @@ package com.fiap.mecanica.service;
 
 import com.fiap.mecanica.domain.Estoque;
 import com.fiap.mecanica.domain.Insumo;
+import com.fiap.mecanica.domain.OrdemServicoInsumo;
 import com.fiap.mecanica.dto.InsumoDto;
 import com.fiap.mecanica.exception.EstoqueInativoException;
+import com.fiap.mecanica.exception.EstoqueInsuficienteException;
 import com.fiap.mecanica.exception.EstoqueJaAtivoException;
 import com.fiap.mecanica.exception.EstoqueNotFound;
 import com.fiap.mecanica.repository.EstoqueRepository;
@@ -19,8 +21,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class EstoqueServiceTest {
@@ -102,6 +103,66 @@ class EstoqueServiceTest {
         when(repository.findByInsumoId(1L)).thenReturn(Optional.of(criarEstoque(true)));
 
         assertThatThrownBy(() -> service.reativarEstoque(1L)).isInstanceOf(EstoqueJaAtivoException.class);
+    }
+
+    // ===================== deduzirEstoque =====================
+
+    @Test
+    void deveDeduzirEstoqueComSucesso() {
+        // Arrange
+        Insumo insumo = Insumo.builder().id(1L).nome("Óleo").build();
+        OrdemServicoInsumo osInsumo = OrdemServicoInsumo.builder()
+                .insumo(insumo)
+                .quantidade(2)
+                .build();
+        Estoque estoque = criarEstoque(true); // Inicialmente com 10L
+        estoque.setQuantidadeInsumo(10L);
+
+        when(repository.findByInsumoId(1L)).thenReturn(Optional.of(estoque));
+        when(repository.save(any(Estoque.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        service.deduzirEstoque(List.of(osInsumo));
+
+        // Assert
+        assertThat(estoque.getQuantidadeInsumo()).isEqualTo(8L);
+        verify(repository).save(estoque);
+    }
+
+    @Test
+    void deveLancarEstoqueInsuficienteExceptionQuandoQuantidadeForMaiorQueDisponivel() {
+        // Arrange
+        Insumo insumo = Insumo.builder().id(1L).nome("Óleo").build();
+        OrdemServicoInsumo osInsumo = OrdemServicoInsumo.builder()
+                .insumo(insumo)
+                .quantidade(15)
+                .build();
+        Estoque estoque = criarEstoque(true); // Inicialmente com 10L
+
+        when(repository.findByInsumoId(1L)).thenReturn(Optional.of(estoque));
+
+        // Act & Assert
+        assertThatThrownBy(() -> service.deduzirEstoque(List.of(osInsumo)))
+                .isInstanceOf(EstoqueInsuficienteException.class)
+                .hasMessageContaining("Estoque insuficiente para o insumo 'Óleo'. Disponível: 10, Solicitado: 15");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void deveLancarEstoqueNotFoundAoDeduzirEstoqueDeInsumoNaoCadastrado() {
+        // Arrange
+        Insumo insumo = Insumo.builder().id(99L).build();
+        OrdemServicoInsumo osInsumo = OrdemServicoInsumo.builder()
+                .insumo(insumo)
+                .quantidade(1)
+                .build();
+
+        when(repository.findByInsumoId(99L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> service.deduzirEstoque(List.of(osInsumo)))
+                .isInstanceOf(EstoqueNotFound.class);
     }
 
     private Estoque criarEstoque(boolean ativo) {

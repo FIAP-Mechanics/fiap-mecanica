@@ -11,6 +11,7 @@ import com.fiap.mecanica.repository.OrdemServicoRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +24,7 @@ public class OrdemServicoService {
     private final VeiculoService veiculoService;
     private final ServicoService servicoService;
     private final InsumoService insumoService;
+    private final EstoqueService estoqueService;
 
     public OrdemServicoDto iniciarAtendimento(Long clienteId, Long veiculoId, String relatoCliente,
                                               List<IniciarAtendimentoRequest.ServicoQuantidade> servicosRequest,
@@ -97,9 +99,9 @@ public class OrdemServicoService {
         return OrdemServicoMapper.toDto(ordemServico);
     }
 
-    public OrdemServicoDto adicionarItens(String id, List<IniciarAtendimentoRequest.ServicoQuantidade> servicosRequest,
-                                          List<IniciarAtendimentoRequest.InsumoQuantidade> insumosRequest,
-                                          String observacoesDiagnostico) {
+    public OrdemServicoDto realizarDiagnostico(String id, List<IniciarAtendimentoRequest.ServicoQuantidade> servicosRequest,
+                                               List<IniciarAtendimentoRequest.InsumoQuantidade> insumosRequest,
+                                               String observacoesDiagnostico) {
         OrdemServico ordemServico = ordemServicoRepository.findById(id)
                 .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
 
@@ -141,6 +143,26 @@ public class OrdemServicoService {
 
         orcamento.recalcularPrecoTotal();
         ordemServico.setStatus(Status.AGUARDANDO_APROVACAO);
+//      TODO: aqui seria adicionado uma notificação para o usuário
+        OrdemServico salva = ordemServicoRepository.save(ordemServico);
+        return OrdemServicoMapper.toDto(salva);
+    }
+
+    public OrdemServicoDto aprovarOrdemServico(String id) {
+        OrdemServico ordemServico = ordemServicoRepository.findById(id)
+                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
+
+        if (ordemServico.getStatus() != Status.AGUARDANDO_APROVACAO) {
+            throw new TransicaoInvalidaException(ordemServico.getStatus(), Status.EM_EXECUCAO);
+        }
+
+        if (ordemServico.getOrcamento() != null && ordemServico.getOrcamento().getInsumos() != null) {
+            estoqueService.deduzirEstoque(ordemServico.getOrcamento().getInsumos());
+        }
+
+        ordemServico.setStatus(Status.EM_EXECUCAO);
+        ordemServico.setDataHoraAutorizacao(LocalDateTime.now());
+
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(salva);
     }

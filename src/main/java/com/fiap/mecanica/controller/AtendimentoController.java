@@ -82,10 +82,25 @@ public class AtendimentoController {
             @ApiResponse(responseCode = "404", description = "Ordem de serviço, serviço ou insumo não encontrado", content = @Content)
     })
     @PostMapping("/{id}/diagnostico")
-    public OrdemServicoDto adicionarItens(
+    public OrdemServicoDto finalizarDiagnostico(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id,
             @Valid @RequestBody AdicionarItensOrcamentoRequest request) {
-        return ordemServicoService.adicionarItens(id, request.servicos(), request.insumos(), request.observacoes());
+        return ordemServicoService.realizarDiagnostico(id, request.servicos(), request.insumos(), request.observacoes());
+    }
+
+    @Operation(summary = "Aprovar ordem de serviço", description = "Aprova o orçamento da ordem de serviço, deduz os itens do estoque e altera o status para EM EXECUÇÃO")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Ordem de serviço aprovada com sucesso",
+                    content = @Content(schema = @Schema(implementation = OrdemServicoDto.class))),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos, estoque insuficiente ou status incorreto", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Ordem de serviço não encontrada", content = @Content)
+    })
+
+    @PostMapping("/{id}/aprovar")
+    public OrdemServicoDto aprovarOrdemServico(
+            @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
+            @PathVariable String id) {
+        return ordemServicoService.aprovarOrdemServico(id);
     }
 }
