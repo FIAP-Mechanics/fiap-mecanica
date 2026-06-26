@@ -7,6 +7,7 @@ import com.fiap.mecanica.dto.OrdemServicoDto;
 import com.fiap.mecanica.exception.OrdemServicoNaoEncontradaException;
 import com.fiap.mecanica.exception.TransicaoInvalidaException;
 import com.fiap.mecanica.exception.ValidacaoException;
+import com.fiap.mecanica.infra.configs.enums.CodigoTemplate;
 import com.fiap.mecanica.repository.OrdemServicoRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class OrdemServicoService {
     private final ServicoService servicoService;
     private final InsumoService insumoService;
     private final EstoqueService estoqueService;
+    private final NotificationService notificationService;
 
     public OrdemServicoDto iniciarAtendimento(Long clienteId, Long veiculoId, String relatoCliente,
                                               List<IniciarAtendimentoRequest.ServicoQuantidade> servicosRequest,
@@ -142,7 +144,7 @@ public class OrdemServicoService {
 
         orcamento.recalcularPrecoTotal();
         ordemServico.setStatus(Status.AGUARDANDO_APROVACAO);
-//      TODO: aqui seria adicionado uma notificação para o usuário
+        notificationService.notificarCliente(CodigoTemplate.AUTORIZAR_ORCAMENTO, ordemServico.getCliente());
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(salva);
     }
@@ -174,13 +176,13 @@ public class OrdemServicoService {
         }
 
         ordemServico.setStatus(Status.FINALIZADA);
-//      TODO: aqui deveria acontecer uma notificação para o cliente retirar o veículo
+        notificationService.notificarCliente(CodigoTemplate.RETIRAR_VEICULO, ordemServico.getCliente());
 
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(salva);
     }
 
-    public OrdemServicoDto entregarOrdemServico(String id) {
+    public OrdemServicoDto entregarVeiculo(String id) {
         OrdemServico ordemServico = ordemServicoRepository.findById(id)
                 .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
 
@@ -189,7 +191,7 @@ public class OrdemServicoService {
         }
 
         ordemServico.setStatus(Status.ENTREGUE);
-//      TODO: aqui deveria acontecer uma notificação para o cliente de que o veículo foi retirado
+        notificationService.notificarCliente(CodigoTemplate.VEICULO_RETIRADO, ordemServico.getCliente());
 
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(salva);

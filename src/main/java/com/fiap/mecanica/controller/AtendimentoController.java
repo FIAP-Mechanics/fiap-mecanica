@@ -111,7 +111,7 @@ public class AtendimentoController {
             @ApiResponse(responseCode = "400", description = "Status incorreto para finalização", content = @Content),
             @ApiResponse(responseCode = "404", description = "Ordem de serviço não encontrada", content = @Content)
     })
-    @PatchMapping("/{id}/finalizar")
+    @PostMapping("/{id}/finalizar")
     public OrdemServicoDto finalizarOrdemServico(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id) {
@@ -125,10 +125,10 @@ public class AtendimentoController {
             @ApiResponse(responseCode = "400", description = "Status incorreto para entrega", content = @Content),
             @ApiResponse(responseCode = "404", description = "Ordem de serviço não encontrada", content = @Content)
     })
-    @PatchMapping("/{id}/entregar")
+    @PostMapping("/{id}/entregar")
     public OrdemServicoDto entregarOrdemServico(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id) {
-        return ordemServicoService.entregarOrdemServico(id);
+        return ordemServicoService.entregarVeiculo(id);
     }
 }
