@@ -6,6 +6,7 @@ import com.fiap.mecanica.domain.*;
 import com.fiap.mecanica.dto.OrdemServicoDto;
 import com.fiap.mecanica.exception.OrdemServicoNaoEncontradaException;
 import com.fiap.mecanica.exception.TransicaoInvalidaException;
+import com.fiap.mecanica.exception.ValidacaoException;
 import com.fiap.mecanica.repository.OrdemServicoRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -39,7 +40,13 @@ public class OrdemServicoService {
             List<OrdemServicoServico> servicos = new ArrayList<>();
             for (IniciarAtendimentoRequest.ServicoQuantidade sq : servicosRequest) {
                 Servico servico = servicoService.buscarServicoPorId(sq.servico());
-                servicos.add(OrdemServicoMapper.toServicoEntity(orcamento, servico, sq.quantidade()));
+                servicos.stream()
+                        .filter(s -> s.getServico().getId().equals(sq.servico()))
+                        .findFirst()
+                        .ifPresentOrElse(
+                                s -> s.setQuantidade(s.getQuantidade() + sq.quantidade()),
+                                () -> servicos.add(OrdemServicoMapper.toServicoEntity(orcamento, servico, sq.quantidade()))
+                        );
             }
             orcamento.setServicos(servicos);
         }
@@ -48,7 +55,13 @@ public class OrdemServicoService {
             List<OrdemServicoInsumo> insumos = new ArrayList<>();
             for (IniciarAtendimentoRequest.InsumoQuantidade iq : insumosRequest) {
                 Insumo insumo = insumoService.buscarInsumoPorId(iq.insumo());
-                insumos.add(OrdemServicoMapper.toInsumoEntity(orcamento, insumo, iq.quantidade()));
+                insumos.stream()
+                        .filter(i -> i.getInsumo().getId().equals(iq.insumo()))
+                        .findFirst()
+                        .ifPresentOrElse(
+                                i -> i.setQuantidade(i.getQuantidade() + iq.quantidade()),
+                                () -> insumos.add(OrdemServicoMapper.toInsumoEntity(orcamento, insumo, iq.quantidade()))
+                        );
             }
             orcamento.setInsumos(insumos);
         }
@@ -66,6 +79,13 @@ public class OrdemServicoService {
         return OrdemServicoMapper.toDto(ordemServico);
     }
 
+    public List<OrdemServicoDto> listarAtendimentosEmAberto() {
+        return ordemServicoRepository.findAllByStatusNot(Status.FINALIZADA)
+                .stream()
+                .map(OrdemServicoMapper::toDto)
+                .toList();
+    }
+
     public OrdemServicoDto iniciarDiagnostico(String id) {
         OrdemServico ordemServico = ordemServicoRepository.findById(id)
                 .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
@@ -75,5 +95,53 @@ public class OrdemServicoService {
         ordemServico.setStatus(Status.EM_DIAGNOSTICO);
         ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(ordemServico);
+    }
+
+    public OrdemServicoDto adicionarItens(String id, List<IniciarAtendimentoRequest.ServicoQuantidade> servicosRequest,
+                                          List<IniciarAtendimentoRequest.InsumoQuantidade> insumosRequest,
+                                          String observacoesDiagnostico) {
+        OrdemServico ordemServico = ordemServicoRepository.findById(id)
+                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
+
+        if (ordemServico.getStatus() != Status.EM_DIAGNOSTICO) {
+            throw new ValidacaoException("Apenas ordens em diagnóstico podem receber novos itens.");
+        }
+
+        if (observacoesDiagnostico != null) {
+            ordemServico.setObservacoesDiagnostico(observacoesDiagnostico);
+        }
+
+        Orcamento orcamento = ordemServico.getOrcamento();
+
+        if (servicosRequest != null && !servicosRequest.isEmpty()) {
+            for (IniciarAtendimentoRequest.ServicoQuantidade sq : servicosRequest) {
+                Servico servico = servicoService.buscarServicoPorId(sq.servico());
+                orcamento.getServicos().stream()
+                        .filter(s -> s.getServico().getId().equals(sq.servico()))
+                        .findFirst()
+                        .ifPresentOrElse(
+                                s -> s.setQuantidade(s.getQuantidade() + sq.quantidade()),
+                                () -> orcamento.getServicos().add(OrdemServicoMapper.toServicoEntity(orcamento, servico, sq.quantidade()))
+                        );
+            }
+        }
+
+        if (insumosRequest != null && !insumosRequest.isEmpty()) {
+            for (IniciarAtendimentoRequest.InsumoQuantidade iq : insumosRequest) {
+                Insumo insumo = insumoService.buscarInsumoPorId(iq.insumo());
+                orcamento.getInsumos().stream()
+                        .filter(i -> i.getInsumo().getId().equals(iq.insumo()))
+                        .findFirst()
+                        .ifPresentOrElse(
+                                i -> i.setQuantidade(i.getQuantidade() + iq.quantidade()),
+                                () -> orcamento.getInsumos().add(OrdemServicoMapper.toInsumoEntity(orcamento, insumo, iq.quantidade()))
+                        );
+            }
+        }
+
+        orcamento.recalcularPrecoTotal();
+        ordemServico.setStatus(Status.AGUARDANDO_APROVACAO);
+        OrdemServico salva = ordemServicoRepository.save(ordemServico);
+        return OrdemServicoMapper.toDto(salva);
     }
 }

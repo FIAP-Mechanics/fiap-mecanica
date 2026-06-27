@@ -247,6 +247,224 @@ class OrdemServicoServiceTest {
         verify(ordemServicoRepository).findById(idInexistente);
     }
 
+    // ===================== listarAtendimentosEmAberto =====================
+
+    @Test
+    void deveListarAtendimentosEmAbertoComSucesso() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico os1 = OrdemServico.builder().status(Status.RECEBIDA).cliente(cliente).veiculo(veiculo).build();
+        OrdemServico os2 = OrdemServico.builder().status(Status.EM_DIAGNOSTICO).cliente(cliente).veiculo(veiculo).build();
+
+        when(ordemServicoRepository.findAllByStatusNot(Status.FINALIZADA)).thenReturn(List.of(os1, os2));
+
+        // Act
+        List<OrdemServicoDto> resultado = ordemServicoService.listarAtendimentosEmAberto();
+
+        // Assert
+        assertThat(resultado).hasSize(2);
+        verify(ordemServicoRepository).findAllByStatusNot(Status.FINALIZADA);
+    }
+
+    // ===================== adicionarItens =====================
+
+    @Test
+    void deveAdicionarItensComSucesso() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.EM_DIAGNOSTICO);
+        Orcamento orcamento = Orcamento.builder().ordemServico(ordemServico).build();
+        ordemServico.setOrcamento(orcamento);
+
+        Servico servico = criarServico();
+        Insumo insumo = criarInsumo();
+
+        List<IniciarAtendimentoRequest.ServicoQuantidade> servicosRequest =
+                List.of(new IniciarAtendimentoRequest.ServicoQuantidade(ID_SERVICO, 1));
+        List<IniciarAtendimentoRequest.InsumoQuantidade> insumosRequest =
+                List.of(new IniciarAtendimentoRequest.InsumoQuantidade(ID_INSUMO, 2));
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        when(servicoService.buscarServicoPorId(ID_SERVICO)).thenReturn(servico);
+        when(insumoService.buscarInsumoPorId(ID_INSUMO)).thenReturn(insumo);
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        OrdemServicoDto resultado = ordemServicoService.adicionarItens(UUID_ORDEM, servicosRequest, insumosRequest, "Diagnóstico concluído");
+
+        // Assert
+        assertThat(resultado).isNotNull();
+        assertThat(resultado.observacoesDiagnostico()).isEqualTo("Diagnóstico concluído");
+        assertThat(resultado.orcamento().servicos()).hasSize(1);
+        assertThat(resultado.orcamento().insumos()).hasSize(1);
+        verify(ordemServicoRepository).save(any(OrdemServico.class));
+    }
+
+    @Test
+    void deveLancarValidacaoExceptionQuandoStatusNaoForEmDiagnosticoAoAdicionarItens() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.RECEBIDA);
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+
+        // Act & Assert
+        assertThatThrownBy(() -> ordemServicoService.adicionarItens(UUID_ORDEM, null, null, null))
+                .isInstanceOf(ValidacaoException.class)
+                .hasMessage("Apenas ordens em diagnóstico podem receber novos itens.");
+
+        verify(ordemServicoRepository, never()).save(any());
+    }
+
+    @Test
+    void deveAdicionarApenasServicosComSucesso() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.EM_DIAGNOSTICO);
+        Orcamento orcamento = Orcamento.builder().ordemServico(ordemServico).build();
+        ordemServico.setOrcamento(orcamento);
+
+        Servico servico = criarServico();
+
+        List<IniciarAtendimentoRequest.ServicoQuantidade> servicosRequest =
+                List.of(new IniciarAtendimentoRequest.ServicoQuantidade(ID_SERVICO, 1));
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        when(servicoService.buscarServicoPorId(ID_SERVICO)).thenReturn(servico);
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        OrdemServicoDto resultado = ordemServicoService.adicionarItens(UUID_ORDEM, servicosRequest, null, null);
+
+        // Assert
+        assertThat(resultado).isNotNull();
+        assertThat(resultado.orcamento().servicos()).hasSize(1);
+        assertThat(resultado.orcamento().insumos()).isEmpty();
+    }
+
+    @Test
+    void deveAdicionarApenasInsumosComSucesso() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.EM_DIAGNOSTICO);
+        Orcamento orcamento = Orcamento.builder().ordemServico(ordemServico).build();
+        ordemServico.setOrcamento(orcamento);
+
+        Insumo insumo = criarInsumo();
+
+        List<IniciarAtendimentoRequest.InsumoQuantidade> insumosRequest =
+                List.of(new IniciarAtendimentoRequest.InsumoQuantidade(ID_INSUMO, 2));
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        when(insumoService.buscarInsumoPorId(ID_INSUMO)).thenReturn(insumo);
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        OrdemServicoDto resultado = ordemServicoService.adicionarItens(UUID_ORDEM, null, insumosRequest, null);
+
+        // Assert
+        assertThat(resultado).isNotNull();
+        assertThat(resultado.orcamento().insumos()).hasSize(1);
+        assertThat(resultado.orcamento().servicos()).isEmpty();
+    }
+
+    @Test
+    void deveAtualizarQuantidadeSeItemJaExistirNoOrcamento() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.EM_DIAGNOSTICO);
+
+        Servico servico = criarServico();
+        Insumo insumo = criarInsumo();
+
+        Orcamento orcamento = Orcamento.builder().ordemServico(ordemServico).build();
+        OrdemServicoServico osServico = OrdemServicoServico.builder()
+                .orcamento(orcamento)
+                .servico(servico)
+                .quantidade(1)
+                .build();
+        OrdemServicoInsumo osInsumo = OrdemServicoInsumo.builder()
+                .orcamento(orcamento)
+                .insumo(insumo)
+                .quantidade(2)
+                .build();
+
+        orcamento.getServicos().add(osServico);
+        orcamento.getInsumos().add(osInsumo);
+        ordemServico.setOrcamento(orcamento);
+
+        List<IniciarAtendimentoRequest.ServicoQuantidade> servicosRequest =
+                List.of(new IniciarAtendimentoRequest.ServicoQuantidade(ID_SERVICO, 3));
+        List<IniciarAtendimentoRequest.InsumoQuantidade> insumosRequest =
+                List.of(new IniciarAtendimentoRequest.InsumoQuantidade(ID_INSUMO, 4));
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        when(servicoService.buscarServicoPorId(ID_SERVICO)).thenReturn(servico);
+        when(insumoService.buscarInsumoPorId(ID_INSUMO)).thenReturn(insumo);
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        ordemServicoService.adicionarItens(UUID_ORDEM, servicosRequest, insumosRequest, null);
+
+        // Assert
+        assertThat(ordemServico.getOrcamento().getServicos()).hasSize(1);
+        assertThat(ordemServico.getOrcamento().getServicos().getFirst().getQuantidade()).isEqualTo(4); // 1 + 3
+
+        assertThat(ordemServico.getOrcamento().getInsumos()).hasSize(1);
+        assertThat(ordemServico.getOrcamento().getInsumos().getFirst().getQuantidade()).isEqualTo(6); // 2 + 4
+
+        verify(ordemServicoRepository).save(any(OrdemServico.class));
+    }
+
+    @Test
+    void deveEvitarDuplicatasAoIniciarAtendimentoComListaDuplicada() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        Servico servico = criarServico();
+        Insumo insumo = criarInsumo();
+        OrdemServico ordemSalva = criarOrdemServico(cliente, veiculo);
+
+        List<IniciarAtendimentoRequest.ServicoQuantidade> servicosRequest = List.of(
+                new IniciarAtendimentoRequest.ServicoQuantidade(ID_SERVICO, 1),
+                new IniciarAtendimentoRequest.ServicoQuantidade(ID_SERVICO, 2)
+        );
+        List<IniciarAtendimentoRequest.InsumoQuantidade> insumosRequest = List.of(
+                new IniciarAtendimentoRequest.InsumoQuantidade(ID_INSUMO, 3),
+                new IniciarAtendimentoRequest.InsumoQuantidade(ID_INSUMO, 4)
+        );
+
+        when(clienteService.buscarClientePorId(ID_CLIENTE)).thenReturn(cliente);
+        when(veiculoService.buscarVeiculoPorId(ID_VEICULO)).thenReturn(veiculo);
+        when(servicoService.buscarServicoPorId(ID_SERVICO)).thenReturn(servico);
+        when(insumoService.buscarInsumoPorId(ID_INSUMO)).thenReturn(insumo);
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenReturn(ordemSalva);
+
+        // Act
+        ordemServicoService.iniciarAtendimento(ID_CLIENTE, ID_VEICULO, RELATO, servicosRequest, insumosRequest);
+
+        // Assert
+        verify(ordemServicoRepository).save(ordemServicoCaptor.capture());
+        OrdemServico capturada = ordemServicoCaptor.getValue();
+
+        assertThat(capturada.getOrcamento().getServicos()).hasSize(1);
+        assertThat(capturada.getOrcamento().getServicos().getFirst().getQuantidade()).isEqualTo(3);
+
+        assertThat(capturada.getOrcamento().getInsumos()).hasSize(1);
+        assertThat(capturada.getOrcamento().getInsumos().getFirst().getQuantidade()).isEqualTo(7);
+    }
+
     private Cliente criarCliente() {
         return Cliente.builder()
                 .id(ID_CLIENTE)

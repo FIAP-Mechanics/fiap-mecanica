@@ -29,8 +29,11 @@ public class OrdemServico {
     @JoinColumn(name = "veiculo_id")
     private Veiculo veiculo;
 
-    @Column()
+    @Column
     private String relatoCliente;
+
+    @Column
+    private String observacoesDiagnostico;
 
     @OneToOne(mappedBy = "ordemServico", cascade = CascadeType.ALL, orphanRemoval = true)
     private Orcamento orcamento;
