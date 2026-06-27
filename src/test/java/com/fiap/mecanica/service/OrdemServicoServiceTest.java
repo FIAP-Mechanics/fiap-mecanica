@@ -4,6 +4,7 @@ import com.fiap.mecanica.controller.request.IniciarAtendimentoRequest;
 import com.fiap.mecanica.domain.*;
 import com.fiap.mecanica.dto.OrdemServicoDto;
 import com.fiap.mecanica.exception.*;
+import com.fiap.mecanica.infra.configs.enums.CodigoTemplate;
 import com.fiap.mecanica.repository.OrdemServicoRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,6 +50,9 @@ class OrdemServicoServiceTest {
 
     @Mock
     private EstoqueService estoqueService;
+
+    @Mock
+    private EmailNotificationService emailNotificationService;
 
     @InjectMocks
     private OrdemServicoService ordemServicoService;
@@ -570,6 +574,46 @@ class OrdemServicoServiceTest {
                 .isInstanceOf(OrdemServicoNaoEncontradaException.class);
 
         verify(ordemServicoRepository, never()).save(any());
+    }
+
+    @Test
+    void deveFinalizarOrdemServicoComSucesso() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.EM_EXECUCAO);
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        OrdemServicoDto resultado = ordemServicoService.finalizarOrdemServico(UUID_ORDEM);
+
+        // Assert
+        assertThat(resultado.status()).isEqualTo(Status.FINALIZADA);
+        verify(emailNotificationService).notificarCliente(eq(CodigoTemplate.RETIRAR_VEICULO), eq(cliente));
+        verify(ordemServicoRepository).save(any(OrdemServico.class));
+    }
+
+    @Test
+    void deveEntregarVeiculoComSucesso() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.FINALIZADA);
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        OrdemServicoDto resultado = ordemServicoService.entregarVeiculo(UUID_ORDEM);
+
+        // Assert
+        assertThat(resultado.status()).isEqualTo(Status.ENTREGUE);
+        verify(emailNotificationService).notificarCliente(eq(CodigoTemplate.VEICULO_RETIRADO), eq(cliente));
+        verify(ordemServicoRepository).save(any(OrdemServico.class));
     }
 
     private Cliente criarCliente() {
