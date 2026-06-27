@@ -11,7 +11,6 @@ import com.fiap.mecanica.repository.OrdemServicoRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -161,7 +160,36 @@ public class OrdemServicoService {
         }
 
         ordemServico.setStatus(Status.EM_EXECUCAO);
-        ordemServico.setDataHoraAutorizacao(LocalDateTime.now());
+
+        OrdemServico salva = ordemServicoRepository.save(ordemServico);
+        return OrdemServicoMapper.toDto(salva);
+    }
+
+    public OrdemServicoDto finalizarOrdemServico(String id) {
+        OrdemServico ordemServico = ordemServicoRepository.findById(id)
+                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
+
+        if (ordemServico.getStatus() != Status.EM_EXECUCAO) {
+            throw new TransicaoInvalidaException(ordemServico.getStatus(), Status.FINALIZADA);
+        }
+
+        ordemServico.setStatus(Status.FINALIZADA);
+//      TODO: aqui deveria acontecer uma notificação para o cliente retirar o veículo
+
+        OrdemServico salva = ordemServicoRepository.save(ordemServico);
+        return OrdemServicoMapper.toDto(salva);
+    }
+
+    public OrdemServicoDto entregarOrdemServico(String id) {
+        OrdemServico ordemServico = ordemServicoRepository.findById(id)
+                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
+
+        if (ordemServico.getStatus() != Status.FINALIZADA) {
+            throw new TransicaoInvalidaException(ordemServico.getStatus(), Status.ENTREGUE);
+        }
+
+        ordemServico.setStatus(Status.ENTREGUE);
+//      TODO: aqui deveria acontecer uma notificação para o cliente de que o veículo foi retirado
 
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(salva);

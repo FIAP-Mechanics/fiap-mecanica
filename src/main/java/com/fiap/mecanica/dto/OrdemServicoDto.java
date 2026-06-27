@@ -4,6 +4,8 @@ import com.fiap.mecanica.domain.Status;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 
+import java.util.List;
+
 @Builder
 @Schema(description = "Dados da ordem de serviço")
 public record OrdemServicoDto(
@@ -31,7 +33,7 @@ public record OrdemServicoDto(
         @Schema(description = "Orçamento da ordem de serviço")
         OrcamentoDto orcamento,
 
-        @Schema(description = "Data e hora da autorização do serviço", example = "2024-03-20T10:30:00")
-        java.time.LocalDateTime dataHoraAutorizacao
+        @Schema(description = "Histórico de eventos de troca de status da ordem de serviço")
+        List<TrocaStatusDto> historicoDeEventos
 ) {
 }

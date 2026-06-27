@@ -260,14 +260,14 @@ class OrdemServicoServiceTest {
         OrdemServico os1 = OrdemServico.builder().status(Status.RECEBIDA).cliente(cliente).veiculo(veiculo).build();
         OrdemServico os2 = OrdemServico.builder().status(Status.EM_DIAGNOSTICO).cliente(cliente).veiculo(veiculo).build();
 
-        when(ordemServicoRepository.findAllByStatusNot(Status.FINALIZADA)).thenReturn(List.of(os1, os2));
+        when(ordemServicoRepository.findAllByStatusNot(Status.ENTREGUE)).thenReturn(List.of(os1, os2));
 
         // Act
         List<OrdemServicoDto> resultado = ordemServicoService.listarAtendimentosEmAberto();
 
         // Assert
         assertThat(resultado).hasSize(2);
-        verify(ordemServicoRepository).findAllByStatusNot(Status.FINALIZADA);
+        verify(ordemServicoRepository).findAllByStatusNot(Status.ENTREGUE);
     }
 
     // ===================== realizarDiagnostico =====================
@@ -517,7 +517,8 @@ class OrdemServicoServiceTest {
 
         // Assert
         assertThat(resultado.status()).isEqualTo(Status.EM_EXECUCAO);
-        assertThat(resultado.dataHoraAutorizacao()).isNotNull();
+        assertThat(resultado.historicoDeEventos()).isNotEmpty();
+        assertThat(resultado.historicoDeEventos().stream().anyMatch(e -> e.status() == Status.EM_EXECUCAO)).isTrue();
         verify(estoqueService).deduzirEstoque(anyList());
         verify(ordemServicoRepository).save(any(OrdemServico.class));
     }

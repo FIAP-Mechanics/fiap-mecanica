@@ -103,4 +103,32 @@ public class AtendimentoController {
             @PathVariable String id) {
         return ordemServicoService.aprovarOrdemServico(id);
     }
+
+    @Operation(summary = "Finalizar ordem de serviço", description = "Altera o status da ordem de serviço para FINALIZADA, indicando que o serviço técnico foi concluído")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Ordem de serviço finalizada com sucesso",
+                    content = @Content(schema = @Schema(implementation = OrdemServicoDto.class))),
+            @ApiResponse(responseCode = "400", description = "Status incorreto para finalização", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Ordem de serviço não encontrada", content = @Content)
+    })
+    @PatchMapping("/{id}/finalizar")
+    public OrdemServicoDto finalizarOrdemServico(
+            @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
+            @PathVariable String id) {
+        return ordemServicoService.finalizarOrdemServico(id);
+    }
+
+    @Operation(summary = "Entregar veículo/ordem de serviço", description = "Altera o status da ordem de serviço para ENTREGUE, indicando que o veículo foi retirado pelo cliente")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Ordem de serviço entregue com sucesso",
+                    content = @Content(schema = @Schema(implementation = OrdemServicoDto.class))),
+            @ApiResponse(responseCode = "400", description = "Status incorreto para entrega", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Ordem de serviço não encontrada", content = @Content)
+    })
+    @PatchMapping("/{id}/entregar")
+    public OrdemServicoDto entregarOrdemServico(
+            @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
+            @PathVariable String id) {
+        return ordemServicoService.entregarOrdemServico(id);
+    }
 }
