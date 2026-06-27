@@ -29,6 +29,9 @@ public record OrdemServicoDto(
         String observacoesDiagnostico,
 
         @Schema(description = "Orçamento da ordem de serviço")
-        OrcamentoDto orcamento
+        OrcamentoDto orcamento,
+
+        @Schema(description = "Data e hora da autorização do serviço", example = "2024-03-20T10:30:00")
+        java.time.LocalDateTime dataHoraAutorizacao
 ) {
 }

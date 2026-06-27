@@ -5,6 +5,7 @@ import com.fiap.mecanica.infra.configs.dto.RespostaErro;
 import com.fiap.mecanica.infra.configs.enums.CodigoErro;
 import com.fiap.mecanica.exception.ConflitoException;
 import com.fiap.mecanica.exception.EntidadeNaoEncontradaException;
+import com.fiap.mecanica.exception.EstoqueInsuficienteException;
 import com.fiap.mecanica.exception.ValidacaoException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -59,6 +60,22 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ValidacaoException.class)
     public ResponseEntity<RespostaErro> handleValidation(
             ValidacaoException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new RespostaErro(
+                        List.of(
+                                new ErroDetalhe(
+                                        CodigoErro.VALIDACAO.getCodigo(),
+                                        ex.getMessage()
+                                )
+                        )
+                ));
+    }
+
+    @ExceptionHandler(EstoqueInsuficienteException.class)
+    public ResponseEntity<RespostaErro> handleEstoqueInsuficiente(
+            EstoqueInsuficienteException ex) {
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)

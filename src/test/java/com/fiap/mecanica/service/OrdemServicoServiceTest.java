@@ -47,6 +47,9 @@ class OrdemServicoServiceTest {
     @Mock
     private InsumoService insumoService;
 
+    @Mock
+    private EstoqueService estoqueService;
+
     @InjectMocks
     private OrdemServicoService ordemServicoService;
 
@@ -267,10 +270,31 @@ class OrdemServicoServiceTest {
         verify(ordemServicoRepository).findAllByStatusNot(Status.FINALIZADA);
     }
 
-    // ===================== adicionarItens =====================
+    // ===================== realizarDiagnostico =====================
 
     @Test
-    void deveAdicionarItensComSucesso() {
+    void deveMoverStatusParaAguardandoAprovacaoAoFinalizarDiagnostico() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.EM_DIAGNOSTICO);
+        Orcamento orcamento = Orcamento.builder().ordemServico(ordemServico).build();
+        ordemServico.setOrcamento(orcamento);
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        OrdemServicoDto resultado = ordemServicoService.realizarDiagnostico(UUID_ORDEM, null, null, "Finalizado");
+
+        // Assert
+        assertThat(resultado.status()).isEqualTo(Status.AGUARDANDO_APROVACAO);
+        verify(ordemServicoRepository).save(any(OrdemServico.class));
+    }
+
+    @Test
+    void deveRealizarDiagnosticoComSucesso() {
         // Arrange
         Cliente cliente = criarCliente();
         Veiculo veiculo = criarVeiculoAtivo();
@@ -293,7 +317,7 @@ class OrdemServicoServiceTest {
         when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        OrdemServicoDto resultado = ordemServicoService.adicionarItens(UUID_ORDEM, servicosRequest, insumosRequest, "Diagnóstico concluído");
+        OrdemServicoDto resultado = ordemServicoService.realizarDiagnostico(UUID_ORDEM, servicosRequest, insumosRequest, "Diagnóstico concluído");
 
         // Assert
         assertThat(resultado).isNotNull();
@@ -304,7 +328,7 @@ class OrdemServicoServiceTest {
     }
 
     @Test
-    void deveLancarValidacaoExceptionQuandoStatusNaoForEmDiagnosticoAoAdicionarItens() {
+    void deveLancarValidacaoExceptionQuandoStatusNaoForEmDiagnosticoAoRealizarDiagnostico() {
         // Arrange
         Cliente cliente = criarCliente();
         Veiculo veiculo = criarVeiculoAtivo();
@@ -314,7 +338,7 @@ class OrdemServicoServiceTest {
         when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
 
         // Act & Assert
-        assertThatThrownBy(() -> ordemServicoService.adicionarItens(UUID_ORDEM, null, null, null))
+        assertThatThrownBy(() -> ordemServicoService.realizarDiagnostico(UUID_ORDEM, null, null, null))
                 .isInstanceOf(ValidacaoException.class)
                 .hasMessage("Apenas ordens em diagnóstico podem receber novos itens.");
 
@@ -341,7 +365,7 @@ class OrdemServicoServiceTest {
         when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        OrdemServicoDto resultado = ordemServicoService.adicionarItens(UUID_ORDEM, servicosRequest, null, null);
+        OrdemServicoDto resultado = ordemServicoService.realizarDiagnostico(UUID_ORDEM, servicosRequest, null, null);
 
         // Assert
         assertThat(resultado).isNotNull();
@@ -369,7 +393,7 @@ class OrdemServicoServiceTest {
         when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        OrdemServicoDto resultado = ordemServicoService.adicionarItens(UUID_ORDEM, null, insumosRequest, null);
+        OrdemServicoDto resultado = ordemServicoService.realizarDiagnostico(UUID_ORDEM, null, insumosRequest, null);
 
         // Assert
         assertThat(resultado).isNotNull();
@@ -415,7 +439,7 @@ class OrdemServicoServiceTest {
         when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        ordemServicoService.adicionarItens(UUID_ORDEM, servicosRequest, insumosRequest, null);
+        ordemServicoService.realizarDiagnostico(UUID_ORDEM, servicosRequest, insumosRequest, null);
 
         // Assert
         assertThat(ordemServico.getOrcamento().getServicos()).hasSize(1);
@@ -463,6 +487,88 @@ class OrdemServicoServiceTest {
 
         assertThat(capturada.getOrcamento().getInsumos()).hasSize(1);
         assertThat(capturada.getOrcamento().getInsumos().getFirst().getQuantidade()).isEqualTo(7);
+    }
+
+    // ===================== aprovarOrdemServico =====================
+
+    @Test
+    void deveAprovarOrdemServicoComSucesso() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.AGUARDANDO_APROVACAO);
+
+        Orcamento orcamento = Orcamento.builder().ordemServico(ordemServico).build();
+        Insumo insumo = criarInsumo();
+        OrdemServicoInsumo osInsumo = OrdemServicoInsumo.builder()
+                .orcamento(orcamento)
+                .insumo(insumo)
+                .quantidade(2)
+                .build();
+        orcamento.getInsumos().add(osInsumo);
+        ordemServico.setOrcamento(orcamento);
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        OrdemServicoDto resultado = ordemServicoService.aprovarOrdemServico(UUID_ORDEM);
+
+        // Assert
+        assertThat(resultado.status()).isEqualTo(Status.EM_EXECUCAO);
+        assertThat(resultado.dataHoraAutorizacao()).isNotNull();
+        verify(estoqueService).deduzirEstoque(anyList());
+        verify(ordemServicoRepository).save(any(OrdemServico.class));
+    }
+
+    @Test
+    void deveAprovarOrdemServicoSemInsumosComSucesso() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.AGUARDANDO_APROVACAO);
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        OrdemServicoDto resultado = ordemServicoService.aprovarOrdemServico(UUID_ORDEM);
+
+        // Assert
+        assertThat(resultado.status()).isEqualTo(Status.EM_EXECUCAO);
+        verifyNoInteractions(estoqueService);
+        verify(ordemServicoRepository).save(any(OrdemServico.class));
+    }
+
+    @Test
+    void deveLancarTransicaoInvalidaExceptionQuandoStatusNaoForAguardandoAprovacao() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.RECEBIDA);
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+
+        // Act & Assert
+        assertThatThrownBy(() -> ordemServicoService.aprovarOrdemServico(UUID_ORDEM))
+                .isInstanceOf(TransicaoInvalidaException.class);
+
+        verify(ordemServicoRepository, never()).save(any());
+    }
+
+    @Test
+    void deveLancarOrdemServicoNaoEncontradaExceptionAoAprovarOrdemInexistente() {
+        // Arrange
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> ordemServicoService.aprovarOrdemServico(UUID_ORDEM))
+                .isInstanceOf(OrdemServicoNaoEncontradaException.class);
+
+        verify(ordemServicoRepository, never()).save(any());
     }
 
     private Cliente criarCliente() {

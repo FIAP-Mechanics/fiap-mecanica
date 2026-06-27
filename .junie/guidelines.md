@@ -130,6 +130,8 @@ infra/configs/      → Handler global de exceções, DTOs de erro, enums de có
 - Usar `@Builder` + `@Data` + `@NoArgsConstructor` + `@AllArgsConstructor` nas entidades e DTOs com Lombok.
 - Soft delete: entidades com `ativo` devem ter endpoints de ativação/desativação separados (não usar DELETE físico).
 - Documentar todos os endpoints com anotações Swagger (`@Operation`, `@ApiResponses`, `@Parameter`, `@Tag`).
+- Após a conclusão de todo desenvolvimento, revisar o código adicionado e procurar prossíveis refatorações seguindo os 
+  melhores padrões de desenvolvimento e arquitetura.
 - Seguir o skill de documentação Swagger disponível em `.junie/skills/swagger-documentation/SKILL.md`.
 - Seguir o skill de testes unitários disponível em `.junie/skills/unit-test/SKILL.md`.
 

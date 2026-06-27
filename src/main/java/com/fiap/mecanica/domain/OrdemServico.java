@@ -35,6 +35,9 @@ public class OrdemServico {
     @Column
     private String observacoesDiagnostico;
 
+    @Column
+    private java.time.LocalDateTime dataHoraAutorizacao;
+
     @OneToOne(mappedBy = "ordemServico", cascade = CascadeType.ALL, orphanRemoval = true)
     private Orcamento orcamento;
 }
