@@ -14,6 +14,20 @@ spring:
     show-sql: true
   liquibase:
     enabled: true
+  mail:
+    host: ${MAIL_HOST:sandbox.smtp.mailtrap.io}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:secret}
+    password: ${MAIL_PASSWORD:secret}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+notificacao:
+  email-atualizacoes: ${NOTIFICACAO_EMAIL_ADMIN:canal-atualizacoes@fiap-mecanica.com.br}
+  email-remetente: ${NOTIFICACAO_EMAIL_REMETENTE:noreply@fiap-mecanica.com}
 
 security:
   jwt:

@@ -10,5 +10,5 @@ import lombok.Builder;
 @Schema(description = "Dados para registrar um insumo no estoque")
 public record CadastrarEstoqueRequest(
         @Valid @NotNull @Schema(description = "Dados do insumo") CadastrarInsumoRequest insumo,
-        @NotNull @PositiveOrZero @Schema(description = "Quantidade inicial", example = "10") Long quantidadeInsumo) {
+        @NotNull @PositiveOrZero @Schema(description = "Quantidade inicial", example = "10") Long quantidade) {
 }

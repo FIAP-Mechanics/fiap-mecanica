@@ -2,13 +2,16 @@ package com.fiap.mecanica.service;
 
 import com.fiap.mecanica.domain.Estoque;
 import com.fiap.mecanica.domain.Insumo;
+import com.fiap.mecanica.domain.OrdemServicoInsumo;
 import com.fiap.mecanica.dto.InsumoDto;
 import com.fiap.mecanica.exception.EstoqueInativoException;
+import com.fiap.mecanica.exception.EstoqueInsuficienteException;
 import com.fiap.mecanica.exception.EstoqueJaAtivoException;
 import com.fiap.mecanica.exception.EstoqueNotFound;
 import com.fiap.mecanica.repository.EstoqueRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -50,6 +53,22 @@ public class EstoqueService {
         Estoque estoque = buscarPorIdInsumo(idInsumo);
         estoque.setAtivo(false);
         return repository.save(estoque);
+    }
+
+    @Transactional
+    public void deduzirEstoque(List<OrdemServicoInsumo> insumos) {
+        for (OrdemServicoInsumo osInsumo : insumos) {
+            Estoque estoque = buscarPorIdInsumo(osInsumo.getInsumo().getId());
+            if (estoque.getQuantidadeInsumo() < osInsumo.getQuantidade()) {
+                throw new EstoqueInsuficienteException(
+                        osInsumo.getInsumo().getNome(),
+                        estoque.getQuantidadeInsumo(),
+                        osInsumo.getQuantidade()
+                );
+            }
+            estoque.setQuantidadeInsumo(estoque.getQuantidadeInsumo() - osInsumo.getQuantidade());
+            repository.save(estoque);
+        }
     }
 
     public Estoque reativarEstoque(Long idInsumo) {

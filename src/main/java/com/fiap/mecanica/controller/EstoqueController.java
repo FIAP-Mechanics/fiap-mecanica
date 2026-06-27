@@ -1,5 +1,6 @@
 package com.fiap.mecanica.controller;
 
+import com.fiap.mecanica.controller.mapper.EstoqueMapper;
 import com.fiap.mecanica.controller.request.AtualizarEstoqueRequest;
 import com.fiap.mecanica.controller.request.AtualizarInsumoRequest;
 import com.fiap.mecanica.controller.request.CadastrarEstoqueRequest;
@@ -37,7 +38,7 @@ public class EstoqueController {
     @GetMapping
     public List<EstoqueDto> list() {
         return service.listarEstoque().stream()
-                .map(estoque -> toDto(estoque))
+                .map(EstoqueMapper::toDto)
                 .toList();
     }
 
@@ -55,7 +56,7 @@ public class EstoqueController {
     }
 
     @Operation(summary = "Atualizar quantidade do insumo no estoque")
-    @PatchMapping("/{idInsumo}")
+    @PutMapping("/{idInsumo}")
     public EstoqueDto updateQuantidade(
             @PathVariable Long idInsumo,
             @Valid @RequestBody AtualizarEstoqueRequest request) {
@@ -77,7 +78,7 @@ public class EstoqueController {
     }
 
     @Operation(summary = "Reativar registro do estoque")
-    @PutMapping("/{idInsumo}")
+    @PutMapping("/{idInsumo}/reativar")
     public EstoqueDto reativar(@PathVariable Long idInsumo) {
         return toDto(service.reativarEstoque(idInsumo));
     }

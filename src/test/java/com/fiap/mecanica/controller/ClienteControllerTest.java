@@ -5,9 +5,13 @@ import com.fiap.mecanica.controller.request.CadastrarClienteRequest;
 import com.fiap.mecanica.domain.Cliente;
 import com.fiap.mecanica.domain.Endereco;
 import com.fiap.mecanica.dto.ClienteDto;
+import com.fiap.mecanica.dto.VeiculoDto;
 import com.fiap.mecanica.exception.ClienteExistente;
 import com.fiap.mecanica.exception.ClienteNotFound;
+import com.fiap.mecanica.exception.VeiculoNaoEncontradoException;
+import com.fiap.mecanica.exception.VinculoJaExistente;
 import com.fiap.mecanica.service.ClienteService;
+import com.fiap.mecanica.service.VinculoVeiculoService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -27,6 +31,8 @@ class ClienteControllerTest {
 
     private static final Long ID_EXISTENTE = 1L;
     private static final Long ID_INEXISTENTE = 99L;
+    private static final Long ID_VEICULO = 10L;
+    private static final Long ID_VEICULO_INEXISTENTE = 98L;
     private static final String NOME = "José da Silva";
     private static final String NOME_NOVO = "Maria Santos";
     private static final String DOCUMENTO = "123.456.789-00";
@@ -50,6 +56,9 @@ class ClienteControllerTest {
 
     @Mock
     private ClienteService service;
+
+    @Mock
+    private VinculoVeiculoService vinculoVeiculoService;
 
     @InjectMocks
     private ClienteController controller;
@@ -230,5 +239,68 @@ class ClienteControllerTest {
 
     private AtualizarClienteRequest criarAtualizarRequest() {
         return new AtualizarClienteRequest(NOME_NOVO, DOCUMENTO_NOVO, EMAIL_NOVO, TELEFONE_NOVO, ENDERECO_NOVO);
+    }
+
+    @Test
+    void deveVincularVeiculoAoClienteComSucesso() {
+        doNothing().when(vinculoVeiculoService).vincularVeiculo(ID_EXISTENTE, ID_VEICULO);
+
+        controller.vincularClienteVeiculo(ID_EXISTENTE, ID_VEICULO);
+
+        verify(vinculoVeiculoService).vincularVeiculo(ID_EXISTENTE, ID_VEICULO);
+    }
+
+    @Test
+    void deveLancarClienteNotFoundAoVincularQuandoClienteNaoExistir() {
+        doThrow(new ClienteNotFound(ID_INEXISTENTE))
+                .when(vinculoVeiculoService).vincularVeiculo(ID_INEXISTENTE, ID_VEICULO);
+
+        assertThatThrownBy(() -> controller.vincularClienteVeiculo(ID_INEXISTENTE, ID_VEICULO))
+                .isInstanceOf(ClienteNotFound.class)
+                .hasMessage("Cliente não encontrado. ID: " + ID_INEXISTENTE);
+    }
+
+    @Test
+    void deveLancarVeiculoNaoEncontradoAoVincularQuandoVeiculoNaoExistir() {
+        doThrow(new VeiculoNaoEncontradoException(ID_VEICULO_INEXISTENTE))
+                .when(vinculoVeiculoService).vincularVeiculo(ID_EXISTENTE, ID_VEICULO_INEXISTENTE);
+
+        assertThatThrownBy(() -> controller.vincularClienteVeiculo(ID_EXISTENTE, ID_VEICULO_INEXISTENTE))
+                .isInstanceOf(VeiculoNaoEncontradoException.class)
+                .hasMessage("Veículo não encontrado com ID: " + ID_VEICULO_INEXISTENTE);
+    }
+
+    @Test
+    void deveLancarVinculoJaExistenteAoVincularQuandoJaVinculado() {
+        doThrow(new VinculoJaExistente(ID_EXISTENTE, ID_VEICULO))
+                .when(vinculoVeiculoService).vincularVeiculo(ID_EXISTENTE, ID_VEICULO);
+
+        assertThatThrownBy(() -> controller.vincularClienteVeiculo(ID_EXISTENTE, ID_VEICULO))
+                .isInstanceOf(VinculoJaExistente.class)
+                .hasMessage("Veículo " + ID_VEICULO + " já está vinculado ao cliente " + ID_EXISTENTE);
+    }
+
+    @Test
+    void deveRetornarListaDeVeiculosDoClienteComSucesso() {
+        List<VeiculoDto> veiculos = List.of(
+                VeiculoDto.builder().id(ID_VEICULO).marca("Fiat").modelo("Uno").placa("ABC1234").ano(2020).build()
+        );
+        when(vinculoVeiculoService.listarVeiculosDoCliente(ID_EXISTENTE)).thenReturn(veiculos);
+
+        List<VeiculoDto> resultado = controller.listarVeiculos(ID_EXISTENTE);
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).id()).isEqualTo(ID_VEICULO);
+        verify(vinculoVeiculoService).listarVeiculosDoCliente(ID_EXISTENTE);
+    }
+
+    @Test
+    void deveLancarClienteNotFoundAoListarVeiculosQuandoClienteNaoExistir() {
+        when(vinculoVeiculoService.listarVeiculosDoCliente(ID_INEXISTENTE))
+                .thenThrow(new ClienteNotFound(ID_INEXISTENTE));
+
+        assertThatThrownBy(() -> controller.listarVeiculos(ID_INEXISTENTE))
+                .isInstanceOf(ClienteNotFound.class)
+                .hasMessage("Cliente não encontrado. ID: " + ID_INEXISTENTE);
     }
 }
