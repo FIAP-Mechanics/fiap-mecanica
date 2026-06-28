@@ -51,6 +51,8 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN", "ATENDENTE")
                         .requestMatchers(HttpMethod.GET, "/atendimento/abertos")
                         .hasAnyRole("ADMIN", "ATENDENTE", "MECANICO")
+                        .requestMatchers(HttpMethod.GET, "/atendimento/relatorios/tempo-medio-servicos")
+                        .hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/atendimento/*")
                         .permitAll()
                         .requestMatchers(HttpMethod.PATCH, "/atendimento/*/diagnostico/iniciar")

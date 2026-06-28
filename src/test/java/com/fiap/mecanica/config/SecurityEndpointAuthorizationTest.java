@@ -82,6 +82,22 @@ class SecurityEndpointAuthorizationTest {
     }
 
     @Test
+    void relatorioTempoMedioServicosEhRestritoAoAdmin() throws Exception {
+        when(ordemServicoService.listarTempoMedioExecucaoServicos()).thenReturn(List.of());
+
+        mockMvc.perform(get("/atendimento/relatorios/tempo-medio-servicos"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/atendimento/relatorios/tempo-medio-servicos")
+                        .with(jwt().authorities(() -> "ROLE_ATENDENTE")))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/atendimento/relatorios/tempo-medio-servicos")
+                        .with(jwt().authorities(() -> "ROLE_ADMIN")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void atendenteNaoPodeIniciarDiagnostico() throws Exception {
         mockMvc.perform(patch("/atendimento/{id}/diagnostico/iniciar", ORDEM_ID)
                         .with(jwt().authorities(() -> "ROLE_ATENDENTE")))
@@ -131,10 +147,21 @@ class SecurityEndpointAuthorizationTest {
 
     @Test
     void mecanicoPodeFinalizarOrdemServico() throws Exception {
-        when(ordemServicoService.finalizarOrdemServico(ORDEM_ID)).thenReturn(ordem(Status.FINALIZADA));
+        when(ordemServicoService.finalizarOrdemServico(eq(ORDEM_ID), any())).thenReturn(ordem(Status.FINALIZADA));
 
         mockMvc.perform(post("/atendimento/{id}/finalizar", ORDEM_ID)
-                        .with(jwt().authorities(() -> "ROLE_MECANICO")))
+                        .with(jwt().authorities(() -> "ROLE_MECANICO"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "servicos": [
+                                    {
+                                      "servico": 1,
+                                      "tempoGastoMinutos": 90
+                                    }
+                                  ]
+                                }
+                                """))
                 .andExpect(status().isOk());
     }
 

@@ -27,4 +27,6 @@ public class OrdemServicoServico {
     private Servico servico;
 
     private Integer quantidade;
+
+    private Long tempoExecucaoMinutos;
 }

@@ -8,4 +8,6 @@ import java.util.List;
 
 public interface OrdemServicoRepository extends JpaRepository<OrdemServico, String> {
     List<OrdemServico> findAllByStatusNot(Status status);
+
+    List<OrdemServico> findAllByStatusIn(List<Status> status);
 }

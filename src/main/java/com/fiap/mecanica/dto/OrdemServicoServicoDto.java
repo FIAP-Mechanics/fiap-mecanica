@@ -20,7 +20,10 @@ public record OrdemServicoServicoDto(
         @Schema(description = "Quantidade solicitada", example = "1")
         Integer quantidade,
 
-        @Schema(description = "Valor total do serviço (unitário × quantidade)", example = "150.00")
+        @Schema(description = "Tempo gasto na execução do serviço em minutos", example = "90")
+        Long tempoExecucaoMinutos,
+
+        @Schema(description = "Valor total do serviço", example = "150.00")
         BigDecimal valorTotal
 ) {
 }

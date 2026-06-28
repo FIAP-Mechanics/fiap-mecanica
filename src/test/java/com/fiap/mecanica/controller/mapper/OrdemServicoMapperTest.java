@@ -77,6 +77,7 @@ class OrdemServicoMapperTest {
         OrdemServicoServico ordemServicoServico = OrdemServicoServico.builder()
                 .servico(servico)
                 .quantidade(2)
+                .tempoExecucaoMinutos(90L)
                 .build();
 
         OrdemServicoServicoDto resultado = OrdemServicoMapper.toServicoDto(ordemServicoServico);
@@ -86,6 +87,7 @@ class OrdemServicoMapperTest {
         assertThat(resultado.nome()).isEqualTo("Troca de óleo");
         assertThat(resultado.valorUnitario()).isEqualByComparingTo(new BigDecimal("150.00"));
         assertThat(resultado.quantidade()).isEqualTo(2);
+        assertThat(resultado.tempoExecucaoMinutos()).isEqualTo(90L);
         assertThat(resultado.valorTotal()).isEqualByComparingTo(new BigDecimal("300.00"));
     }
 
