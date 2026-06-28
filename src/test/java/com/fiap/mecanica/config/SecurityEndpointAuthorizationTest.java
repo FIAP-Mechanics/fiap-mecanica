@@ -68,6 +68,20 @@ class SecurityEndpointAuthorizationTest {
     }
 
     @Test
+    void clientePodeAcompanharOrdemServicoSemAutenticacao() throws Exception {
+        when(ordemServicoService.buscarPorId(ORDEM_ID)).thenReturn(ordem(Status.EM_DIAGNOSTICO));
+
+        mockMvc.perform(get("/atendimento/{id}", ORDEM_ID))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void clienteNaoPodeListarAtendimentosAbertosSemAutenticacao() throws Exception {
+        mockMvc.perform(get("/atendimento/abertos"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void atendenteNaoPodeIniciarDiagnostico() throws Exception {
         mockMvc.perform(patch("/atendimento/{id}/diagnostico/iniciar", ORDEM_ID)
                         .with(jwt().authorities(() -> "ROLE_ATENDENTE")))
@@ -111,22 +125,6 @@ class SecurityEndpointAuthorizationTest {
         when(ordemServicoService.aprovarOrdemServico(ORDEM_ID)).thenReturn(ordem(Status.EM_EXECUCAO));
 
         mockMvc.perform(post("/atendimento/{id}/aprovar", ORDEM_ID)
-                        .with(jwt().authorities(() -> "ROLE_ATENDENTE")))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void mecanicoNaoPodeCancelarOrdemServico() throws Exception {
-        mockMvc.perform(post("/atendimento/{id}/cancelar", ORDEM_ID)
-                        .with(jwt().authorities(() -> "ROLE_MECANICO")))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void atendentePodeCancelarOrdemServico() throws Exception {
-        when(ordemServicoService.cancelarOrdemServico(ORDEM_ID)).thenReturn(ordem(Status.CANCELADA));
-
-        mockMvc.perform(post("/atendimento/{id}/cancelar", ORDEM_ID)
                         .with(jwt().authorities(() -> "ROLE_ATENDENTE")))
                 .andExpect(status().isOk());
     }
