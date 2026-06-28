@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -43,8 +44,26 @@ public class SecurityConfig {
                                 "/swagger-ui.html"
                         ).permitAll()
                         .requestMatchers("/funcionarios/**").hasRole("ADMIN")
+                        .requestMatchers("/templates/**").hasRole("ADMIN")
                         .requestMatchers("/cliente/**", "/clientes/**", "/veiculos/**")
                         .hasAnyRole("ADMIN", "ATENDENTE")
+                        .requestMatchers(HttpMethod.POST, "/atendimento/iniciar")
+                        .hasAnyRole("ADMIN", "ATENDENTE")
+                        .requestMatchers(HttpMethod.GET, "/atendimento/**")
+                        .hasAnyRole("ADMIN", "ATENDENTE", "MECANICO")
+                        .requestMatchers(HttpMethod.PATCH, "/atendimento/*/diagnostico/iniciar")
+                        .hasAnyRole("ADMIN", "MECANICO")
+                        .requestMatchers(HttpMethod.POST, "/atendimento/*/diagnostico")
+                        .hasAnyRole("ADMIN", "MECANICO")
+                        .requestMatchers(HttpMethod.POST, "/atendimento/*/finalizar")
+                        .hasAnyRole("ADMIN", "MECANICO")
+                        .requestMatchers(HttpMethod.POST, "/atendimento/*/aprovar")
+                        .hasAnyRole("ADMIN", "ATENDENTE")
+                        .requestMatchers(HttpMethod.POST, "/atendimento/*/cancelar")
+                        .hasAnyRole("ADMIN", "ATENDENTE")
+                        .requestMatchers(HttpMethod.POST, "/atendimento/*/entregar")
+                        .hasAnyRole("ADMIN", "ATENDENTE")
+                        .requestMatchers("/atendimento/**").hasRole("ADMIN")
                         .requestMatchers("/servicos/**").hasAnyRole("ADMIN", "MECANICO")
                         .requestMatchers("/estoque/**").hasAnyRole("ADMIN", "ATENDENTE", "MECANICO")
                         .anyRequest().hasRole("ADMIN"))
