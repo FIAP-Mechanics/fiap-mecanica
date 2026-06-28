@@ -26,6 +26,12 @@ public class ClienteService {
         return repository.findById(id).orElseThrow(() -> new ClienteNotFound(id));
     }
 
+    public Cliente buscarClientePorDocumento(String documento) {
+        String documentoNormalizado = apenasDigitos(documento);
+        return repository.findByDocumento(documentoNormalizado)
+                .orElseThrow(() -> new ClienteNotFound(documentoNormalizado));
+    }
+
     public Cliente cadastrarCliente(Cliente cliente) {
         boolean clienteEncontrado = repository.existsByDocumento(cliente.getDocumento());
         if(clienteEncontrado) {
@@ -49,5 +55,9 @@ public class ClienteService {
         if(valorNovo != null && !Objects.equals(valorNovo, valorAntigo)){
             setter.accept(valorNovo);
         }
+    }
+
+    private String apenasDigitos(String valor) {
+        return valor.replaceAll("\\D", "");
     }
 }
