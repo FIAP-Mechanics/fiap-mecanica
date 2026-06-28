@@ -8,6 +8,8 @@ import com.fiap.mecanica.exception.EstoqueInativoException;
 import com.fiap.mecanica.exception.EstoqueInsuficienteException;
 import com.fiap.mecanica.exception.EstoqueJaAtivoException;
 import com.fiap.mecanica.exception.EstoqueNotFound;
+import com.fiap.mecanica.exception.TemplateNotFound;
+import com.fiap.mecanica.infra.configs.enums.CodigoTemplate;
 import com.fiap.mecanica.repository.EstoqueRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +29,9 @@ import static org.mockito.Mockito.*;
 class EstoqueServiceTest {
     @Mock
     private EstoqueRepository repository;
+
+    @Mock
+    private NotificationService notificationService;
 
     @InjectMocks
     private EstoqueService service;
@@ -127,6 +132,7 @@ class EstoqueServiceTest {
         // Assert
         assertThat(estoque.getQuantidadeInsumo()).isEqualTo(8L);
         verify(repository).save(estoque);
+        verifyNoInteractions(notificationService);
     }
 
     @Test
@@ -145,6 +151,34 @@ class EstoqueServiceTest {
         assertThatThrownBy(() -> service.deduzirEstoque(List.of(osInsumo)))
                 .isInstanceOf(EstoqueInsuficienteException.class)
                 .hasMessageContaining("Estoque insuficiente para o insumo 'Óleo'. Disponível: 10, Solicitado: 15");
+
+        verify(notificationService).notificarFuncionarios(
+                CodigoTemplate.REPOSICAO_ESTOQUE,
+                osInsumo.getInsumo().getNome(),
+                "10",
+                "15"
+        );
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void deveManterErroDeEstoqueInsuficienteQuandoNotificacaoFalhar() {
+        // Arrange
+        Insumo insumo = Insumo.builder().id(1L).nome("Oleo").build();
+        OrdemServicoInsumo osInsumo = OrdemServicoInsumo.builder()
+                .insumo(insumo)
+                .quantidade(15)
+                .build();
+        Estoque estoque = criarEstoque(true);
+
+        when(repository.findByInsumoId(1L)).thenReturn(Optional.of(estoque));
+        doThrow(new TemplateNotFound(CodigoTemplate.REPOSICAO_ESTOQUE))
+                .when(notificationService)
+                .notificarFuncionarios(eq(CodigoTemplate.REPOSICAO_ESTOQUE), any(), any(), any());
+
+        // Act & Assert
+        assertThatThrownBy(() -> service.deduzirEstoque(List.of(osInsumo)))
+                .isInstanceOf(EstoqueInsuficienteException.class);
 
         verify(repository, never()).save(any());
     }
