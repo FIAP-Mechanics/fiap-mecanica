@@ -12,13 +12,11 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
-  liquibase:
-    enabled: true
   mail:
-    host: ${MAIL_HOST:sandbox.smtp.mailtrap.io}
+    host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:secret}
-    password: ${MAIL_PASSWORD:secret}
+    username: ${MAIL_USERNAME:seu-email@gmail.com}
+    password: ${MAIL_PASSWORD:sua-senha-de-app}
     properties:
       mail:
         smtp:
