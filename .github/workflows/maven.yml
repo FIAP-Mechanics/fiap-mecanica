@@ -44,5 +44,6 @@ jobs:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/mecanica
           SPRING_DATASOURCE_USERNAME: admin
           SPRING_DATASOURCE_PASSWORD: admin
+          JWT_SECRET: troque-por-uma-secret-com-pelo-menos-32-caracteres
           
         run: mvn -B clean verify
