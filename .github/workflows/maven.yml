@@ -9,25 +9,7 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:latest
-
-        env:
-          POSTGRES_DB: mecanica
-          POSTGRES_USER: admin
-          POSTGRES_PASSWORD: admin
-
-        ports:
-          - 5432:5432
-
-        options: >-
-          --health-cmd="pg_isready -U admin"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,9 +23,7 @@ jobs:
 
       - name: Build and Test
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/mecanica
-          SPRING_DATASOURCE_USERNAME: admin
-          SPRING_DATASOURCE_PASSWORD: admin
+          SPRING_PROFILES_ACTIVE: test
           JWT_SECRET: troque-por-uma-secret-com-pelo-menos-32-caracteres
           
         run: mvn -B clean verify
