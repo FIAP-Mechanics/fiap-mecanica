@@ -1,6 +1,8 @@
 spring:
   application:
     name: mecanica
+  config:
+    import: optional:file:.env[.properties]
   datasource:
     url: jdbc:postgresql://localhost:5432/mecanica
     username: admin
@@ -10,6 +12,8 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+  liquibase:
+    enabled: true
   mail:
     host: ${MAIL_HOST:sandbox.smtp.mailtrap.io}
     port: ${MAIL_PORT:587}
@@ -24,3 +28,9 @@ spring:
 notificacao:
   email-atualizacoes: ${NOTIFICACAO_EMAIL_ADMIN:canal-atualizacoes@fiap-mecanica.com.br}
   email-remetente: ${NOTIFICACAO_EMAIL_REMETENTE:noreply@fiap-mecanica.com}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
+    issuer: ${JWT_ISSUER:http://localhost:8080}

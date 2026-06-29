@@ -19,6 +19,8 @@ import java.util.List;
 @Service
 public class OrdemServicoService {
 
+    private static final List<Status> STATUS_ENCERRADOS = List.of(Status.ENTREGUE, Status.CANCELADA);
+
     private final OrdemServicoRepository ordemServicoRepository;
     private final ClienteService clienteService;
     private final VeiculoService veiculoService;
@@ -83,7 +85,7 @@ public class OrdemServicoService {
     }
 
     public List<OrdemServicoDto> listarAtendimentosEmAberto() {
-        return ordemServicoRepository.findAllByStatusNot(Status.ENTREGUE)
+        return ordemServicoRepository.findAllByStatusNotIn(STATUS_ENCERRADOS)
                 .stream()
                 .map(OrdemServicoMapper::toDto)
                 .toList();
@@ -162,6 +164,20 @@ public class OrdemServicoService {
         }
 
         ordemServico.setStatus(Status.EM_EXECUCAO);
+
+        OrdemServico salva = ordemServicoRepository.save(ordemServico);
+        return OrdemServicoMapper.toDto(salva);
+    }
+
+    public OrdemServicoDto cancelarOrdemServico(String id) {
+        OrdemServico ordemServico = ordemServicoRepository.findById(id)
+                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
+
+        if (ordemServico.getStatus() != Status.AGUARDANDO_APROVACAO) {
+            throw new TransicaoInvalidaException(ordemServico.getStatus(), Status.CANCELADA);
+        }
+
+        ordemServico.setStatus(Status.CANCELADA);
 
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(salva);

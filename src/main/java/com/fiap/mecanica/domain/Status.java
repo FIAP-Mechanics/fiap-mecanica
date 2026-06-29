@@ -11,6 +11,7 @@ public enum Status {
     AGUARDANDO_APROVACAO("Aguardando aprovação", "Seu orçamento está pronto! Aguardamos sua aprovação para iniciar o serviço."),
     EM_EXECUCAO("Em execução", "Ótimas notícias! Nossa equipe já está trabalhando no seu veículo."),
     FINALIZADA("Finalizada", "Tudo pronto! Seu veículo está finalizado e aguardando sua retirada."),
+    CANCELADA("Cancelada", "Ordem de serviço cancelada após recusa do orçamento."),
     ENTREGUE("Entregue", "Serviço concluído com sucesso! Obrigado por confiar em nossos serviços.");
 
     private final String nome;
