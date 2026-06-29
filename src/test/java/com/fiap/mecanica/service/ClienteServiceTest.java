@@ -231,7 +231,7 @@ class ClienteServiceTest {
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
         when(repository.save(any())).thenReturn(cliente);
 
-        ClienteDto dto = new ClienteDto(NOME_ORIGINAL, null, DOCUMENTO_ORIGINAL, EMAIL_ORIGINAL, TELEFONE_ORIGINAL, ENDERECO_ORIGINAL);
+        ClienteDto dto = new ClienteDto(null, NOME_ORIGINAL, DOCUMENTO_ORIGINAL, EMAIL_ORIGINAL, TELEFONE_ORIGINAL, ENDERECO_ORIGINAL);
         service.atualizarCliente(ID_EXISTENTE, dto);
 
         verify(repository).save(clienteCaptor.capture());
@@ -249,7 +249,7 @@ class ClienteServiceTest {
         when(repository.findById(ID_EXISTENTE)).thenReturn(Optional.of(cliente));
         when(repository.save(any())).thenReturn(cliente);
 
-        service.atualizarCliente(ID_EXISTENTE, new ClienteDto(NOME_NOVO, null, null, null, null, null));
+        service.atualizarCliente(ID_EXISTENTE, new ClienteDto(null, NOME_NOVO, null, null, null, null));
 
         verify(repository).save(clienteCaptor.capture());
         assertThat(clienteCaptor.getValue().getNome()).isEqualTo(NOME_NOVO);
@@ -327,6 +327,6 @@ class ClienteServiceTest {
     }
 
     private ClienteDto criarDtoCompleto() {
-        return new ClienteDto(NOME_NOVO, null, DOCUMENTO_NOVO, EMAIL_NOVO, TELEFONE_NOVO, ENDERECO_NOVO);
+        return new ClienteDto(null, NOME_NOVO, DOCUMENTO_NOVO, EMAIL_NOVO, TELEFONE_NOVO, ENDERECO_NOVO);
     }
 }
