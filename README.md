@@ -4,11 +4,12 @@ API para gerenciamento de uma oficina mecânica, com cadastro de clientes, veíc
 
 ## Requisitos
 
-- Java 21
 - Docker e Docker Compose
 - Git
 
-O projeto já possui Maven Wrapper, então não é necessário instalar Maven localmente.
+Para rodar com Docker, não é necessário instalar Java localmente. A imagem da aplicação já contém o runtime necessário.
+
+Java 21 só é necessário se você optar por rodar a API fora do Docker, pela própria máquina. O projeto já possui Maven Wrapper, então não é necessário instalar Maven localmente.
 
 ## Configuração Local
 
@@ -100,6 +101,24 @@ A resposta retorna um token JWT. Use esse token como Bearer Token nos endpoints 
 ```http
 Authorization: Bearer <token>
 ```
+
+## Postman
+
+A collection e o environment local ficam versionados em `postman/`:
+
+- `postman/oficina-mecanica.postman_collection.json`
+- `postman/oficina-mecanica.local.postman_environment.json`
+
+Para usar:
+
+1. Importe os dois arquivos no Postman.
+2. Selecione o environment `Oficina mecânica - Local Docker`.
+3. Suba a aplicação com `docker compose up -d --build`.
+4. Execute `Autenticação > Login`.
+
+O script do request de login salva o token JWT automaticamente na variável `accessToken`. As demais requests protegidas usam esse valor como Bearer Token.
+
+O environment também traz variáveis de apoio, como `clienteId`, `veiculoId`, `servicoId`, `insumoId`, `ordemServicoId` e `templateCodigo`. Ajuste esses valores conforme os dados criados no seu banco local.
 
 ## Alternativa: Rodar a API Fora do Docker
 
