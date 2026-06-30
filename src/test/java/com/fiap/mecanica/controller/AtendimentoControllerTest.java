@@ -135,4 +135,22 @@ class AtendimentoControllerTest {
         assertThat(resultado).isEqualTo(dto);
         verify(service).aprovarOrdemServico(UUID_ORDEM);
     }
+
+    @Test
+    void deveCancelarOrdemServicoComSucesso() {
+        // Arrange
+        OrdemServicoDto dto = OrdemServicoDto.builder()
+                .id(UUID_ORDEM)
+                .status(Status.CANCELADA)
+                .build();
+
+        when(service.cancelarOrdemServico(UUID_ORDEM)).thenReturn(dto);
+
+        // Act
+        OrdemServicoDto resultado = controller.cancelarOrdemServico(UUID_ORDEM);
+
+        // Assert
+        assertThat(resultado).isEqualTo(dto);
+        verify(service).cancelarOrdemServico(UUID_ORDEM);
+    }
 }
