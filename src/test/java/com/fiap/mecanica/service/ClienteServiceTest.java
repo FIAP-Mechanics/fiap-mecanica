@@ -28,6 +28,7 @@ class ClienteServiceTest {
     private static final String NOME_ORIGINAL = "José da Silva";
     private static final String NOME_NOVO = "Maria Santos";
     private static final String DOCUMENTO_ORIGINAL = "12345678900";
+    private static final String DOCUMENTO_ORIGINAL_FORMATADO = "123.456.789-00";
     private static final String DOCUMENTO_NOVO = "98765432100";
     private static final String EMAIL_ORIGINAL = "cliente@email.com";
     private static final String EMAIL_NOVO = "novo@email.com";
@@ -101,6 +102,28 @@ class ClienteServiceTest {
 
         assertThat(resultado).isEqualTo(cliente);
         verify(repository).findById(ID_EXISTENTE);
+    }
+
+    @Test
+    void deveRetornarClienteQuandoDocumentoExistir() {
+        Cliente cliente = criarCliente();
+        when(repository.findByDocumento(DOCUMENTO_ORIGINAL)).thenReturn(Optional.of(cliente));
+
+        Cliente resultado = service.buscarClientePorDocumento(DOCUMENTO_ORIGINAL_FORMATADO);
+
+        assertThat(resultado).isEqualTo(cliente);
+        verify(repository).findByDocumento(DOCUMENTO_ORIGINAL);
+    }
+
+    @Test
+    void deveLancarClienteNotFoundQuandoDocumentoNaoExistir() {
+        when(repository.findByDocumento(DOCUMENTO_ORIGINAL)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.buscarClientePorDocumento(DOCUMENTO_ORIGINAL_FORMATADO))
+                .isInstanceOf(ClienteNotFound.class)
+                .hasMessage("Cliente não encontrado. Documento: " + DOCUMENTO_ORIGINAL);
+
+        verify(repository).findByDocumento(DOCUMENTO_ORIGINAL);
     }
 
     @Test

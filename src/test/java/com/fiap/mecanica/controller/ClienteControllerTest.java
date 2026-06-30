@@ -105,6 +105,32 @@ class ClienteControllerTest {
     }
 
     @Test
+    void deveRetornarClienteDtoQuandoDocumentoExistir() {
+        Cliente cliente = criarCliente();
+        when(service.buscarClientePorDocumento(DOCUMENTO)).thenReturn(cliente);
+
+        ClienteDto resultado = controller.getByDocumento(DOCUMENTO);
+
+        assertThat(resultado).isNotNull();
+        assertThat(resultado.id()).isEqualTo(ID_EXISTENTE);
+        assertThat(resultado.nome()).isEqualTo(NOME);
+        assertThat(resultado.documento()).isEqualTo(DOCUMENTO);
+        verify(service).buscarClientePorDocumento(DOCUMENTO);
+    }
+
+    @Test
+    void deveLancarClienteNotFoundNoGetByDocumentoQuandoDocumentoNaoExistir() {
+        when(service.buscarClientePorDocumento(DOCUMENTO))
+                .thenThrow(new ClienteNotFound(DOCUMENTO));
+
+        assertThatThrownBy(() -> controller.getByDocumento(DOCUMENTO))
+                .isInstanceOf(ClienteNotFound.class)
+                .hasMessage("Cliente não encontrado. Documento: " + DOCUMENTO);
+
+        verify(service).buscarClientePorDocumento(DOCUMENTO);
+    }
+
+    @Test
     void deveLancarClienteNotFoundNoGetQuandoIdNaoExistir() {
         when(service.buscarClientePorId(ID_INEXISTENTE))
                 .thenThrow(new ClienteNotFound(ID_INEXISTENTE));

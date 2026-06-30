@@ -47,6 +47,19 @@ public class ClienteController {
                 .toList();
     }
 
+    @Operation(summary = "Buscar cliente por CPF/CNPJ", description = "Identifica o cliente pelo documento informado")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Cliente encontrado",
+                    content = @Content(schema = @Schema(implementation = ClienteDto.class))),
+            @ApiResponse(responseCode = "404", description = "Cliente nÃ£o encontrado", content = @Content)
+    })
+    @GetMapping("/documento")
+    public ClienteDto getByDocumento(
+            @Parameter(description = "CPF ou CNPJ do cliente") @RequestParam String documento
+    ) {
+        return toDto(service.buscarClientePorDocumento(documento));
+    }
+
     @Operation(summary = "Buscar cliente por ID", description = "Retorna os dados de um cliente pelo seu identificador")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Cliente encontrado",
