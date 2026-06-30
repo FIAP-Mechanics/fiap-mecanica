@@ -12,13 +12,11 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
-  liquibase:
-    enabled: true
   mail:
-    host: ${MAIL_HOST:sandbox.smtp.mailtrap.io}
+    host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:secret}
-    password: ${MAIL_PASSWORD:secret}
+    username: ${MAIL_USERNAME:seu-email@gmail.com}
+    password: ${MAIL_PASSWORD:sua-senha-de-app}
     properties:
       mail:
         smtp:
@@ -34,3 +32,8 @@ security:
     secret: ${JWT_SECRET}
     expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
     issuer: ${JWT_ISSUER:http://localhost:8080}
+app:
+  admin:
+    email: ${ADMIN_EMAIL:admin@mecanica.com}
+    password: ${ADMIN_PASSWORD:admin123}
+    nome: ${ADMIN_NOME:Administrador Padrão}

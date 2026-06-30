@@ -53,7 +53,7 @@ public class AtendimentoController {
         return ordemServicoService.buscarPorId(id);
     }
 
-    @Operation(summary = "Lista atendimentos em aberto", description = "Retorna todas as ordens de serviço que não estão com status FINALIZADA")
+    @Operation(summary = "Lista atendimentos em aberto", description = "Retorna todas as ordens de serviço que não estão entregues ou canceladas")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
     })
@@ -114,6 +114,20 @@ public class AtendimentoController {
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id) {
         return ordemServicoService.aprovarOrdemServico(id);
+    }
+
+    @Operation(summary = "Cancelar ordem de serviço", description = "Cancela a ordem de serviço quando o cliente não aprova o orçamento")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Ordem de serviço cancelada com sucesso",
+                    content = @Content(schema = @Schema(implementation = OrdemServicoDto.class))),
+            @ApiResponse(responseCode = "400", description = "Status incorreto para cancelamento", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Ordem de serviço não encontrada", content = @Content)
+    })
+    @PostMapping("/{id}/cancelar")
+    public OrdemServicoDto cancelarOrdemServico(
+            @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
+            @PathVariable String id) {
+        return ordemServicoService.cancelarOrdemServico(id);
     }
 
     @Operation(summary = "Finalizar ordem de serviço", description = "Altera o status da ordem de serviço para FINALIZADA, indicando que o serviço técnico foi concluído")

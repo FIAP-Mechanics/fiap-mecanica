@@ -10,4 +10,5 @@ public interface OrdemServicoRepository extends JpaRepository<OrdemServico, Stri
     List<OrdemServico> findAllByStatusNot(Status status);
 
     List<OrdemServico> findAllByStatusIn(List<Status> status);
+    List<OrdemServico> findAllByStatusNotIn(List<Status> status);
 }
