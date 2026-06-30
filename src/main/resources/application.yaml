@@ -32,3 +32,8 @@ security:
     secret: ${JWT_SECRET}
     expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
     issuer: ${JWT_ISSUER:http://localhost:8080}
+app:
+  admin:
+    email: ${ADMIN_EMAIL:admin@mecanica.com}
+    password: ${ADMIN_PASSWORD:admin123}
+    nome: ${ADMIN_NOME:Administrador Padrão}
