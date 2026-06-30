@@ -1,0 +1,1606 @@
+﻿{
+    "info":  {
+                 "_postman_id":  "b5f1c5cd-1efa-497d-92bb-2472fc8ede2b",
+                 "name":  "Oficina mecânica",
+                 "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+             },
+    "auth":  {
+                 "type":  "bearer",
+                 "bearer":  [
+                                {
+                                    "key":  "token",
+                                    "value":  "{{accessToken}}",
+                                    "type":  "string"
+                                }
+                            ]
+             },
+    "item":  [
+                 {
+                     "name":  "Autenticação",
+                     "item":  [
+                                  {
+                                      "name":  "Login",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/auth/login",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "auth",
+                                                                               "login"
+                                                                           ]
+                                                              },
+                                                      "description":  "Gera token JWT para funcionário e salva accessToken na collection.",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"senha\":  \"{{adminSenha}}\",\r\n    \"email\":  \"{{adminEmail}}\"\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ],
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "if (pm.response.code === 200) {",
+                                                                                    "  const json = pm.response.json();",
+                                                                                    "  const token = json.access_token || json.accessToken;",
+                                                                                    "  if (token) {",
+                                                                                    "    pm.collectionVariables.set(\"accessToken\", token);",
+                                                                                    "    pm.environment.set(\"accessToken\", token);",
+                                                                                    "  }",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ]
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Funcionários",
+                     "item":  [
+                                  {
+                                      "name":  "Cadastrar funcionário",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/funcionarios",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "funcionarios"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"email\":  \"joao@mecanica.com\",\r\n    \"nome\":  \"João Silva\",\r\n    \"senha\":  \"senha123\",\r\n    \"funcao\":  \"ADMIN\"\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Buscar funcionário por ID",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/funcionarios/:id",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "funcionarios",
+                                                                               ":id"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{funcionarioId}}",
+                                                                                       "description":  "ID do funcionário."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Atualizar funcionário",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/funcionarios/:id",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "funcionarios",
+                                                                               ":id"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{funcionarioId}}",
+                                                                                       "description":  "ID do funcionário."
+                                                                                   }
+                                                                               ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"email\":  \"joao.atualizado@mecanica.com\",\r\n    \"nome\":  \"João Silva Atualizado\",\r\n    \"senha\":  \"novaSenha123\",\r\n    \"funcao\":  \"ATENDENTE\"\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Desativar funcionário",
+                                      "request":  {
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/funcionarios/:id",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "funcionarios",
+                                                                               ":id"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{funcionarioId}}",
+                                                                                       "description":  "ID do funcionário."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Reativar funcionário",
+                                      "request":  {
+                                                      "method":  "PUT",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/funcionarios/:id/reativar",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "funcionarios",
+                                                                               ":id",
+                                                                               "reativar"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{funcionarioId}}",
+                                                                                       "description":  "ID do funcionário."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Clientes",
+                     "item":  [
+                                  {
+                                      "name":  "Listar clientes",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/cliente",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "cliente"
+                                                                           ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Buscar cliente por CPF/CNPJ",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/cliente/documento?documento={{documentoCliente}}",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "cliente",
+                                                                               "documento"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "documento",
+                                                                                    "value":  "{{documentoCliente}}",
+                                                                                    "description":  "CPF ou CNPJ do cliente."
+                                                                                }
+                                                                            ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Buscar cliente por ID",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/cliente/:id",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "cliente",
+                                                                               ":id"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{clienteId}}",
+                                                                                       "description":  "ID do cliente."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Cadastrar cliente",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/cliente",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "cliente"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"nome\":  \"Lionel Messi\",\r\n    \"documento\":  \"13259774033\",\r\n    \"email\":  \"lionel.messi@email.com\",\r\n    \"telefone\":  \"11987654321\",\r\n    \"endereco\":  {\r\n                     \"cep\":  \"22041001\",\r\n                     \"estado\":  \"RJ\",\r\n                     \"cidade\":  \"Rio de Janeiro\",\r\n                     \"bairro\":  \"Copacabana\",\r\n                     \"rua\":  \"Avenida Atlântica\",\r\n                     \"numero\":  \"1000\",\r\n                     \"complemento\":  \"Cobertura\"\r\n                 }\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Atualizar cliente",
+                                      "request":  {
+                                                      "method":  "PUT",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/cliente/:id",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "cliente",
+                                                                               ":id"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{clienteId}}",
+                                                                                       "description":  "ID do cliente."
+                                                                                   }
+                                                                               ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"nome\":  \"Lionel Messi Atualizado\",\r\n    \"documento\":  \"13259774033\",\r\n    \"email\":  \"lionel.atualizado@email.com\",\r\n    \"telefone\":  \"11987654321\",\r\n    \"endereco\":  {\r\n                     \"cep\":  \"22041001\",\r\n                     \"estado\":  \"RJ\",\r\n                     \"cidade\":  \"Rio de Janeiro\",\r\n                     \"bairro\":  \"Copacabana\",\r\n                     \"rua\":  \"Avenida Atlântica\",\r\n                     \"numero\":  \"1000\",\r\n                     \"complemento\":  \"Cobertura\"\r\n                 }\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Vincular veículo ao cliente",
+                                      "request":  {
+                                                      "method":  "PUT",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/cliente/:idCliente/veiculo/:idVeiculo",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "cliente",
+                                                                               ":idCliente",
+                                                                               "veiculo",
+                                                                               ":idVeiculo"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "idCliente",
+                                                                                       "value":  "{{clienteId}}",
+                                                                                       "description":  "ID do cliente."
+                                                                                   },
+                                                                                   {
+                                                                                       "key":  "idVeiculo",
+                                                                                       "value":  "{{veiculoId}}",
+                                                                                       "description":  "ID do veículo."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Listar veículos do cliente",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/cliente/:id/veiculos",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "cliente",
+                                                                               ":id",
+                                                                               "veiculos"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{clienteId}}",
+                                                                                       "description":  "ID do cliente."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Veículos",
+                     "item":  [
+                                  {
+                                      "name":  "Cadastrar veículo",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/veiculos",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "veiculos"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"marca\":  \"Volkswagen\",\r\n    \"modelo\":  \"Gol\",\r\n    \"placa\":  \"ABC1D23\",\r\n    \"ano\":  2022\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Buscar veículo por ID",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/veiculos/:id",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "veiculos",
+                                                                               ":id"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{veiculoId}}",
+                                                                                       "description":  "ID do veículo."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Atualizar veículo",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/veiculos/:id",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "veiculos",
+                                                                               ":id"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{veiculoId}}",
+                                                                                       "description":  "ID do veículo."
+                                                                                   }
+                                                                               ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"marca\":  \"Volkswagen\",\r\n    \"modelo\":  \"Gol G6\",\r\n    \"placa\":  \"ABC1D23\",\r\n    \"ano\":  2023\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Desativar veículo",
+                                      "request":  {
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/veiculos/:id",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "veiculos",
+                                                                               ":id"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{veiculoId}}",
+                                                                                       "description":  "ID do veículo."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Reativar veículo",
+                                      "request":  {
+                                                      "method":  "PUT",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/veiculos/:id/reativar",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "veiculos",
+                                                                               ":id",
+                                                                               "reativar"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{veiculoId}}",
+                                                                                       "description":  "ID do veículo."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Serviços",
+                     "item":  [
+                                  {
+                                      "name":  "Cadastrar serviço",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/servicos",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "servicos"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"nome\":  \"Troca de óleo\",\r\n    \"descricao\":  \"Troca de óleo do motor\",\r\n    \"valor\":  150\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Buscar serviço por ID",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/servicos/:idServico",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "servicos",
+                                                                               ":idServico"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "idServico",
+                                                                                       "value":  "{{servicoId}}",
+                                                                                       "description":  "ID do serviço."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Atualizar serviço",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/servicos/:idServico",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "servicos",
+                                                                               ":idServico"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "idServico",
+                                                                                       "value":  "{{servicoId}}",
+                                                                                       "description":  "ID do serviço."
+                                                                                   }
+                                                                               ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"nome\":  \"Troca de óleo premium\",\r\n    \"descricao\":  \"Troca de óleo e filtro\",\r\n    \"valor\":  180\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Desativar serviço",
+                                      "request":  {
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/servicos/:idServico",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "servicos",
+                                                                               ":idServico"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "idServico",
+                                                                                       "value":  "{{servicoId}}",
+                                                                                       "description":  "ID do serviço."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Reativar serviço",
+                                      "request":  {
+                                                      "method":  "PUT",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/servicos/:idServico/reativar",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "servicos",
+                                                                               ":idServico",
+                                                                               "reativar"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "idServico",
+                                                                                       "value":  "{{servicoId}}",
+                                                                                       "description":  "ID do serviço."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Estoque",
+                     "item":  [
+                                  {
+                                      "name":  "Listar estoque",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/estoque",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "estoque"
+                                                                           ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Buscar estoque por insumo",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/estoque/:idInsumo",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "estoque",
+                                                                               ":idInsumo"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "idInsumo",
+                                                                                       "value":  "{{insumoId}}",
+                                                                                       "description":  "ID do insumo."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Registrar insumo no estoque",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/estoque",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "estoque"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"insumo\":  {\r\n                   \"nome\":  \"Óleo 5W30\",\r\n                   \"precoUnitario\":  45.9\r\n               },\r\n    \"quantidade\":  10\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Atualizar quantidade do insumo",
+                                      "request":  {
+                                                      "method":  "PUT",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/estoque/:idInsumo",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "estoque",
+                                                                               ":idInsumo"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "idInsumo",
+                                                                                       "value":  "{{insumoId}}",
+                                                                                       "description":  "ID do insumo."
+                                                                                   }
+                                                                               ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"quantidade\":  15\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Atualizar dados do insumo",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/estoque/insumo/:idInsumo",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "estoque",
+                                                                               "insumo",
+                                                                               ":idInsumo"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "idInsumo",
+                                                                                       "value":  "{{insumoId}}",
+                                                                                       "description":  "ID do insumo."
+                                                                                   }
+                                                                               ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"nome\":  \"Óleo 5W30 Sintético\",\r\n    \"precoUnitario\":  52.5\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Desativar registro do estoque",
+                                      "request":  {
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/estoque/:idInsumo",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "estoque",
+                                                                               ":idInsumo"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "idInsumo",
+                                                                                       "value":  "{{insumoId}}",
+                                                                                       "description":  "ID do insumo."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Reativar registro do estoque",
+                                      "request":  {
+                                                      "method":  "PUT",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/estoque/:idInsumo/reativar",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "estoque",
+                                                                               ":idInsumo",
+                                                                               "reativar"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "idInsumo",
+                                                                                       "value":  "{{insumoId}}",
+                                                                                       "description":  "ID do insumo."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Atendimento",
+                     "item":  [
+                                  {
+                                      "name":  "Iniciar atendimento",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/atendimento/iniciar",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "atendimento",
+                                                                               "iniciar"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"cliente\":  1,\r\n    \"veiculo\":  1,\r\n    \"relatoCliente\":  \"O carro não liga\",\r\n    \"servicos\":  [\r\n                     {\r\n                         \"servico\":  1,\r\n                         \"quantidade\":  1\r\n                     }\r\n                 ],\r\n    \"insumos\":  [\r\n                    {\r\n                        \"insumo\":  1,\r\n                        \"quantidade\":  2\r\n                    }\r\n                ]\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Acompanhar ordem de serviço",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/atendimento/:id",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "atendimento",
+                                                                               ":id"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{ordemServicoId}}",
+                                                                                       "description":  "UUID da ordem de serviço."
+                                                                                   }
+                                                                               ]
+                                                              },
+                                                      "description":  "Endpoint público para o cliente acompanhar a OS.",
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Listar atendimentos abertos",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/atendimento/abertos",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "atendimento",
+                                                                               "abertos"
+                                                                           ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Relatório de tempo médio dos serviços",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/atendimento/relatorios/tempo-medio-servicos",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "atendimento",
+                                                                               "relatorios",
+                                                                               "tempo-medio-servicos"
+                                                                           ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Iniciar diagnóstico",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/atendimento/:id/diagnostico/iniciar",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "atendimento",
+                                                                               ":id",
+                                                                               "diagnostico",
+                                                                               "iniciar"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{ordemServicoId}}",
+                                                                                       "description":  "UUID da ordem de serviço."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Postar diagnóstico",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/atendimento/:id/diagnostico",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "atendimento",
+                                                                               ":id",
+                                                                               "diagnostico"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{ordemServicoId}}",
+                                                                                       "description":  "UUID da ordem de serviço."
+                                                                                   }
+                                                                               ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"observacoes\":  \"Bateria descarregada e óleo abaixo do nível recomendado\",\r\n    \"servicos\":  [\r\n                     {\r\n                         \"servico\":  1,\r\n                         \"quantidade\":  1\r\n                     }\r\n                 ],\r\n    \"insumos\":  [\r\n                    {\r\n                        \"insumo\":  1,\r\n                        \"quantidade\":  2\r\n                    }\r\n                ]\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Aprovar ordem de serviço",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/atendimento/:id/aprovar",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "atendimento",
+                                                                               ":id",
+                                                                               "aprovar"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{ordemServicoId}}",
+                                                                                       "description":  "UUID da ordem de serviço."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Cancelar ordem de serviço",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/atendimento/:id/cancelar",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "atendimento",
+                                                                               ":id",
+                                                                               "cancelar"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{ordemServicoId}}",
+                                                                                       "description":  "UUID da ordem de serviço."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Finalizar ordem de serviço",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/atendimento/:id/finalizar",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "atendimento",
+                                                                               ":id",
+                                                                               "finalizar"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{ordemServicoId}}",
+                                                                                       "description":  "UUID da ordem de serviço."
+                                                                                   }
+                                                                               ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"servicos\":  [\r\n                     {\r\n                         \"servico\":  1,\r\n                         \"tempoGastoMinutos\":  90\r\n                     }\r\n                 ]\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Entregar veículo/ordem de serviço",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/atendimento/:id/entregar",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "atendimento",
+                                                                               ":id",
+                                                                               "entregar"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "id",
+                                                                                       "value":  "{{ordemServicoId}}",
+                                                                                       "description":  "UUID da ordem de serviço."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Templates",
+                     "item":  [
+                                  {
+                                      "name":  "Listar templates",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/templates",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "templates"
+                                                                           ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Buscar template por código",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/templates/:codigo",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "templates",
+                                                                               ":codigo"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "codigo",
+                                                                                       "value":  "{{templateCodigo}}",
+                                                                                       "description":  "Código do template de notificação."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Cadastrar template",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/templates",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "templates"
+                                                                           ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"codigo\":  \"AUTORIZAR_ORCAMENTO\",\r\n    \"conteudo\":  \"Precisamos da sua autorização do orçamento para iniciar os reparos.\"\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Atualizar template",
+                                      "request":  {
+                                                      "method":  "PUT",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/templates/:codigo",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "templates",
+                                                                               ":codigo"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "codigo",
+                                                                                       "value":  "{{templateCodigo}}",
+                                                                                       "description":  "Código do template de notificação."
+                                                                                   }
+                                                                               ]
+                                                              },
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\r\n    \"conteudo\":  \"Sua ordem de serviço foi atualizada.\"\r\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Excluir template",
+                                      "request":  {
+                                                      "method":  "DELETE",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/templates/:codigo",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "templates",
+                                                                               ":codigo"
+                                                                           ],
+                                                                  "variable":  [
+                                                                                   {
+                                                                                       "key":  "codigo",
+                                                                                       "value":  "{{templateCodigo}}",
+                                                                                       "description":  "Código do template de notificação."
+                                                                                   }
+                                                                               ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  }
+                              ]
+                 }
+             ],
+    "event":  [
+                  {
+                      "listen":  "prerequest",
+                      "script":  {
+                                     "type":  "text/javascript",
+                                     "packages":  {
+
+                                                  },
+                                     "requests":  {
+
+                                                  },
+                                     "exec":  [
+                                                  ""
+                                              ]
+                                 }
+                  },
+                  {
+                      "listen":  "test",
+                      "script":  {
+                                     "type":  "text/javascript",
+                                     "packages":  {
+
+                                                  },
+                                     "requests":  {
+
+                                                  },
+                                     "exec":  [
+                                                  ""
+                                              ]
+                                 }
+                  }
+              ],
+    "variable":  [
+                     {
+                         "key":  "baseUrl",
+                         "value":  "http://localhost:8080"
+                     },
+                     {
+                         "key":  "accessToken",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "funcionarioId",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "clienteId",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "documentoCliente",
+                         "value":  "13259774033"
+                     },
+                     {
+                         "key":  "veiculoId",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "servicoId",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "insumoId",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "ordemServicoId",
+                         "value":  "550e8400-e29b-41d4-a716-446655440000"
+                     },
+                     {
+                         "key":  "templateCodigo",
+                         "value":  "AUTORIZAR_ORCAMENTO"
+                     }
+                 ]
+}
