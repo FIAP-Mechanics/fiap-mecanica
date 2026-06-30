@@ -1,8 +1,10 @@
 package com.fiap.mecanica.controller;
 
 import com.fiap.mecanica.controller.request.AdicionarItensOrcamentoRequest;
+import com.fiap.mecanica.controller.request.FinalizarOrdemServicoRequest;
 import com.fiap.mecanica.controller.request.IniciarAtendimentoRequest;
 import com.fiap.mecanica.dto.OrdemServicoDto;
+import com.fiap.mecanica.dto.TempoMedioExecucaoServicoDto;
 import com.fiap.mecanica.service.OrdemServicoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -58,6 +60,16 @@ public class AtendimentoController {
     @GetMapping("/abertos")
     public List<OrdemServicoDto> listarAbertos() {
         return ordemServicoService.listarAtendimentosEmAberto();
+    }
+
+    @Operation(summary = "Monitorar tempo medio de execucao dos servicos",
+            description = "Retorna o tempo medio entre os status EM_EXECUCAO e FINALIZADA agrupado por servico")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Indicadores retornados com sucesso")
+    })
+    @GetMapping("/relatorios/tempo-medio-servicos")
+    public List<TempoMedioExecucaoServicoDto> listarTempoMedioExecucaoServicos() {
+        return ordemServicoService.listarTempoMedioExecucaoServicos();
     }
 
     @Operation(summary = "Iniciar atendimento", description = "Inicia um atendimento criando uma nova ordem de serviço para o cliente e veículo informados")
@@ -128,8 +140,9 @@ public class AtendimentoController {
     @PostMapping("/{id}/finalizar")
     public OrdemServicoDto finalizarOrdemServico(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
-            @PathVariable String id) {
-        return ordemServicoService.finalizarOrdemServico(id);
+            @PathVariable String id,
+            @Valid @RequestBody FinalizarOrdemServicoRequest request) {
+        return ordemServicoService.finalizarOrdemServico(id, request.servicos());
     }
 
     @Operation(summary = "Entregar veículo/ordem de serviço", description = "Altera o status da ordem de serviço para ENTREGUE, indicando que o veículo foi retirado pelo cliente")

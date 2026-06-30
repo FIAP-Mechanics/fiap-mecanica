@@ -1,8 +1,10 @@
 package com.fiap.mecanica.service;
 
 import com.fiap.mecanica.controller.request.IniciarAtendimentoRequest;
+import com.fiap.mecanica.controller.request.FinalizarOrdemServicoRequest;
 import com.fiap.mecanica.domain.*;
 import com.fiap.mecanica.dto.OrdemServicoDto;
+import com.fiap.mecanica.dto.TempoMedioExecucaoServicoDto;
 import com.fiap.mecanica.exception.*;
 import com.fiap.mecanica.infra.configs.enums.CodigoTemplate;
 import com.fiap.mecanica.repository.OrdemServicoRepository;
@@ -272,6 +274,59 @@ class OrdemServicoServiceTest {
         // Assert
         assertThat(resultado).hasSize(2);
         verify(ordemServicoRepository).findAllByStatusNotIn(List.of(Status.ENTREGUE, Status.CANCELADA));
+    }
+
+    @Test
+    void deveListarTempoMedioExecucaoServicosComSucesso() {
+        Servico trocaOleo = criarServico(10L, "Troca de oleo");
+        Servico alinhamento = criarServico(11L, "Alinhamento");
+
+        OrdemServico ordem1 = criarOrdemServicoConcluida(
+                Status.FINALIZADA,
+                criarOrdemServicoServico(trocaOleo, 1, 120L)
+        );
+        OrdemServico ordem2 = criarOrdemServicoConcluida(
+                Status.ENTREGUE,
+                criarOrdemServicoServico(trocaOleo, 2, 60L),
+                criarOrdemServicoServico(alinhamento, 1, 60L)
+        );
+
+        when(ordemServicoRepository.findAllByStatusIn(List.of(Status.FINALIZADA, Status.ENTREGUE)))
+                .thenReturn(List.of(ordem1, ordem2));
+
+        List<TempoMedioExecucaoServicoDto> resultado = ordemServicoService.listarTempoMedioExecucaoServicos();
+
+        assertThat(resultado).hasSize(2);
+
+        TempoMedioExecucaoServicoDto indicadorAlinhamento = resultado.get(0);
+        assertThat(indicadorAlinhamento.servicoId()).isEqualTo(11L);
+        assertThat(indicadorAlinhamento.nome()).isEqualTo("Alinhamento");
+        assertThat(indicadorAlinhamento.ordensFinalizadas()).isEqualTo(1L);
+        assertThat(indicadorAlinhamento.tempoMedioExecucaoMinutos()).isEqualByComparingTo(new BigDecimal("60.00"));
+
+        TempoMedioExecucaoServicoDto indicadorTrocaOleo = resultado.get(1);
+        assertThat(indicadorTrocaOleo.servicoId()).isEqualTo(10L);
+        assertThat(indicadorTrocaOleo.nome()).isEqualTo("Troca de oleo");
+        assertThat(indicadorTrocaOleo.ordensFinalizadas()).isEqualTo(2L);
+        assertThat(indicadorTrocaOleo.tempoMedioExecucaoMinutos()).isEqualByComparingTo(new BigDecimal("90.00"));
+
+        verify(ordemServicoRepository).findAllByStatusIn(List.of(Status.FINALIZADA, Status.ENTREGUE));
+    }
+
+    @Test
+    void deveIgnorarServicosSemTempoRegistradoNoTempoMedioExecucaoServicos() {
+        OrdemServico ordemSemTempo = criarOrdemServicoConcluida(
+                Status.FINALIZADA,
+                criarOrdemServicoServico(criarServico(), 1)
+        );
+
+        when(ordemServicoRepository.findAllByStatusIn(List.of(Status.FINALIZADA, Status.ENTREGUE)))
+                .thenReturn(List.of(ordemSemTempo));
+
+        List<TempoMedioExecucaoServicoDto> resultado = ordemServicoService.listarTempoMedioExecucaoServicos();
+
+        assertThat(resultado).isEmpty();
+        verify(ordemServicoRepository).findAllByStatusIn(List.of(Status.FINALIZADA, Status.ENTREGUE));
     }
 
     // ===================== realizarDiagnostico =====================
@@ -633,15 +688,24 @@ class OrdemServicoServiceTest {
         Veiculo veiculo = criarVeiculoAtivo();
         OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
         ordemServico.setStatus(Status.EM_EXECUCAO);
+        Orcamento orcamento = Orcamento.builder().ordemServico(ordemServico).build();
+        OrdemServicoServico servico = criarOrdemServicoServico(criarServico(), 1);
+        servico.setOrcamento(orcamento);
+        orcamento.getServicos().add(servico);
+        ordemServico.setOrcamento(orcamento);
+
+        List<FinalizarOrdemServicoRequest.ServicoTempo> servicosTempo =
+                List.of(new FinalizarOrdemServicoRequest.ServicoTempo(ID_SERVICO, 90L));
 
         when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
         when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        OrdemServicoDto resultado = ordemServicoService.finalizarOrdemServico(UUID_ORDEM);
+        OrdemServicoDto resultado = ordemServicoService.finalizarOrdemServico(UUID_ORDEM, servicosTempo);
 
         // Assert
         assertThat(resultado.status()).isEqualTo(Status.FINALIZADA);
+        assertThat(resultado.orcamento().servicos().getFirst().tempoExecucaoMinutos()).isEqualTo(90L);
         verify(emailNotificationService).notificarCliente(eq(CodigoTemplate.RETIRAR_VEICULO), eq(cliente));
         verify(ordemServicoRepository).save(any(OrdemServico.class));
     }
@@ -703,6 +767,50 @@ class OrdemServicoServiceTest {
                 .nome("Óleo de motor")
                 .precoUnitario(new BigDecimal("45.90"))
                 .build();
+    }
+
+    private Servico criarServico(Long id, String nome) {
+        return Servico.builder()
+                .id(id)
+                .nome(nome)
+                .descricao(nome)
+                .valor(new BigDecimal("150.00"))
+                .ativo(true)
+                .build();
+    }
+
+    private OrdemServicoServico criarOrdemServicoServico(Servico servico, int quantidade) {
+        return OrdemServicoServico.builder()
+                .servico(servico)
+                .quantidade(quantidade)
+                .build();
+    }
+
+    private OrdemServicoServico criarOrdemServicoServico(Servico servico, int quantidade, Long tempoExecucaoMinutos) {
+        return OrdemServicoServico.builder()
+                .servico(servico)
+                .quantidade(quantidade)
+                .tempoExecucaoMinutos(tempoExecucaoMinutos)
+                .build();
+    }
+
+    private OrdemServico criarOrdemServicoConcluida(Status statusAtual, OrdemServicoServico... servicos) {
+        OrdemServico ordemServico = OrdemServico.builder()
+                .id(UUID_ORDEM)
+                .cliente(criarCliente())
+                .veiculo(criarVeiculoAtivo())
+                .status(statusAtual)
+                .build();
+
+        Orcamento orcamento = Orcamento.builder()
+                .ordemServico(ordemServico)
+                .build();
+        for (OrdemServicoServico servico : servicos) {
+            servico.setOrcamento(orcamento);
+            orcamento.getServicos().add(servico);
+        }
+        ordemServico.setOrcamento(orcamento);
+        return ordemServico;
     }
 
     private OrdemServico criarOrdemServico(Cliente cliente, Veiculo veiculo) {

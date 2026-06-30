@@ -1,9 +1,11 @@
 package com.fiap.mecanica.controller;
 
 import com.fiap.mecanica.controller.request.AdicionarItensOrcamentoRequest;
+import com.fiap.mecanica.controller.request.FinalizarOrdemServicoRequest;
 import com.fiap.mecanica.controller.request.IniciarAtendimentoRequest;
 import com.fiap.mecanica.domain.Status;
 import com.fiap.mecanica.dto.OrdemServicoDto;
+import com.fiap.mecanica.dto.TempoMedioExecucaoServicoDto;
 import com.fiap.mecanica.service.OrdemServicoService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -82,6 +85,22 @@ class AtendimentoControllerTest {
     }
 
     @Test
+    void deveListarTempoMedioExecucaoServicosComSucesso() {
+        TempoMedioExecucaoServicoDto dto = TempoMedioExecucaoServicoDto.builder()
+                .servicoId(1L)
+                .nome("Troca de oleo")
+                .ordensFinalizadas(2L)
+                .tempoMedioExecucaoMinutos(new BigDecimal("80.00"))
+                .build();
+        when(service.listarTempoMedioExecucaoServicos()).thenReturn(List.of(dto));
+
+        List<TempoMedioExecucaoServicoDto> resultado = controller.listarTempoMedioExecucaoServicos();
+
+        assertThat(resultado).containsExactly(dto);
+        verify(service).listarTempoMedioExecucaoServicos();
+    }
+
+    @Test
     void deveIniciarDiagnosticoComSucesso() {
         // Arrange
         OrdemServicoDto dto = OrdemServicoDto.builder()
@@ -134,6 +153,24 @@ class AtendimentoControllerTest {
         // Assert
         assertThat(resultado).isEqualTo(dto);
         verify(service).aprovarOrdemServico(UUID_ORDEM);
+    }
+
+    @Test
+    void deveFinalizarOrdemServicoComTemposDosServicosComSucesso() {
+        List<FinalizarOrdemServicoRequest.ServicoTempo> servicosTempo =
+                List.of(new FinalizarOrdemServicoRequest.ServicoTempo(1L, 90L));
+        FinalizarOrdemServicoRequest request = new FinalizarOrdemServicoRequest(servicosTempo);
+        OrdemServicoDto dto = OrdemServicoDto.builder()
+                .id(UUID_ORDEM)
+                .status(Status.FINALIZADA)
+                .build();
+
+        when(service.finalizarOrdemServico(UUID_ORDEM, servicosTempo)).thenReturn(dto);
+
+        OrdemServicoDto resultado = controller.finalizarOrdemServico(UUID_ORDEM, request);
+
+        assertThat(resultado).isEqualTo(dto);
+        verify(service).finalizarOrdemServico(UUID_ORDEM, servicosTempo);
     }
 
     @Test

@@ -7,5 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface OrdemServicoRepository extends JpaRepository<OrdemServico, String> {
+    List<OrdemServico> findAllByStatusNot(Status status);
+
+    List<OrdemServico> findAllByStatusIn(List<Status> status);
     List<OrdemServico> findAllByStatusNotIn(List<Status> status);
 }

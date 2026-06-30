@@ -49,6 +49,7 @@ public class OrdemServicoMapper {
                 .nome(servico.getNome())
                 .valorUnitario(servico.getValor())
                 .quantidade(ordemServicoServico.getQuantidade())
+                .tempoExecucaoMinutos(ordemServicoServico.getTempoExecucaoMinutos())
                 .valorTotal(servico.getValor()
                         .multiply(java.math.BigDecimal.valueOf(ordemServicoServico.getQuantidade())))
                 .build();
