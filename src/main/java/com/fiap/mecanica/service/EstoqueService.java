@@ -8,6 +8,7 @@ import com.fiap.mecanica.exception.EstoqueInativoException;
 import com.fiap.mecanica.exception.EstoqueInsuficienteException;
 import com.fiap.mecanica.exception.EstoqueJaAtivoException;
 import com.fiap.mecanica.exception.EstoqueNotFound;
+import com.fiap.mecanica.infra.configs.enums.CodigoTemplate;
 import com.fiap.mecanica.repository.EstoqueRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import java.util.function.Consumer;
 @Service
 public class EstoqueService {
     private final EstoqueRepository repository;
+    private final NotificationService notificationService;
 
     public Estoque cadastrarEstoque(Estoque estoque) {
         return repository.save(estoque);
@@ -60,6 +62,7 @@ public class EstoqueService {
         for (OrdemServicoInsumo osInsumo : insumos) {
             Estoque estoque = buscarPorIdInsumo(osInsumo.getInsumo().getId());
             if (estoque.getQuantidadeInsumo() < osInsumo.getQuantidade()) {
+                notificarNecessidadeReposicao(estoque, osInsumo);
                 throw new EstoqueInsuficienteException(
                         osInsumo.getInsumo().getNome(),
                         estoque.getQuantidadeInsumo(),
@@ -85,6 +88,22 @@ public class EstoqueService {
     private <T> void atualizaSeExistente(T valor, Consumer<T> setter) {
         if (valor != null) {
             setter.accept(valor);
+        }
+    }
+
+    private void notificarNecessidadeReposicao(Estoque estoque, OrdemServicoInsumo osInsumo) {
+        try {
+            String nomeInsumo = osInsumo.getInsumo().getNome() != null
+                    ? osInsumo.getInsumo().getNome()
+                    : estoque.getInsumo().getNome();
+            notificationService.notificarFuncionarios(
+                    CodigoTemplate.REPOSICAO_ESTOQUE,
+                    nomeInsumo,
+                    String.valueOf(estoque.getQuantidadeInsumo()),
+                    String.valueOf(osInsumo.getQuantidade())
+            );
+        } catch (RuntimeException ignored) {
+            // A notificacao de reposicao nao deve mascarar a regra de estoque insuficiente.
         }
     }
 }
