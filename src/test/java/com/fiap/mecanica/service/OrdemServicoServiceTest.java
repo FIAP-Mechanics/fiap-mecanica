@@ -264,14 +264,14 @@ class OrdemServicoServiceTest {
         OrdemServico os1 = OrdemServico.builder().status(Status.RECEBIDA).cliente(cliente).veiculo(veiculo).build();
         OrdemServico os2 = OrdemServico.builder().status(Status.EM_DIAGNOSTICO).cliente(cliente).veiculo(veiculo).build();
 
-        when(ordemServicoRepository.findAllByStatusNot(Status.ENTREGUE)).thenReturn(List.of(os1, os2));
+        when(ordemServicoRepository.findAllByStatusNotIn(List.of(Status.ENTREGUE, Status.CANCELADA))).thenReturn(List.of(os1, os2));
 
         // Act
         List<OrdemServicoDto> resultado = ordemServicoService.listarAtendimentosEmAberto();
 
         // Assert
         assertThat(resultado).hasSize(2);
-        verify(ordemServicoRepository).findAllByStatusNot(Status.ENTREGUE);
+        verify(ordemServicoRepository).findAllByStatusNotIn(List.of(Status.ENTREGUE, Status.CANCELADA));
     }
 
     // ===================== realizarDiagnostico =====================
@@ -571,6 +571,56 @@ class OrdemServicoServiceTest {
 
         // Act & Assert
         assertThatThrownBy(() -> ordemServicoService.aprovarOrdemServico(UUID_ORDEM))
+                .isInstanceOf(OrdemServicoNaoEncontradaException.class);
+
+        verify(ordemServicoRepository, never()).save(any());
+    }
+
+    @Test
+    void deveCancelarOrdemServicoComSucesso() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.AGUARDANDO_APROVACAO);
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        when(ordemServicoRepository.save(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        OrdemServicoDto resultado = ordemServicoService.cancelarOrdemServico(UUID_ORDEM);
+
+        // Assert
+        assertThat(resultado.status()).isEqualTo(Status.CANCELADA);
+        assertThat(resultado.historicoDeEventos().stream().anyMatch(e -> e.status() == Status.CANCELADA)).isTrue();
+        verifyNoInteractions(estoqueService);
+        verify(ordemServicoRepository).save(any(OrdemServico.class));
+    }
+
+    @Test
+    void deveLancarTransicaoInvalidaExceptionQuandoStatusNaoPermitirCancelamento() {
+        // Arrange
+        Cliente cliente = criarCliente();
+        Veiculo veiculo = criarVeiculoAtivo();
+        OrdemServico ordemServico = criarOrdemServico(cliente, veiculo);
+        ordemServico.setStatus(Status.EM_EXECUCAO);
+
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+
+        // Act & Assert
+        assertThatThrownBy(() -> ordemServicoService.cancelarOrdemServico(UUID_ORDEM))
+                .isInstanceOf(TransicaoInvalidaException.class);
+
+        verify(ordemServicoRepository, never()).save(any());
+    }
+
+    @Test
+    void deveLancarOrdemServicoNaoEncontradaExceptionAoCancelarOrdemInexistente() {
+        // Arrange
+        when(ordemServicoRepository.findById(UUID_ORDEM)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> ordemServicoService.cancelarOrdemServico(UUID_ORDEM))
                 .isInstanceOf(OrdemServicoNaoEncontradaException.class);
 
         verify(ordemServicoRepository, never()).save(any());
