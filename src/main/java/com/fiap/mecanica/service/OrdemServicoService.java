@@ -92,7 +92,7 @@ public class OrdemServicoService {
     }
 
     public List<OrdemServicoDto> listarAtendimentosEmAberto() {
-        return ordemServicoRepository.findAllByStatusNot(Status.ENTREGUE)
+        return ordemServicoRepository.findAllByStatusNotIn(List.of(Status.ENTREGUE, Status.CANCELADA))
                 .stream()
                 .map(OrdemServicoMapper::toDto)
                 .toList();
