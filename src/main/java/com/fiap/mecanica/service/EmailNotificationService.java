@@ -30,6 +30,8 @@ public class EmailNotificationService implements NotificationService {
 
     @Override
     public void notificarCliente(CodigoTemplate template, Cliente cliente, String... args) {
+        if(this.emailRemetente.equals("skip")) return;
+
         TemplateNotificacao templateDomain = buscarTemplate(template);
         String conteudo = formatarConteudo(templateDomain.getConteudo(), args);
 
@@ -44,6 +46,8 @@ public class EmailNotificationService implements NotificationService {
 
     @Override
     public void notificarFuncionarios(CodigoTemplate template, String... args) {
+        if(this.emailRemetente.equals("skip")) return;
+
         TemplateNotificacao templateDomain = buscarTemplate(template);
         String conteudo = formatarConteudo(templateDomain.getConteudo(), args);
 

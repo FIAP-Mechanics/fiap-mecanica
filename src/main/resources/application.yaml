@@ -24,8 +24,8 @@ spring:
           starttls:
             enable: true
 notificacao:
-  email-atualizacoes: ${NOTIFICACAO_EMAIL_ADMIN:canal-atualizacoes@fiap-mecanica.com.br}
-  email-remetente: ${NOTIFICACAO_EMAIL_REMETENTE:noreply@fiap-mecanica.com}
+  email-atualizacoes: ${NOTIFICACAO_EMAIL_ADMIN:skip}
+  email-remetente: ${NOTIFICACAO_EMAIL_REMETENTE:skip}
 
 security:
   jwt:
