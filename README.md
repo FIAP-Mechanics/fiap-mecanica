@@ -39,7 +39,9 @@ As notificações usam templates cadastrados no sistema.
 - Cliente: recebe aviso para autorização de orçamento, retirada do veículo e confirmação de veículo retirado.
 - Funcionários: recebem aviso quando o estoque não possui quantidade suficiente e há necessidade de reposição.
 
-As configurações de e-mail ficam no `.env`. Em ambiente local, é possível usar `skip` nas variáveis de notificação para não enviar e-mails reais.
+As configurações de e-mail ficam no `.env`. Em ambiente local, use `skip` nas variáveis `NOTIFICACAO_EMAIL_ADMIN` e `NOTIFICACAO_EMAIL_REMETENTE` para não enviar e-mails reais. Quando o envio está em `skip`, o sistema não busca templates de notificação.
+
+Para habilitar envio real, configure um remetente válido e mantenha os templates cadastrados no banco.
 
 ## Perfis e Permissões
 
