@@ -146,6 +146,22 @@ class SecurityEndpointAuthorizationTest {
     }
 
     @Test
+    void mecanicoNaoPodeCancelarOrdemServico() throws Exception {
+        mockMvc.perform(post("/atendimento/{id}/cancelar", ORDEM_ID)
+                        .with(jwt().authorities(() -> "ROLE_MECANICO")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void atendentePodeCancelarOrdemServico() throws Exception {
+        when(ordemServicoService.cancelarOrdemServico(ORDEM_ID)).thenReturn(ordem(Status.CANCELADA));
+
+        mockMvc.perform(post("/atendimento/{id}/cancelar", ORDEM_ID)
+                        .with(jwt().authorities(() -> "ROLE_ATENDENTE")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void mecanicoPodeFinalizarOrdemServico() throws Exception {
         when(ordemServicoService.finalizarOrdemServico(eq(ORDEM_ID), any())).thenReturn(ordem(Status.FINALIZADA));
 
