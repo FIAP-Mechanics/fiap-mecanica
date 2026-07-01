@@ -38,3 +38,55 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  dependency-track-postgres:
+    image: 'postgres:latest'
+    container_name: dependency-track-postgres
+    profiles:
+      - security
+    environment:
+      - 'POSTGRES_DB=${DEPENDENCY_TRACK_POSTGRES_DB:-dependencytrack}'
+      - 'POSTGRES_PASSWORD=${DEPENDENCY_TRACK_POSTGRES_PASSWORD:-dependencytrack}'
+      - 'POSTGRES_USER=${DEPENDENCY_TRACK_POSTGRES_USER:-dependencytrack}'
+    volumes:
+      - dependency-track-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DEPENDENCY_TRACK_POSTGRES_USER:-dependencytrack} -d ${DEPENDENCY_TRACK_POSTGRES_DB:-dependencytrack}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dependency-track-apiserver:
+    image: 'dependencytrack/apiserver:${DEPENDENCY_TRACK_VERSION:-latest}'
+    container_name: dependency-track-apiserver
+    profiles:
+      - security
+    environment:
+      - ALPINE_DATABASE_MODE=external
+      - ALPINE_DATABASE_DRIVER=org.postgresql.Driver
+      - ALPINE_DATABASE_URL=jdbc:postgresql://dependency-track-postgres:5432/${DEPENDENCY_TRACK_POSTGRES_DB:-dependencytrack}
+      - ALPINE_DATABASE_USERNAME=${DEPENDENCY_TRACK_POSTGRES_USER:-dependencytrack}
+      - ALPINE_DATABASE_PASSWORD=${DEPENDENCY_TRACK_POSTGRES_PASSWORD:-dependencytrack}
+    ports:
+      - '${DEPENDENCY_TRACK_API_PORT:-8081}:8080'
+    volumes:
+      - dependency-track-data:/data
+    depends_on:
+      dependency-track-postgres:
+        condition: service_healthy
+
+  dependency-track-frontend:
+    image: 'dependencytrack/frontend:${DEPENDENCY_TRACK_VERSION:-latest}'
+    container_name: dependency-track-frontend
+    profiles:
+      - security
+    environment:
+      - API_BASE_URL=http://localhost:${DEPENDENCY_TRACK_API_PORT:-8081}
+    ports:
+      - '${DEPENDENCY_TRACK_FRONTEND_PORT:-8082}:8080'
+    depends_on:
+      - dependency-track-apiserver
+
+volumes:
+  dependency-track-data:
+  dependency-track-postgres-data:
