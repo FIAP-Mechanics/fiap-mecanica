@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,6 +28,7 @@ import static com.fiap.mecanica.controller.mapper.ClienteMapper.toEntity;
 @AllArgsConstructor
 @RestController
 @RequestMapping("/cliente")
+@Secured("ROLE_ATENDENTE")
 @Tag(name = "Clientes", description = "Operações de gerenciamento de clientes")
 public class ClienteController {
 

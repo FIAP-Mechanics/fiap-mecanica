@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -36,6 +37,7 @@ public class AtendimentoController {
             @ApiResponse(responseCode = "409", description = "Veículo inativo", content = @Content)
     })
     @PostMapping("/iniciar")
+    @Secured("ROLE_ATENDENTE")
     public OrdemServicoDto iniciarAtendimento(@Valid @RequestBody IniciarAtendimentoRequest request) {
         return ordemServicoService.iniciarAtendimento(request.cliente(), request.veiculo(), request.relatoCliente(), request.servicos(), request.insumos());
     }
@@ -47,6 +49,7 @@ public class AtendimentoController {
             @ApiResponse(responseCode = "404", description = "Ordem de serviço não encontrada", content = @Content)
     })
     @GetMapping("/{id}")
+    @Secured({"ROLE_ATENDENTE", "ROLE_MECANICO"})
     public OrdemServicoDto buscarPorId(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id) {
@@ -57,6 +60,7 @@ public class AtendimentoController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
     })
+    @Secured({"ROLE_ATENDENTE", "ROLE_MECANICO"})
     @GetMapping("/abertos")
     public List<OrdemServicoDto> listarAbertos() {
         return ordemServicoService.listarAtendimentosEmAberto();
@@ -67,6 +71,7 @@ public class AtendimentoController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Indicadores retornados com sucesso")
     })
+    @Secured("ROLE_ADMIN")
     @GetMapping("/relatorios/tempo-medio-servicos")
     public List<TempoMedioExecucaoServicoDto> listarTempoMedioExecucaoServicos() {
         return ordemServicoService.listarTempoMedioExecucaoServicos();
@@ -81,6 +86,7 @@ public class AtendimentoController {
             @ApiResponse(responseCode = "409", description = "Veículo inativo", content = @Content)
     })
     @PatchMapping("/{id}/diagnostico/iniciar")
+    @Secured("ROLE_MECANICO")
     public OrdemServicoDto iniciarDiagnostico(@Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
                                               @PathVariable String id) {
         return ordemServicoService.iniciarDiagnostico(id);
@@ -94,6 +100,7 @@ public class AtendimentoController {
             @ApiResponse(responseCode = "404", description = "Ordem de serviço, serviço ou insumo não encontrado", content = @Content)
     })
     @PostMapping("/{id}/diagnostico")
+    @Secured("ROLE_MECANICO")
     public OrdemServicoDto finalizarDiagnostico(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id,
@@ -110,6 +117,7 @@ public class AtendimentoController {
     })
 
     @PostMapping("/{id}/aprovar")
+    @Secured("ROLE_ATENDENTE")
     public OrdemServicoDto aprovarOrdemServico(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id) {
@@ -124,6 +132,7 @@ public class AtendimentoController {
             @ApiResponse(responseCode = "404", description = "Ordem de serviço não encontrada", content = @Content)
     })
     @PostMapping("/{id}/cancelar")
+    @Secured("ROLE_ATENDENTE")
     public OrdemServicoDto cancelarOrdemServico(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id) {
@@ -138,6 +147,7 @@ public class AtendimentoController {
             @ApiResponse(responseCode = "404", description = "Ordem de serviço não encontrada", content = @Content)
     })
     @PostMapping("/{id}/finalizar")
+    @Secured("ROLE_MECANICO")
     public OrdemServicoDto finalizarOrdemServico(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id,
@@ -153,6 +163,7 @@ public class AtendimentoController {
             @ApiResponse(responseCode = "404", description = "Ordem de serviço não encontrada", content = @Content)
     })
     @PostMapping("/{id}/entregar")
+    @Secured("ROLE_ATENDENTE")
     public OrdemServicoDto entregarOrdemServico(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id) {

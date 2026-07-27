@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 
 import static com.fiap.mecanica.controller.mapper.VeiculoMapper.toDto;
@@ -22,6 +23,7 @@ import static com.fiap.mecanica.controller.mapper.VeiculoMapper.toEntity;
 @AllArgsConstructor
 @RestController
 @RequestMapping("/veiculos")
+@Secured("ROLE_ATENDENTE")
 @Tag(name = "Veículos", description = "Operações de gerenciamento de veículos")
 public class VeiculoController {
 
