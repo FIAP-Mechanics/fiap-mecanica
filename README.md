@@ -315,20 +315,22 @@ Use o comando com volumes apenas quando quiser descartar os dados locais do Post
 
 ## Estrutura do Projeto
 
+A separação de camadas, a regra de dependência e a correspondência com o
+exemplo da FIAP estão documentadas em [docs/clean-architecture.md](docs/clean-architecture.md).
+
 ```text
 src/main/java/com/fiap/mecanica
-├── config              # Segurança, OpenAPI e inicialização do admin
-├── controller          # Endpoints REST
-├── controller/request  # Payloads de entrada
-├── controller/mapper   # Conversão entre domínio e DTO
-├── domain              # Entidades e enums de domínio
-├── dto                 # Objetos de resposta
-├── exception           # Exceções de negócio
-├── infra/configs       # Tratamento global de erros e enums auxiliares
-├── repository          # Repositórios JPA
-├── security            # Carregamento do usuário autenticado
-├── service             # Regras de negócio
-└── validation          # Validações customizadas
+├── domain                         # Entidades e regras de negócio puras
+├── application
+│   ├── port/in                    # Fronteiras de entrada dos casos de uso
+│   ├── port/out                   # Gateways exigidos pela aplicação
+│   └── usecase                    # Interactors dos casos de uso
+├── adapter
+│   ├── in/web                     # Controllers, requests, responses e presenters
+│   ├── in/bootstrap               # Entrada de inicialização da aplicação
+│   └── out                        # JPA, Security, JWT, transação e e-mail
+├── infrastructure/configuration   # Composição de dependências e configuração Spring
+└── exception                      # Erros compartilhados pelo núcleo
 ```
 
 Arquivos úteis na raiz:
