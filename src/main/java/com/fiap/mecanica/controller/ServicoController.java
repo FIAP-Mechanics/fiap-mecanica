@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -30,6 +31,7 @@ import static com.fiap.mecanica.controller.mapper.ServicoMapper.toEntity;
 @AllArgsConstructor
 @RestController
 @RequestMapping("/servicos")
+@Secured("ROLE_MECANICO")
 @Tag(name = "Servicos", description = "Operacoes de gerenciamento de servicos")
 public class ServicoController {
 

@@ -7,7 +7,6 @@ import com.fiap.mecanica.domain.*;
 import com.fiap.mecanica.dto.OrdemServicoDto;
 import com.fiap.mecanica.dto.TempoMedioExecucaoServicoDto;
 import com.fiap.mecanica.exception.OrdemServicoNaoEncontradaException;
-import com.fiap.mecanica.exception.TransicaoInvalidaException;
 import com.fiap.mecanica.exception.ValidacaoException;
 import com.fiap.mecanica.infra.configs.enums.CodigoTemplate;
 import com.fiap.mecanica.repository.OrdemServicoRepository;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -25,9 +23,6 @@ import java.util.Map;
 @AllArgsConstructor
 @Service
 public class OrdemServicoService {
-
-    private static final List<Status> STATUS_ENCERRADOS = List.of(Status.ENTREGUE, Status.CANCELADA);
-
     private final OrdemServicoRepository ordemServicoRepository;
     private final ClienteService clienteService;
     private final VeiculoService veiculoService;
@@ -48,46 +43,15 @@ public class OrdemServicoService {
                 .ordemServico(ordemServico)
                 .build();
 
-        if (servicosRequest != null && !servicosRequest.isEmpty()) {
-            List<OrdemServicoServico> servicos = new ArrayList<>();
-            for (IniciarAtendimentoRequest.ServicoQuantidade sq : servicosRequest) {
-                Servico servico = servicoService.buscarServicoPorId(sq.servico());
-                servicos.stream()
-                        .filter(s -> s.getServico().getId().equals(sq.servico()))
-                        .findFirst()
-                        .ifPresentOrElse(
-                                s -> s.setQuantidade(s.getQuantidade() + sq.quantidade()),
-                                () -> servicos.add(OrdemServicoMapper.toServicoEntity(orcamento, servico, sq.quantidade()))
-                        );
-            }
-            orcamento.setServicos(servicos);
-        }
+        adicionarItensAoOrcamento(servicosRequest, insumosRequest, orcamento);
 
-        if (insumosRequest != null && !insumosRequest.isEmpty()) {
-            List<OrdemServicoInsumo> insumos = new ArrayList<>();
-            for (IniciarAtendimentoRequest.InsumoQuantidade iq : insumosRequest) {
-                Insumo insumo = insumoService.buscarInsumoPorId(iq.insumo());
-                insumos.stream()
-                        .filter(i -> i.getInsumo().getId().equals(iq.insumo()))
-                        .findFirst()
-                        .ifPresentOrElse(
-                                i -> i.setQuantidade(i.getQuantidade() + iq.quantidade()),
-                                () -> insumos.add(OrdemServicoMapper.toInsumoEntity(orcamento, insumo, iq.quantidade()))
-                        );
-            }
-            orcamento.setInsumos(insumos);
-        }
-
-        orcamento.recalcularPrecoTotal();
         ordemServico.setOrcamento(orcamento);
-
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(salva);
     }
 
     public OrdemServicoDto buscarPorId(String id) {
-        OrdemServico ordemServico = ordemServicoRepository.findById(id)
-                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
+        OrdemServico ordemServico = findOrdemServico(id);
         return OrdemServicoMapper.toDto(ordemServico);
     }
 
@@ -132,12 +96,8 @@ public class OrdemServicoService {
     }
 
     public OrdemServicoDto iniciarDiagnostico(String id) {
-        OrdemServico ordemServico = ordemServicoRepository.findById(id)
-                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
-        if (ordemServico.getStatus() != Status.RECEBIDA) {
-            throw new TransicaoInvalidaException(ordemServico.getStatus(), Status.EM_DIAGNOSTICO);
-        }
-        ordemServico.setStatus(Status.EM_DIAGNOSTICO);
+        OrdemServico ordemServico = findOrdemServico(id);
+        ordemServico.atualizarStatus(Status.EM_DIAGNOSTICO);
         ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(ordemServico);
     }
@@ -145,8 +105,7 @@ public class OrdemServicoService {
     public OrdemServicoDto realizarDiagnostico(String id, List<IniciarAtendimentoRequest.ServicoQuantidade> servicosRequest,
                                                List<IniciarAtendimentoRequest.InsumoQuantidade> insumosRequest,
                                                String observacoesDiagnostico) {
-        OrdemServico ordemServico = ordemServicoRepository.findById(id)
-                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
+        OrdemServico ordemServico = findOrdemServico(id);
 
         if (ordemServico.getStatus() != Status.EM_DIAGNOSTICO) {
             throw new ValidacaoException("Apenas ordens em diagnóstico podem receber novos itens.");
@@ -158,85 +117,61 @@ public class OrdemServicoService {
 
         Orcamento orcamento = ordemServico.getOrcamento();
 
-        if (servicosRequest != null && !servicosRequest.isEmpty()) {
-            for (IniciarAtendimentoRequest.ServicoQuantidade sq : servicosRequest) {
-                Servico servico = servicoService.buscarServicoPorId(sq.servico());
-                orcamento.getServicos().stream()
-                        .filter(s -> s.getServico().getId().equals(sq.servico()))
-                        .findFirst()
-                        .ifPresentOrElse(
-                                s -> s.setQuantidade(s.getQuantidade() + sq.quantidade()),
-                                () -> orcamento.getServicos().add(OrdemServicoMapper.toServicoEntity(orcamento, servico, sq.quantidade()))
-                        );
-            }
-        }
+        adicionarItensAoOrcamento(servicosRequest, insumosRequest, orcamento);
 
-        if (insumosRequest != null && !insumosRequest.isEmpty()) {
-            for (IniciarAtendimentoRequest.InsumoQuantidade iq : insumosRequest) {
-                Insumo insumo = insumoService.buscarInsumoPorId(iq.insumo());
-                orcamento.getInsumos().stream()
-                        .filter(i -> i.getInsumo().getId().equals(iq.insumo()))
-                        .findFirst()
-                        .ifPresentOrElse(
-                                i -> i.setQuantidade(i.getQuantidade() + iq.quantidade()),
-                                () -> orcamento.getInsumos().add(OrdemServicoMapper.toInsumoEntity(orcamento, insumo, iq.quantidade()))
-                        );
-            }
-        }
-
-        orcamento.recalcularPrecoTotal();
-        ordemServico.setStatus(Status.AGUARDANDO_APROVACAO);
+        ordemServico.atualizarStatus(Status.AGUARDANDO_APROVACAO);
         notificationService.notificarCliente(CodigoTemplate.AUTORIZAR_ORCAMENTO, ordemServico.getCliente());
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(salva);
     }
 
     public OrdemServicoDto aprovarOrdemServico(String id) {
-        OrdemServico ordemServico = ordemServicoRepository.findById(id)
-                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
-
-        if (ordemServico.getStatus() != Status.AGUARDANDO_APROVACAO) {
-            throw new TransicaoInvalidaException(ordemServico.getStatus(), Status.EM_EXECUCAO);
-        }
+        OrdemServico ordemServico = findOrdemServico(id);
 
         if (ordemServico.getOrcamento() != null && ordemServico.getOrcamento().getInsumos() != null) {
             estoqueService.deduzirEstoque(ordemServico.getOrcamento().getInsumos());
         }
 
-        ordemServico.setStatus(Status.EM_EXECUCAO);
+        ordemServico.atualizarStatus(Status.EM_EXECUCAO);
 
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(salva);
     }
 
     public OrdemServicoDto cancelarOrdemServico(String id) {
-        OrdemServico ordemServico = ordemServicoRepository.findById(id)
-                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
-
-        if (ordemServico.getStatus() != Status.AGUARDANDO_APROVACAO) {
-            throw new TransicaoInvalidaException(ordemServico.getStatus(), Status.CANCELADA);
-        }
-
-        ordemServico.setStatus(Status.CANCELADA);
-
+        OrdemServico ordemServico = findOrdemServico(id);
+        ordemServico.atualizarStatus(Status.CANCELADA);
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(salva);
     }
 
     public OrdemServicoDto finalizarOrdemServico(String id, List<FinalizarOrdemServicoRequest.ServicoTempo> servicosTempo) {
-        OrdemServico ordemServico = ordemServicoRepository.findById(id)
-                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
-
-        if (ordemServico.getStatus() != Status.EM_EXECUCAO) {
-            throw new TransicaoInvalidaException(ordemServico.getStatus(), Status.FINALIZADA);
-        }
+        OrdemServico ordemServico = findOrdemServico(id);
 
         registrarTempoExecucaoServicos(ordemServico, servicosTempo);
-        ordemServico.setStatus(Status.FINALIZADA);
+        ordemServico.atualizarStatus(Status.FINALIZADA);
         notificationService.notificarCliente(CodigoTemplate.RETIRAR_VEICULO, ordemServico.getCliente());
 
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(salva);
+    }
+
+    private void adicionarItensAoOrcamento(List<IniciarAtendimentoRequest.ServicoQuantidade> servicosRequest,
+                                           List<IniciarAtendimentoRequest.InsumoQuantidade> insumosRequest,
+                                           Orcamento orcamento) {
+        if (servicosRequest != null) {
+            servicosRequest.forEach(sq -> {
+                Servico servico = servicoService.buscarServicoPorId(sq.servico());
+                orcamento.adicionarServico(servico, sq.quantidade());
+            });
+        }
+
+        if (insumosRequest != null) {
+            insumosRequest.forEach(iq -> {
+                Insumo insumo = insumoService.buscarInsumoPorId(iq.insumo());
+                orcamento.adicionarInsumo(insumo, iq.quantidade());
+            });
+        }
     }
 
     private void registrarTempoExecucaoServicos(
@@ -272,18 +207,17 @@ public class OrdemServicoService {
     }
 
     public OrdemServicoDto entregarVeiculo(String id) {
-        OrdemServico ordemServico = ordemServicoRepository.findById(id)
-                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
-
-        if (ordemServico.getStatus() != Status.FINALIZADA) {
-            throw new TransicaoInvalidaException(ordemServico.getStatus(), Status.ENTREGUE);
-        }
-
-        ordemServico.setStatus(Status.ENTREGUE);
+        OrdemServico ordemServico = findOrdemServico(id);
+        ordemServico.atualizarStatus(Status.ENTREGUE);
         notificationService.notificarCliente(CodigoTemplate.VEICULO_RETIRADO, ordemServico.getCliente());
 
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         return OrdemServicoMapper.toDto(salva);
+    }
+
+    private OrdemServico findOrdemServico(String id) {
+        return ordemServicoRepository.findById(id)
+                .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
     }
 
     private static class TempoMedioServico {

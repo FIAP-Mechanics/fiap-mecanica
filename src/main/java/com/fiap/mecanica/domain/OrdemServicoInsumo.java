@@ -1,10 +1,7 @@
 package com.fiap.mecanica.domain;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Data
 @Builder
@@ -20,6 +17,7 @@ public class OrdemServicoInsumo {
 
     @ManyToOne
     @JoinColumn(name = "orcamento_id")
+    @ToString.Exclude
     private Orcamento orcamento;
 
     @ManyToOne

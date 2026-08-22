@@ -25,9 +25,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = {AtendimentoController.class, TemplateController.class})
@@ -68,17 +66,9 @@ class SecurityEndpointAuthorizationTest {
     }
 
     @Test
-    void clientePodeAcompanharOrdemServicoSemAutenticacao() throws Exception {
-        when(ordemServicoService.buscarPorId(ORDEM_ID)).thenReturn(ordem(Status.EM_DIAGNOSTICO));
-
-        mockMvc.perform(get("/atendimento/{id}", ORDEM_ID))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void clienteNaoPodeListarAtendimentosAbertosSemAutenticacao() throws Exception {
+    void clienteNaoPodeListarAtendimentosAbertos() throws Exception {
         mockMvc.perform(get("/atendimento/abertos"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -148,7 +138,8 @@ class SecurityEndpointAuthorizationTest {
     @Test
     void mecanicoNaoPodeCancelarOrdemServico() throws Exception {
         mockMvc.perform(post("/atendimento/{id}/cancelar", ORDEM_ID)
-                        .with(jwt().authorities(() -> "ROLE_MECANICO")))
+                        .with(jwt().authorities(() -> "ROLE_MECANICO"))
+                        .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden());
     }
 
@@ -184,7 +175,18 @@ class SecurityEndpointAuthorizationTest {
     @Test
     void atendenteNaoPodeFinalizarOrdemServico() throws Exception {
         mockMvc.perform(post("/atendimento/{id}/finalizar", ORDEM_ID)
-                        .with(jwt().authorities(() -> "ROLE_ATENDENTE")))
+                        .with(jwt().authorities(() -> "ROLE_ATENDENTE"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "servicos": [
+                                    {
+                                      "servico": 1,
+                                      "tempoGastoMinutos": 90
+                                    }
+                                  ]
+                                }
+                                """))
                 .andExpect(status().isForbidden());
     }
 

@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,6 +24,7 @@ import java.util.List;
 @AllArgsConstructor
 @RestController
 @RequestMapping("/templates")
+@Secured({"ROLE_ADMIN"})
 @Tag(name = "Templates de Notificação", description = "Operações de gerenciamento de templates de notificação por e-mail")
 public class TemplateController {
 

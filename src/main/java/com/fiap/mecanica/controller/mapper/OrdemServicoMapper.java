@@ -1,11 +1,7 @@
 package com.fiap.mecanica.controller.mapper;
 
 import com.fiap.mecanica.domain.*;
-import com.fiap.mecanica.dto.OrcamentoDto;
-import com.fiap.mecanica.dto.OrcamentoInsumoDto;
-import com.fiap.mecanica.dto.OrdemServicoDto;
-import com.fiap.mecanica.dto.OrdemServicoServicoDto;
-import com.fiap.mecanica.dto.TrocaStatusDto;
+import com.fiap.mecanica.dto.*;
 
 import java.util.Collections;
 import java.util.List;
@@ -94,7 +90,7 @@ public class OrdemServicoMapper {
 
     public static TrocaStatusDto toTrocaStatusDto(TrocaStatus trocaStatus) {
         return TrocaStatusDto.builder()
-                .status(trocaStatus.getStatus())
+                .status(trocaStatus.getNovoStatus())
                 .dataHora(trocaStatus.getDataHora())
                 .build();
     }
