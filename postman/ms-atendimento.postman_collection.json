@@ -1,0 +1,589 @@
+{
+  "info": {
+    "_postman_id": "410bc306-79dd-4445-8964-9c45f6ff0ef5",
+    "name": "ms-atendimento",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "55257903",
+    "_collection_link": "https://go.postman.co/collection/55257903-410bc306-79dd-4445-8964-9c45f6ff0ef5?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Atendimento",
+      "item": [
+        {
+          "name": "Listar Atendimento Abertos",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            },
+            "url": {
+              "raw": "{{baseUrl}}/atendimento/abertos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "atendimento",
+                "abertos"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            },
+            "url": {
+              "raw": "{{baseUrl}}/atendimento/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "atendimento",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "549f0930-1461-4286-8676-c282990ada76",
+                  "description": "UUID do atendimento."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Relatório Tempo Médio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/atendimento/relatorios/tempo-medio-servicos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "atendimento",
+                "relatorios",
+                "tempo-medio-servicos"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "1 - Iniciar Atendimento",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"cliente\": 1,\r\n    \"veiculo\": 1,\r\n    \"relatoCliente\": \"O carro não liga\",\r\n    \"servicos\": [\r\n        {\r\n            \"servico\": 1,\r\n            \"quantidade\": 3\r\n        }\r\n    ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/atendimento/iniciar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "atendimento",
+                "iniciar"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2 - Iniciar Diagnostico",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            },
+            "url": {
+              "raw": "{{baseUrl}}/atendimento/:id/diagnostico/iniciar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "atendimento",
+                ":id",
+                "diagnostico",
+                "iniciar"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "549f0930-1461-4286-8676-c282990ada76",
+                  "description": "UUID do atendimento."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3 - Postar Diagnostico",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"observacoes\": \"O carro não tem pneu\",\r\n    \"servicos\": [\r\n        {\r\n            \"servico\": 1,\r\n            \"quantidade\": 4\r\n        }\r\n    ],\r\n    \"insumos\": [\r\n        {\r\n            \"insumo\": 1,\r\n            \"quantidade\": 4\r\n        }\r\n    ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/atendimento/:id/diagnostico",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "atendimento",
+                ":id",
+                "diagnostico"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "549f0930-1461-4286-8676-c282990ada76",
+                  "description": "UUID do atendimento."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4 - Aprovar",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/atendimento/:id/aprovar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "atendimento",
+                ":id",
+                "aprovar"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "549f0930-1461-4286-8676-c282990ada76",
+                  "description": "ID do atendimendo."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5 - Finalizar",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/atendimento/:id/finalizar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "atendimento",
+                ":id",
+                "finalizar"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "549f0930-1461-4286-8676-c282990ada76",
+                  "description": "ID do atendimendo."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6 - Veículo Entregue",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/atendimento/:id/entregar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "atendimento",
+                ":id",
+                "entregar"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "549f0930-1461-4286-8676-c282990ada76",
+                  "description": "ID do atendimendo."
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Templates",
+      "item": [
+        {
+          "name": "Templates Base",
+          "item": [
+            {
+              "name": "Autorizar Orçamento",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"codigo\": \"AUTORIZAR_ORCAMENTO\",\r\n    \"conteudo\": \"Precisamos da sua autorização do orçamento para iniciar os reparos\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/templates",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "templates"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Retirar Veículo",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"codigo\": \"RETIRAR_VEICULO\",\r\n    \"conteudo\": \"Seu veículo está pronto para retirada, aguardamos você na oficina\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/templates",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "templates"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Veículo Retirado",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"codigo\": \"VEICULO_RETIRADO\",\r\n    \"conteudo\": \"Confirmamos a retirada do seu veículo, agradecemos a confiança\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/templates",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "templates"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Reposição Estoque",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"codigo\": \"REPOSICAO_ESTOQUE\",\r\n    \"conteudo\": \"É necessário repor o estoque do insumo abaixo do mínimo definido\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/templates",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "templates"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Listar todos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "templates"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"codigo\": \"AUTORIZAR_ORCAMENTO\",\r\n    \"conteudo\": \"Precisamos da sua autorização do orçamento para iniciar os reparos\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "templates"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/templates/:codigo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "templates",
+                ":codigo"
+              ],
+              "variable": [
+                {
+                  "key": "codigo",
+                  "value": "AUTORIZAR_ORCAMENTO",
+                  "description": "Codigo do ENUM do template."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"conteudo\": \"Precisamos da vossa autorização do orçamento para iniciar os reparos\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/templates/:codigo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "templates",
+                ":codigo"
+              ],
+              "variable": [
+                {
+                  "key": "codigo",
+                  "value": "AUTORIZAR_ORCAMENTO",
+                  "description": "Codigo do ENUM do template."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remover",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/templates/:codigo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "templates",
+                ":codigo"
+              ],
+              "variable": [
+                {
+                  "key": "codigo",
+                  "value": "RETIRADA_REALIZADA",
+                  "description": "Codigo do ENUM do template."
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.environment.set(\"token\", pm.response.json().access_token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"email\": \"admin@mecanica.com\",\r\n    \"senha\": \"admin123\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": ""
+    },
+    {
+      "key": "port",
+      "value": ""
+    }
+  ]
+}

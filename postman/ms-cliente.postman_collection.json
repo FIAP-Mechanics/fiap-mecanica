@@ -1,0 +1,157 @@
+{
+  "info": {
+    "_postman_id": "d43eeb50-8bba-4be4-ae50-c23c244dea7f",
+    "name": "ms-cliente",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "55257903",
+    "_collection_link": "https://go.postman.co/collection/55257903-d43eeb50-8bba-4be4-ae50-c23c244dea7f?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Cadastrar",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"nome\": \"Lionel Messi\",\r\n  \"documento\": \"63648236000159\",\r\n  \"email\": \"lionel.messi@email.com\",\r\n  \"telefone\": \"11987654321\",\r\n  \"endereco\": {\r\n    \"cep\": \"22041001\",\r\n    \"estado\": \"RJ\",\r\n    \"cidade\": \"Rio de Janeiro\",\r\n    \"bairro\": \"Copacabana\",\r\n    \"rua\": \"Avenida Atlântica\",\r\n    \"numero\": \"1000\",\r\n    \"complemento\": \"Cobertura\"\r\n  }\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/cliente",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "cliente"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Atualizar",
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"nome\": \"Lionel Messi\",\r\n  \"documento\": \"96454941094\",\r\n  \"email\": \"lionel.messi@email.com\",\r\n  \"telefone\": \"11987654321\",\r\n  \"endereco\": {\r\n    \"cep\": \"22041001\",\r\n    \"estado\": \"RJ\",\r\n    \"cidade\": \"Rio de Janeiro\",\r\n    \"bairro\": \"Copacabana\",\r\n    \"rua\": \"Avenida Atlântica\",\r\n    \"numero\": \"1000\",\r\n    \"complemento\": \"Cobertura\"\r\n  }\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/cliente/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "cliente",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1",
+              "description": "ID do cliente."
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Buscar",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/cliente/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "cliente",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1",
+              "description": "ID do cliente."
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Listar Todos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/cliente",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "cliente"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": ""
+    },
+    {
+      "key": "port",
+      "value": ""
+    }
+  ]
+}

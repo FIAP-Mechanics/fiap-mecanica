@@ -1,0 +1,15 @@
+services:
+  postgres-estoque:
+    image: 'postgres:latest'
+    container_name: postgres-estoque
+    environment:
+      - 'POSTGRES_DB=mecanica_estoque'
+      - 'POSTGRES_USER=mecanica'
+      - 'POSTGRES_PASSWORD=mecanica'
+    ports:
+      - '5436:5432'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mecanica -d mecanica_estoque"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

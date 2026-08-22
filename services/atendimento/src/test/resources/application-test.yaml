@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:mecanica_atendimento;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  mail:
+    host: localhost
+    port: 25
+security:
+  jwt:
+    secret: troque-por-uma-secret-com-pelo-menos-32-caracteres
+    expiration-seconds: 3600
+    issuer: http://localhost:8086
+app:
+  admin:
+    email: admin@mecanica.com
+    password: admin123
+    nome: Administrador Padrão
+notificacao:
+  email-atualizacoes: skip
+  email-remetente: skip
+clients:
+  cliente-service:
+    base-url: http://localhost:8081
+  veiculo-service:
+    base-url: http://localhost:8082
+  servico-service:
+    base-url: http://localhost:8084
+  estoque-service:
+    base-url: http://localhost:8085
