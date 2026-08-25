@@ -1,7 +1,10 @@
 package com.fiap.mecanica.atendimento.domain;
 
-import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -11,29 +14,20 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity
-@Table(name = "orcamento")
 public class Orcamento {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
 
-    @OneToOne
-    @JoinColumn(name = "ordem_servico_id", nullable = false, unique = true)
     private OrdemServico ordemServico;
 
-    @OneToMany(mappedBy = "orcamento", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @ToString.Exclude
     private List<OrdemServicoServico> servicos = new ArrayList<>();
 
-    @OneToMany(mappedBy = "orcamento", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @ToString.Exclude
     private List<OrdemServicoInsumo> insumos = new ArrayList<>();
 
-    @Column(name = "preco_total", precision = 10, scale = 2)
     private BigDecimal precoTotal;
 
     public void adicionarServico(Long servicoId, String nomeServico, BigDecimal valorUnitario, Integer quantidade) {

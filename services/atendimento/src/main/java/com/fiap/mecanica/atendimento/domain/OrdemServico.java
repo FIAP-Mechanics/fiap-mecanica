@@ -1,8 +1,13 @@
 package com.fiap.mecanica.atendimento.domain;
 
 import com.fiap.mecanica.atendimento.exception.TransicaoInvalidaException;
-import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -12,36 +17,24 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity
-@Table(name = "ordem_servico")
 public class OrdemServico {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    @Enumerated(EnumType.STRING)
     private Status status;
 
-    @Column(name = "cliente_id")
     private Long clienteId;
 
-    @Column(name = "veiculo_id")
     private Long veiculoId;
 
-    @Column
     private String relatoCliente;
 
-    @Column
     private String observacoesDiagnostico;
 
     @Setter(AccessLevel.NONE)
-    @ElementCollection
-    @CollectionTable(name = "ordem_servico_historico", joinColumns = @JoinColumn(name = "ordem_servico_id"))
     @Builder.Default
     private List<TrocaStatus> historicoDeEventos = new ArrayList<>();
 
-    @OneToOne(mappedBy = "ordemServico", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     private Orcamento orcamento;
 
