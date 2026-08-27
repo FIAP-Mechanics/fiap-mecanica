@@ -1,0 +1,403 @@
+{
+  "info": {
+    "_postman_id": "c1f7d6c6-3d93-4b5d-a22c-82fd4b437f7a",
+    "name": "Oficina Mecânica - API completa",
+    "description": "Collection unificada dos seis microsserviços. Execute primeiro 00 - Autenticação. As requisições de cadastro salvam automaticamente os IDs nas variáveis da collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "clienteUrl", "value": "http://localhost:8081", "type": "string" },
+    { "key": "veiculoUrl", "value": "http://localhost:8082", "type": "string" },
+    { "key": "funcionarioUrl", "value": "http://localhost:8083", "type": "string" },
+    { "key": "servicoUrl", "value": "http://localhost:8084", "type": "string" },
+    { "key": "estoqueUrl", "value": "http://localhost:8085", "type": "string" },
+    { "key": "atendimentoUrl", "value": "http://localhost:8086", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "clienteId", "value": "1", "type": "string" },
+    { "key": "clienteDocumento", "value": "63648236000159", "type": "string" },
+    { "key": "veiculoId", "value": "1", "type": "string" },
+    { "key": "veiculoPlaca", "value": "ABC1D23", "type": "string" },
+    { "key": "funcionarioId", "value": "1", "type": "string" },
+    { "key": "funcionarioEmail", "value": "mecanico.postman@mecanica.com", "type": "string" },
+    { "key": "servicoId", "value": "1", "type": "string" },
+    { "key": "insumoId", "value": "1", "type": "string" },
+    { "key": "atendimentoId", "value": "", "type": "string" },
+    { "key": "atendimentoCancelamentoId", "value": "", "type": "string" },
+    { "key": "templateCodigo", "value": "AUTORIZAR_ORCAMENTO", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "00 - Autenticação",
+      "item": [
+        {
+          "name": "Login e salvar token",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@mecanica.com\",\n  \"senha\": \"admin123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{atendimentoUrl}}/auth/login",
+            "description": "Autentica com o administrador padrão e salva access_token na collection."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login realizado com sucesso', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.expect(json.access_token).to.be.a('string').and.not.empty;",
+                  "pm.collectionVariables.set('accessToken', json.access_token);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01 - Clientes",
+      "item": [
+        {
+          "name": "Cadastrar cliente",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente Postman\",\n  \"documento\": \"{{clienteDocumento}}\",\n  \"email\": \"cliente.postman@mecanica.com\",\n  \"telefone\": \"11987654321\",\n  \"endereco\": {\n    \"cep\": \"01310100\",\n    \"estado\": \"SP\",\n    \"cidade\": \"São Paulo\",\n    \"bairro\": \"Bela Vista\",\n    \"rua\": \"Avenida Paulista\",\n    \"numero\": \"1000\",\n    \"complemento\": \"Conjunto 10\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{clienteUrl}}/cliente"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code >= 200 && pm.response.code < 300) {", "  pm.collectionVariables.set('clienteId', pm.response.json().id);", "}"] } }],
+          "response": []
+        },
+        {
+          "name": "Listar clientes",
+          "request": { "method": "GET", "header": [], "url": "{{clienteUrl}}/cliente" },
+          "response": []
+        },
+        {
+          "name": "Buscar cliente por ID",
+          "request": { "method": "GET", "header": [], "url": "{{clienteUrl}}/cliente/{{clienteId}}" },
+          "response": []
+        },
+        {
+          "name": "Buscar cliente por documento",
+          "request": { "method": "GET", "header": [], "url": "{{clienteUrl}}/cliente/documento?documento={{clienteDocumento}}" },
+          "response": []
+        },
+        {
+          "name": "Atualizar cliente",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente Postman Atualizado\",\n  \"documento\": \"{{clienteDocumento}}\",\n  \"email\": \"cliente.postman@mecanica.com\",\n  \"telefone\": \"11999998888\",\n  \"endereco\": {\n    \"cep\": \"01310100\",\n    \"estado\": \"SP\",\n    \"cidade\": \"São Paulo\",\n    \"bairro\": \"Bela Vista\",\n    \"rua\": \"Avenida Paulista\",\n    \"numero\": \"1001\",\n    \"complemento\": \"Conjunto 11\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{clienteUrl}}/cliente/{{clienteId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Vincular veículo ao cliente",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": "{{clienteUrl}}/cliente/{{clienteId}}/veiculo/{{veiculoId}}?placa={{veiculoPlaca}}&marca=Volkswagen&modelo=Gol&ano=2022",
+            "description": "Execute depois de cadastrar o veículo na pasta 02."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar veículos do cliente",
+          "request": { "method": "GET", "header": [], "url": "{{clienteUrl}}/cliente/{{clienteId}}/veiculos" },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Veículos",
+      "item": [
+        {
+          "name": "Cadastrar veículo",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"marca\": \"Volkswagen\",\n  \"modelo\": \"Gol\",\n  \"placa\": \"{{veiculoPlaca}}\",\n  \"ano\": 2022\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{veiculoUrl}}/veiculos"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code >= 200 && pm.response.code < 300) {", "  pm.collectionVariables.set('veiculoId', pm.response.json().id);", "}"] } }],
+          "response": []
+        },
+        { "name": "Listar veículos", "request": { "method": "GET", "header": [], "url": "{{veiculoUrl}}/veiculos" }, "response": [] },
+        { "name": "Buscar veículo por ID", "request": { "method": "GET", "header": [], "url": "{{veiculoUrl}}/veiculos/{{veiculoId}}" }, "response": [] },
+        { "name": "Buscar veículo por placa", "request": { "method": "GET", "header": [], "url": "{{veiculoUrl}}/veiculos/placa/{{veiculoPlaca}}" }, "response": [] },
+        {
+          "name": "Atualizar veículo",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"marca\": \"Volkswagen\",\n  \"modelo\": \"Gol Comfortline\",\n  \"ano\": 2023\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{veiculoUrl}}/veiculos/{{veiculoId}}"
+          },
+          "response": []
+        },
+        { "name": "Desativar veículo", "request": { "method": "DELETE", "header": [], "url": "{{veiculoUrl}}/veiculos/{{veiculoId}}" }, "response": [] },
+        { "name": "Reativar veículo", "request": { "method": "PUT", "header": [], "url": "{{veiculoUrl}}/veiculos/{{veiculoId}}/reativar" }, "response": [] }
+      ]
+    },
+    {
+      "name": "03 - Funcionários",
+      "item": [
+        {
+          "name": "Cadastrar funcionário",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{funcionarioEmail}}\",\n  \"nome\": \"Mecânico Postman\",\n  \"senha\": \"senha123\",\n  \"funcao\": \"MECANICO\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{funcionarioUrl}}/funcionarios"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code >= 200 && pm.response.code < 300) {", "  pm.collectionVariables.set('funcionarioId', pm.response.json().id);", "}"] } }],
+          "response": []
+        },
+        { "name": "Listar funcionários", "request": { "method": "GET", "header": [], "url": "{{funcionarioUrl}}/funcionarios" }, "response": [] },
+        { "name": "Buscar funcionário por ID", "request": { "method": "GET", "header": [], "url": "{{funcionarioUrl}}/funcionarios/{{funcionarioId}}" }, "response": [] },
+        { "name": "Buscar funcionário por e-mail", "request": { "method": "GET", "header": [], "url": "{{funcionarioUrl}}/funcionarios/email/{{funcionarioEmail}}" }, "response": [] },
+        {
+          "name": "Atualizar funcionário",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Mecânico Postman Atualizado\",\n  \"funcao\": \"MECANICO\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{funcionarioUrl}}/funcionarios/{{funcionarioId}}"
+          },
+          "response": []
+        },
+        { "name": "Desativar funcionário", "request": { "method": "DELETE", "header": [], "url": "{{funcionarioUrl}}/funcionarios/{{funcionarioId}}" }, "response": [] },
+        { "name": "Reativar funcionário", "request": { "method": "PUT", "header": [], "url": "{{funcionarioUrl}}/funcionarios/{{funcionarioId}}/reativar" }, "response": [] }
+      ]
+    },
+    {
+      "name": "04 - Serviços",
+      "item": [
+        {
+          "name": "Cadastrar serviço",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Troca de óleo Postman\",\n  \"descricao\": \"Troca de óleo e filtro\",\n  \"valor\": 150.00\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{servicoUrl}}/servicos"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code >= 200 && pm.response.code < 300) {", "  pm.collectionVariables.set('servicoId', pm.response.json().id);", "}"] } }],
+          "response": []
+        },
+        { "name": "Listar serviços", "request": { "method": "GET", "header": [], "url": "{{servicoUrl}}/servicos" }, "response": [] },
+        { "name": "Buscar serviço por ID", "request": { "method": "GET", "header": [], "url": "{{servicoUrl}}/servicos/{{servicoId}}" }, "response": [] },
+        {
+          "name": "Atualizar serviço",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"descricao\": \"Troca de óleo, filtro e inspeção\",\n  \"valor\": 175.00\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{servicoUrl}}/servicos/{{servicoId}}"
+          },
+          "response": []
+        },
+        { "name": "Desativar serviço", "request": { "method": "DELETE", "header": [], "url": "{{servicoUrl}}/servicos/{{servicoId}}" }, "response": [] },
+        { "name": "Reativar serviço", "request": { "method": "PUT", "header": [], "url": "{{servicoUrl}}/servicos/{{servicoId}}/reativar" }, "response": [] }
+      ]
+    },
+    {
+      "name": "05 - Estoque",
+      "item": [
+        {
+          "name": "Cadastrar insumo no estoque",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"insumo\": {\n    \"nome\": \"Óleo 5W30 Postman\",\n    \"precoUnitario\": 45.90\n  },\n  \"quantidade\": 20\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{estoqueUrl}}/estoque"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code >= 200 && pm.response.code < 300) {", "  pm.collectionVariables.set('insumoId', pm.response.json().insumo.id);", "}"] } }],
+          "response": []
+        },
+        { "name": "Listar estoque", "request": { "method": "GET", "header": [], "url": "{{estoqueUrl}}/estoque" }, "response": [] },
+        { "name": "Buscar item do estoque", "request": { "method": "GET", "header": [], "url": "{{estoqueUrl}}/estoque/{{insumoId}}" }, "response": [] },
+        {
+          "name": "Alterar quantidade",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"quantidade\": 25\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{estoqueUrl}}/estoque/{{insumoId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar dados do insumo",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Óleo sintético 5W30 Postman\",\n  \"precoUnitario\": 49.90\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{estoqueUrl}}/estoque/insumo/{{insumoId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Deduzir estoque",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "[\n  {\n    \"insumoId\": {{insumoId}},\n    \"quantidade\": 1\n  }\n]", "options": { "raw": { "language": "json" } } },
+            "url": "{{estoqueUrl}}/estoque/deduzir"
+          },
+          "response": []
+        },
+        { "name": "Desativar item do estoque", "request": { "method": "DELETE", "header": [], "url": "{{estoqueUrl}}/estoque/{{insumoId}}" }, "response": [] },
+        { "name": "Reativar item do estoque", "request": { "method": "PUT", "header": [], "url": "{{estoqueUrl}}/estoque/{{insumoId}}/reativar" }, "response": [] }
+      ]
+    },
+    {
+      "name": "06 - Templates",
+      "item": [
+        {
+          "name": "Criar template AUTORIZAR_ORCAMENTO",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"codigo\": \"{{templateCodigo}}\",\n  \"conteudo\": \"Precisamos da sua autorização para iniciar os reparos.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{atendimentoUrl}}/templates"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar template RETIRAR_VEICULO",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"codigo\": \"RETIRAR_VEICULO\",\n  \"conteudo\": \"Seu veículo está pronto para retirada.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{atendimentoUrl}}/templates"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar template VEICULO_RETIRADO",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"codigo\": \"VEICULO_RETIRADO\",\n  \"conteudo\": \"Confirmamos a retirada do seu veículo. Obrigado pela preferência.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{atendimentoUrl}}/templates"
+          },
+          "response": []
+        },
+        {
+          "name": "Criar template REPOSICAO_ESTOQUE",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"codigo\": \"REPOSICAO_ESTOQUE\",\n  \"conteudo\": \"Reposição necessária: %s\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{atendimentoUrl}}/templates"
+          },
+          "response": []
+        },
+        { "name": "Listar templates", "request": { "method": "GET", "header": [], "url": "{{atendimentoUrl}}/templates" }, "response": [] },
+        { "name": "Buscar template por código", "request": { "method": "GET", "header": [], "url": "{{atendimentoUrl}}/templates/{{templateCodigo}}" }, "response": [] },
+        {
+          "name": "Atualizar template",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"conteudo\": \"Seu orçamento está pronto e precisa de autorização.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{atendimentoUrl}}/templates/{{templateCodigo}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Excluir template",
+          "request": { "method": "DELETE", "header": [], "url": "{{atendimentoUrl}}/templates/{{templateCodigo}}" },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 - Atendimentos",
+      "item": [
+        {
+          "name": "1 - Iniciar atendimento",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cliente\": {{clienteId}},\n  \"veiculo\": {{veiculoId}},\n  \"relatoCliente\": \"Barulho na suspensão dianteira\",\n  \"servicos\": []\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{atendimentoUrl}}/atendimento/iniciar"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code >= 200 && pm.response.code < 300) {", "  pm.collectionVariables.set('atendimentoId', pm.response.json().id);", "}"] } }],
+          "response": []
+        },
+        { "name": "2 - Buscar atendimento por ID", "request": { "method": "GET", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}" }, "response": [] },
+        { "name": "3 - Listar atendimentos abertos", "request": { "method": "GET", "header": [], "url": "{{atendimentoUrl}}/atendimento/abertos" }, "response": [] },
+        { "name": "4 - Iniciar diagnóstico", "request": { "method": "PATCH", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}/diagnostico/iniciar" }, "response": [] },
+        {
+          "name": "5 - Finalizar diagnóstico",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"observacoes\": \"Necessária troca de óleo e filtro.\",\n  \"servicos\": [\n    { \"servico\": {{servicoId}}, \"quantidade\": 1 }\n  ],\n  \"insumos\": [\n    { \"insumo\": {{insumoId}}, \"quantidade\": 2 }\n  ]\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}/diagnostico"
+          },
+          "response": []
+        },
+        { "name": "6 - Aprovar ordem de serviço", "request": { "method": "POST", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}/aprovar" }, "response": [] },
+        { "name": "7 - Finalizar ordem de serviço", "request": { "method": "POST", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}/finalizar" }, "response": [] },
+        { "name": "8 - Entregar veículo", "request": { "method": "POST", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}/entregar" }, "response": [] },
+        { "name": "9 - Relatório de tempo médio", "request": { "method": "GET", "header": [], "url": "{{atendimentoUrl}}/atendimento/relatorios/tempo-medio-servicos" }, "response": [] },
+        {
+          "name": "Cancelamento - Criar outra OS",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cliente\": {{clienteId}},\n  \"veiculo\": {{veiculoId}},\n  \"relatoCliente\": \"Teste do fluxo de cancelamento\",\n  \"servicos\": []\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{atendimentoUrl}}/atendimento/iniciar"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code >= 200 && pm.response.code < 300) {", "  pm.collectionVariables.set('atendimentoCancelamentoId', pm.response.json().id);", "}"] } }],
+          "response": []
+        },
+        { "name": "Cancelamento - Iniciar diagnóstico", "request": { "method": "PATCH", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoCancelamentoId}}/diagnostico/iniciar" }, "response": [] },
+        {
+          "name": "Cancelamento - Finalizar diagnóstico",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"observacoes\": \"Cliente não aprovou o orçamento.\",\n  \"servicos\": [\n    { \"servico\": {{servicoId}}, \"quantidade\": 1 }\n  ],\n  \"insumos\": []\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{atendimentoUrl}}/atendimento/{{atendimentoCancelamentoId}}/diagnostico"
+          },
+          "response": []
+        },
+        { "name": "Cancelamento - Cancelar OS", "request": { "method": "POST", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoCancelamentoId}}/cancelar" }, "response": [] }
+      ]
+    }
+  ]
+}

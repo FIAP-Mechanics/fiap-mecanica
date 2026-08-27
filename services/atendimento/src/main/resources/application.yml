@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: atendimento-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5437/mecanica_atendimento}
+    username: ${SPRING_DATASOURCE_USERNAME:mecanica}
+    password: ${SPRING_DATASOURCE_PASSWORD:mecanica}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:seu-email@gmail.com}
+    password: ${MAIL_PASSWORD:sua-senha-de-app}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
+
+server:
+  port: 8086
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:0123456789abcdef0123456789abcdef}
+    expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
+    issuer: ${JWT_ISSUER:http://localhost:8086}
+
+app:
+  admin:
+    email: ${ADMIN_EMAIL:admin@mecanica.com}
+    password: ${ADMIN_PASSWORD:admin123}
+    nome: ${ADMIN_NOME:Administrador Padrão}
+
+notificacao:
+  email-atualizacoes: ${NOTIFICACAO_EMAIL_ADMIN:skip}
+  email-remetente: ${NOTIFICACAO_EMAIL_REMETENTE:skip}
+
+clients:
+  cliente-service:
+    base-url: ${CLIENTE_SERVICE_URL:http://localhost:8081}
+  veiculo-service:
+    base-url: ${VEICULO_SERVICE_URL:http://localhost:8082}
+  servico-service:
+    base-url: ${SERVICO_SERVICE_URL:http://localhost:8084}
+  estoque-service:
+    base-url: ${ESTOQUE_SERVICE_URL:http://localhost:8085}

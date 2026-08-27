@@ -1,0 +1,208 @@
+{
+  "info": {
+    "_postman_id": "b58cb9b0-0f1c-407c-b612-e5602c259f40",
+    "name": "ms-veiculo",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "55257903",
+    "_collection_link": "https://go.postman.co/collection/55257903-b58cb9b0-0f1c-407c-b612-e5602c259f40?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Cadastrar",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"marca\": \"Volkswagen\",\r\n  \"modelo\": \"Gol\",\r\n  \"placa\": \"ABC1D23\",\r\n  \"ano\": 2022\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/veiculos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "veiculos"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Atualizar",
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"marca\": \"Ford\",\r\n  \"modelo\": \"Fiesta\",\r\n  \"placa\": \"ABC1234\",\r\n  \"ano\": 2015\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/veiculos/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "veiculos",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1",
+              "description": "ID do veículo"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Buscar",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/veiculos/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "veiculos",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1",
+              "description": "ID do Veículo."
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Listar Todos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/veiculos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "veiculos"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Desativar",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/veiculos/:id",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "veiculos",
+            ":id"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1",
+              "description": "ID do Veículo."
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Reativar",
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/veiculos/:id/reativar",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "veiculos",
+            ":id",
+            "reativar"
+          ],
+          "variable": [
+            {
+              "key": "id",
+              "value": "1",
+              "description": "ID do Veículo."
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": ""
+    },
+    {
+      "key": "port",
+      "value": ""
+    }
+  ]
+}
