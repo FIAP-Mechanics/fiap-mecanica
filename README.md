@@ -52,14 +52,35 @@ Todos os endpoints abaixo são expostos pelo serviço `atendimento` (porta 8086)
 
 ## Notificações
 
-As notificações usam templates cadastrados no serviço `atendimento`.
+O serviço `atendimento` envia e-mails ao cliente durante o fluxo da OS e ao administrador quando falta estoque. Os templates necessários estão na pasta `06 - Templates` da collection do Postman.
 
-- Cliente: recebe aviso para autorização de orçamento, retirada do veículo e confirmação de veículo retirado.
-- Funcionários: recebem aviso quando o estoque não possui quantidade suficiente e há necessidade de reposição.
+Para desabilitar os e-mails, use no `.env`:
 
-As configurações de e-mail do serviço `atendimento` são lidas das variáveis de ambiente `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_AUTH`, `MAIL_SMTP_STARTTLS_ENABLE`, `NOTIFICACAO_EMAIL_ADMIN` e `NOTIFICACAO_EMAIL_REMETENTE`. O `compose.app.yaml` encaminha essas variáveis do `.env` para o container. Quando `NOTIFICACAO_EMAIL_REMETENTE` está em `skip`, o envio fica desabilitado e o sistema não busca templates de notificação.
+```dotenv
+NOTIFICACAO_EMAIL_REMETENTE=skip
+NOTIFICACAO_EMAIL_ADMIN=skip
+```
 
-Para habilitar envio real, configure as credenciais SMTP e um remetente válido nessas variáveis e mantenha os templates cadastrados no banco. A collection unificada cria os quatro templates antes do fluxo de atendimento.
+Para habilitar, configure o SMTP e substitua `skip` por endereços válidos:
+
+```dotenv
+MAIL_HOST=sandbox.smtp.mailtrap.io
+MAIL_PORT=2525
+MAIL_USERNAME=usuario-smtp
+MAIL_PASSWORD=senha-smtp
+MAIL_SMTP_AUTH=true
+MAIL_SMTP_STARTTLS_ENABLE=true
+NOTIFICACAO_EMAIL_REMETENTE=no-reply@oficina.com
+NOTIFICACAO_EMAIL_ADMIN=estoque@oficina.com
+```
+
+Após alterar o `.env`, recrie o container:
+
+```powershell
+docker compose -f compose.app.yaml up -d --force-recreate atendimento
+```
+
+O e-mail do cliente é obtido automaticamente do cadastro. Falhas do SMTP são registradas nos logs e não interrompem a operação principal.
 
 ## Perfis e Permissões
 

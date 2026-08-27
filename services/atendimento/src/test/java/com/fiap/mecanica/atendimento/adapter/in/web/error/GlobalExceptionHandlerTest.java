@@ -1,6 +1,7 @@
 package com.fiap.mecanica.atendimento.adapter.in.web.error;
 
 import com.fiap.mecanica.atendimento.exception.ConflitoException;
+import com.fiap.mecanica.atendimento.exception.EstoqueInsuficienteException;
 import com.fiap.mecanica.atendimento.exception.ValidacaoException;
 import com.fiap.mecanica.atendimento.exception.VeiculoInativoException;
 import com.fiap.mecanica.atendimento.exception.VeiculoNaoEncontradoException;
@@ -191,5 +192,14 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(response.getBody().erros().getFirst().descricao())
                 .isEqualTo("Ocorreu um erro interno na aplicação.");
+    }
+
+    @Test
+    void deveRetornar400QuandoEstoqueForInsuficiente() {
+        ResponseEntity<RespostaErro> response = handler.handleEstoqueInsuficiente(
+                new EstoqueInsuficienteException("Estoque insuficiente"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().erros().getFirst().codigo()).isEqualTo("estoque-insuficiente");
     }
 }

@@ -6,13 +6,18 @@ import com.fiap.mecanica.atendimento.application.port.out.TemplateGateway;
 import com.fiap.mecanica.atendimento.domain.CodigoTemplate;
 import com.fiap.mecanica.atendimento.domain.TemplateNotificacao;
 import com.fiap.mecanica.atendimento.exception.TemplateNotFound;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
 @Component
 public class EmailNotificationGateway implements NotificationGateway {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(EmailNotificationGateway.class);
 
     private final TemplateGateway templateGateway;
     private final JavaMailSender mailSender;
@@ -42,7 +47,7 @@ public class EmailNotificationGateway implements NotificationGateway {
         mensagem.setSubject(template.name());
         mensagem.setText(conteudo);
 
-        mailSender.send(mensagem);
+        enviar(mensagem);
     }
 
     @Override
@@ -58,7 +63,16 @@ public class EmailNotificationGateway implements NotificationGateway {
         mensagem.setSubject(template.name());
         mensagem.setText(conteudo);
 
-        mailSender.send(mensagem);
+        enviar(mensagem);
+    }
+
+    private void enviar(SimpleMailMessage mensagem) {
+        try {
+            mailSender.send(mensagem);
+        } catch (MailException ex) {
+            LOGGER.error("Falha ao enviar notificação por e-mail. destinatario={}, assunto={}",
+                    mensagem.getTo(), mensagem.getSubject(), ex);
+        }
     }
 
     private TemplateNotificacao buscarTemplate(CodigoTemplate template) {

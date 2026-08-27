@@ -8,6 +8,7 @@ import lombok.Getter;
 public enum CodigoErro {
     ENTIDADE_NAO_ENCONTRADA("entidade-nao-encontrada"),
     CONFLITO("conflito"),
+    ESTOQUE_INSUFICIENTE("estoque-insuficiente"),
     VALIDACAO("validacao"),
     NAO_AUTORIZADO("nao-autorizado"),
     ACESSO_NEGADO("acesso-negado"),

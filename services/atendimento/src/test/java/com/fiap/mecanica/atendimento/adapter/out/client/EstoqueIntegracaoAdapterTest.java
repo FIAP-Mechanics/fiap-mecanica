@@ -4,6 +4,7 @@ import com.fiap.mecanica.atendimento.adapter.out.client.dto.DeduzirEstoqueItemDt
 import com.fiap.mecanica.atendimento.adapter.out.client.dto.EstoqueIntegracaoDto;
 import com.fiap.mecanica.atendimento.adapter.out.client.dto.InsumoIntegracaoDto;
 import com.fiap.mecanica.atendimento.application.port.out.EstoqueIntegracaoGateway;
+import com.fiap.mecanica.atendimento.exception.EstoqueInsuficienteException;
 import com.fiap.mecanica.atendimento.exception.InsumoNaoEncontradoException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +20,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import tools.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings({"unchecked", "rawtypes"})
@@ -67,7 +70,8 @@ class EstoqueIntegracaoAdapterTest {
     void configurarAdapter() {
         restClientMockedStatic = mockStatic(RestClient.class);
         restClientMockedStatic.when(() -> RestClient.create(BASE_URL)).thenReturn(restClient);
-        estoqueIntegracaoAdapter = new EstoqueIntegracaoAdapter(BASE_URL, internalServiceTokenProvider);
+        estoqueIntegracaoAdapter = new EstoqueIntegracaoAdapter(
+                BASE_URL, internalServiceTokenProvider, new ObjectMapper());
     }
 
     @AfterEach
@@ -127,6 +131,31 @@ class EstoqueIntegracaoAdapterTest {
         assertThatCode(() -> estoqueIntegracaoAdapter.deduzirEstoque(itens)).doesNotThrowAnyException();
 
         verify(responseSpec).toBodilessEntity();
+    }
+
+    @Test
+    void deveMapearErroDeEstoqueInsuficiente() {
+        List<EstoqueIntegracaoGateway.ItemDeducaoEstoque> itens = List.of(
+                new EstoqueIntegracaoGateway.ItemDeducaoEstoque(INSUMO_ID, 20));
+        String resposta = "{\"erros\":[{\"codigo\":\"estoque-insuficiente\","
+                + "\"descricao\":\"Estoque insuficiente para o insumo 'Filtro de oleo'.\"}]}";
+
+        when(internalServiceTokenProvider.obterAuthorizationHeader()).thenReturn(AUTHORIZATION_HEADER);
+        when(restClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri("/estoque/deduzir")).thenReturn(requestBodySpec);
+        when(requestBodySpec.header(HttpHeaders.AUTHORIZATION, AUTHORIZATION_HEADER)).thenReturn(requestBodySpec);
+        when(requestBodySpec.body(List.of(new DeduzirEstoqueItemDto(INSUMO_ID, 20)))).thenReturn(requestBodySpec);
+        when(requestBodySpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.toBodilessEntity()).thenThrow(HttpClientErrorException.create(
+                HttpStatus.BAD_REQUEST,
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                HttpHeaders.EMPTY,
+                resposta.getBytes(StandardCharsets.UTF_8),
+                StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> estoqueIntegracaoAdapter.deduzirEstoque(itens))
+                .isInstanceOf(EstoqueInsuficienteException.class)
+                .hasMessageContaining("Filtro de oleo");
     }
 
     private HttpClientErrorException criarHttpClientErrorException(HttpStatus status) {

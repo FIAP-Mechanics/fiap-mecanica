@@ -319,7 +319,7 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"codigo\": \"REPOSICAO_ESTOQUE\",\n  \"conteudo\": \"É necessário repor um item do estoque.\"\n}", "options": { "raw": { "language": "json" } } },
+            "body": { "mode": "raw", "raw": "{\n  \"codigo\": \"REPOSICAO_ESTOQUE\",\n  \"conteudo\": \"Reposição necessária: %s\"\n}", "options": { "raw": { "language": "json" } } },
             "url": "{{atendimentoUrl}}/templates"
           },
           "response": []
@@ -334,6 +334,11 @@
             "body": { "mode": "raw", "raw": "{\n  \"conteudo\": \"Seu orçamento está pronto e precisa de autorização.\"\n}", "options": { "raw": { "language": "json" } } },
             "url": "{{atendimentoUrl}}/templates/{{templateCodigo}}"
           },
+          "response": []
+        },
+        {
+          "name": "Excluir template",
+          "request": { "method": "DELETE", "header": [], "url": "{{atendimentoUrl}}/templates/{{templateCodigo}}" },
           "response": []
         }
       ]
@@ -392,16 +397,6 @@
           "response": []
         },
         { "name": "Cancelamento - Cancelar OS", "request": { "method": "POST", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoCancelamentoId}}/cancelar" }, "response": [] }
-      ]
-    },
-    {
-      "name": "99 - Limpeza opcional",
-      "item": [
-        {
-          "name": "Excluir template AUTORIZAR_ORCAMENTO após os testes",
-          "request": { "method": "DELETE", "header": [], "url": "{{atendimentoUrl}}/templates/{{templateCodigo}}" },
-          "response": []
-        }
       ]
     }
   ]

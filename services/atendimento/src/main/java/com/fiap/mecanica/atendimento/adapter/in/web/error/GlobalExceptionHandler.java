@@ -2,6 +2,7 @@ package com.fiap.mecanica.atendimento.adapter.in.web.error;
 
 import com.fiap.mecanica.atendimento.exception.ConflitoException;
 import com.fiap.mecanica.atendimento.exception.EntidadeNaoEncontradaException;
+import com.fiap.mecanica.atendimento.exception.EstoqueInsuficienteException;
 import com.fiap.mecanica.atendimento.exception.ValidacaoException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -46,6 +47,15 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new RespostaErro(
                         List.of(new ErroDetalhe(CodigoErro.VALIDACAO.getCodigo(), ex.getMessage()))
+                ));
+    }
+
+    @ExceptionHandler(EstoqueInsuficienteException.class)
+    public ResponseEntity<RespostaErro> handleEstoqueInsuficiente(EstoqueInsuficienteException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new RespostaErro(
+                        List.of(new ErroDetalhe(CodigoErro.ESTOQUE_INSUFICIENTE.getCodigo(), ex.getMessage()))
                 ));
     }
 

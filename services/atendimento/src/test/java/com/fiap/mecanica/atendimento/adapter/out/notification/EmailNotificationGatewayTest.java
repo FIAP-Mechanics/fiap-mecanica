@@ -11,12 +11,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
@@ -147,6 +149,22 @@ class EmailNotificationGatewayTest {
         gateway.notificarFuncionarios(CodigoTemplate.REPOSICAO_ESTOQUE, "arg");
 
         verifyNoInteractions(templateGateway, mailSender);
+    }
+
+    @Test
+    void naoDevePropagarFalhaDoServidorSmtp() {
+        EmailNotificationGateway gateway = criarGateway(EMAIL_REMETENTE, EMAIL_ADMIN);
+        CodigoTemplate codigo = CodigoTemplate.REPOSICAO_ESTOQUE;
+        TemplateNotificacao template = criarTemplateSimples(codigo);
+
+        when(templateGateway.buscarPorCodigo(codigo.name())).thenReturn(Optional.of(template));
+        doThrow(new MailSendException("Limite de envio excedido"))
+                .when(mailSender).send(any(SimpleMailMessage.class));
+
+        assertThatCode(() -> gateway.notificarFuncionarios(codigo, "Insumo X"))
+                .doesNotThrowAnyException();
+
+        verify(mailSender).send(any(SimpleMailMessage.class));
     }
 
     private EmailNotificationGateway criarGateway(String emailRemetente, String emailAtualizacoes) {

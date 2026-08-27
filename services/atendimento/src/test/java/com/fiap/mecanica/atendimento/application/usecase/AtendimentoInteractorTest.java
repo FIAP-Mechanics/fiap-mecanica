@@ -17,6 +17,7 @@ import com.fiap.mecanica.atendimento.domain.Status;
 import com.fiap.mecanica.atendimento.domain.TempoMedioExecucaoServico;
 import com.fiap.mecanica.atendimento.domain.TrocaStatus;
 import com.fiap.mecanica.atendimento.exception.ClienteNaoEncontradoException;
+import com.fiap.mecanica.atendimento.exception.EstoqueInsuficienteException;
 import com.fiap.mecanica.atendimento.exception.InsumoNaoEncontradoException;
 import com.fiap.mecanica.atendimento.exception.OrdemServicoNaoEncontradaException;
 import com.fiap.mecanica.atendimento.exception.TransicaoInvalidaException;
@@ -588,6 +589,40 @@ class AtendimentoInteractorTest {
         assertThat(resultado.getHistoricoDeEventos().stream().anyMatch(e -> e.getNovoStatus() == Status.EM_EXECUCAO)).isTrue();
         verify(estoqueIntegracaoGateway).deduzirEstoque(anyList());
         verify(ordemServicoGateway).salvar(any(OrdemServico.class));
+    }
+
+    @Test
+    void deveNotificarFuncionariosQuandoEstoqueForInsuficiente() {
+        OrdemServico ordemServico = criarOrdemServico();
+        ordemServico.setStatus(Status.AGUARDANDO_APROVACAO);
+
+        Orcamento orcamento = Orcamento.builder()
+                .ordemServico(ordemServico)
+                .servicos(new ArrayList<>())
+                .insumos(new ArrayList<>())
+                .build();
+        OrdemServicoInsumo osInsumo = OrdemServicoInsumo.builder()
+                .orcamento(orcamento)
+                .insumoId(ID_INSUMO)
+                .nomeInsumo("Óleo de motor")
+                .precoUnitario(new BigDecimal("45.90"))
+                .quantidade(20)
+                .build();
+        orcamento.getInsumos().add(osInsumo);
+        ordemServico.setOrcamento(orcamento);
+
+        String mensagem = "Estoque insuficiente para o insumo 'Óleo de motor'. Disponível: 5, Solicitado: 20";
+        when(ordemServicoGateway.buscarPorId(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        doThrow(new EstoqueInsuficienteException(mensagem))
+                .when(estoqueIntegracaoGateway).deduzirEstoque(anyList());
+
+        assertThatThrownBy(() -> atendimentoInteractor.aprovarOrdemServico(UUID_ORDEM))
+                .isInstanceOf(EstoqueInsuficienteException.class)
+                .hasMessage(mensagem);
+
+        verify(notificationGateway).notificarFuncionarios(CodigoTemplate.REPOSICAO_ESTOQUE, mensagem);
+        verify(ordemServicoGateway, never()).salvar(any());
+        assertThat(ordemServico.getStatus()).isEqualTo(Status.AGUARDANDO_APROVACAO);
     }
 
     @Test

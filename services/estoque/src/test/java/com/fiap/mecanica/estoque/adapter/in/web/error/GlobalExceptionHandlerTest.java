@@ -49,7 +49,7 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<RespostaErro> response = handler.handleEstoqueInsuficiente(new EstoqueInsuficienteException("Insumo", 10L, 5L));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(response.getBody().erros().getFirst().codigo()).isEqualTo("validacao");
+        assertThat(response.getBody().erros().getFirst().codigo()).isEqualTo("estoque-insuficiente");
     }
 
     @Test

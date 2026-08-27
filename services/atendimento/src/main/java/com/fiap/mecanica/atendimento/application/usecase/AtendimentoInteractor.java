@@ -16,6 +16,7 @@ import com.fiap.mecanica.atendimento.domain.Orcamento;
 import com.fiap.mecanica.atendimento.domain.Status;
 import com.fiap.mecanica.atendimento.domain.TempoMedioExecucaoServico;
 import com.fiap.mecanica.atendimento.domain.TrocaStatus;
+import com.fiap.mecanica.atendimento.exception.EstoqueInsuficienteException;
 import com.fiap.mecanica.atendimento.exception.OrdemServicoNaoEncontradaException;
 import com.fiap.mecanica.atendimento.exception.ValidacaoException;
 
@@ -182,7 +183,12 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
             List<EstoqueIntegracaoGateway.ItemDeducaoEstoque> itens = ordemServico.getOrcamento().getInsumos().stream()
                     .map(item -> new EstoqueIntegracaoGateway.ItemDeducaoEstoque(item.getInsumoId(), item.getQuantidade()))
                     .toList();
-            estoqueIntegracaoGateway.deduzirEstoque(itens);
+            try {
+                estoqueIntegracaoGateway.deduzirEstoque(itens);
+            } catch (EstoqueInsuficienteException ex) {
+                notificationGateway.notificarFuncionarios(CodigoTemplate.REPOSICAO_ESTOQUE, ex.getMessage());
+                throw ex;
+            }
         }
 
         ordemServico.atualizarStatus(Status.EM_EXECUCAO);

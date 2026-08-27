@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new RespostaErro(
-                        List.of(new ErroDetalhe(CodigoErro.VALIDACAO.getCodigo(), ex.getMessage()))
+                        List.of(new ErroDetalhe(CodigoErro.ESTOQUE_INSUFICIENTE.getCodigo(), ex.getMessage()))
                 ));
     }
 
