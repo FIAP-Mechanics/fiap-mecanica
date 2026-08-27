@@ -57,9 +57,9 @@ As notificações usam templates cadastrados no serviço `atendimento`.
 - Cliente: recebe aviso para autorização de orçamento, retirada do veículo e confirmação de veículo retirado.
 - Funcionários: recebem aviso quando o estoque não possui quantidade suficiente e há necessidade de reposição.
 
-As configurações de e-mail do serviço `atendimento` são lidas das variáveis de ambiente `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `NOTIFICACAO_EMAIL_ADMIN` e `NOTIFICACAO_EMAIL_REMETENTE`. Por padrão, `NOTIFICACAO_EMAIL_ADMIN` e `NOTIFICACAO_EMAIL_REMETENTE` já vêm como `skip`, o que desabilita o envio real de e-mails. Quando o envio está em `skip`, o sistema não busca templates de notificação.
+As configurações de e-mail do serviço `atendimento` são lidas das variáveis de ambiente `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_AUTH`, `MAIL_SMTP_STARTTLS_ENABLE`, `NOTIFICACAO_EMAIL_ADMIN` e `NOTIFICACAO_EMAIL_REMETENTE`. O `compose.app.yaml` encaminha essas variáveis do `.env` para o container. Quando `NOTIFICACAO_EMAIL_REMETENTE` está em `skip`, o envio fica desabilitado e o sistema não busca templates de notificação.
 
-Para habilitar envio real, configure um remetente válido nessas variáveis e mantenha os templates cadastrados no banco.
+Para habilitar envio real, configure as credenciais SMTP e um remetente válido nessas variáveis e mantenha os templates cadastrados no banco. A collection unificada cria os quatro templates antes do fluxo de atendimento.
 
 ## Perfis e Permissões
 
@@ -149,6 +149,28 @@ No Windows:
 ```
 
 Os serviços já possuem valores padrão sensatos (usuário/senha `mecanica`, portas de banco e de aplicação descritas na tabela acima), então normalmente não é necessário nenhum arquivo `.env` para rodar localmente. Cada serviço permite sobrescrever suas configurações por variáveis de ambiente (ex.: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`), caso necessário.
+
+## Subindo toda a aplicação com Docker
+
+Para construir e iniciar os seis microsserviços e o PostgreSQL de uma vez:
+
+```powershell
+docker compose -f compose.app.yaml up -d --build
+```
+
+O PostgreSQL desse compose cria um banco independente para cada microsserviço. As APIs ficam disponíveis nas portas `8081` a `8086`, compatíveis com a collection unificada do Postman.
+
+Para acompanhar o estado dos containers:
+
+```powershell
+docker compose -f compose.app.yaml ps
+```
+
+Para encerrar a aplicação sem apagar os bancos:
+
+```powershell
+docker compose -f compose.app.yaml down
+```
 
 Para subir todos os 6 serviços de uma vez (bancos de dados), execute o comando acima para cada `services/<nome>/compose.yaml` e depois inicie cada aplicação em um terminal separado (ou via IDE), na ordem que preferir — não há dependência de inicialização entre eles, exceto que `atendimento` chama os demais via HTTP em tempo de execução (portanto, para o fluxo completo de OS, os 5 serviços de domínio devem estar de pé antes de usar `atendimento`).
 
@@ -266,15 +288,15 @@ Authorization: Bearer <token>
 
 ## Postman
 
-As collections e environments locais por microsserviço ficam versionados em `postman/` (ex.: `ms-cliente`, `ms-veiculo`, `ms-funcionario`, `ms-servico`, `ms-estoque`, `ms-atendimento`).
+A collection unificada `postman/mecanica-completa.postman_collection.json` cobre todos os endpoints dos seis microsserviços e já contém as URLs locais, autenticação Bearer e scripts para salvar o token e os IDs criados. As collections separadas por microsserviço também permanecem em `postman/`.
 
 Para usar:
 
-1. Importe a collection e o environment do serviço desejado no Postman.
+1. Importe `postman/mecanica-completa.postman_collection.json` ou a collection do serviço desejado.
 2. Suba o banco do serviço (`docker compose -f services/<nome>/compose.yaml up -d`) e inicie a aplicação (`./mvnw -pl services/<nome> spring-boot:run`).
-3. Para fluxos administrativos, execute primeiro `Autenticação > Login` na collection de `atendimento` (porta 8086).
+3. Na collection unificada, execute primeiro `00 - Autenticação > Login e salvar token` (porta 8086).
 
-O script do request de login salva o token JWT automaticamente na variável `accessToken`. As demais requests protegidas usam esse valor como Bearer Token.
+O script do request de login salva o token JWT automaticamente na variável `accessToken`. Os cadastros também atualizam automaticamente `clienteId`, `veiculoId`, `funcionarioId`, `servicoId` e `insumoId` para uso nas requisições seguintes.
 
 ## Testes
 
