@@ -96,6 +96,7 @@ Endpoints públicos:
 - `POST /auth/login` (`services/atendimento`, porta 8086)
 - `GET /atendimento/{id}` (`services/atendimento`, porta 8086)
 - Todos os endpoints `GET` dos demais serviços (`cliente`, `veiculo`, `funcionario`, `servico`, `estoque`)
+- `/actuator/health/**` de cada serviço
 - `/swagger-ui/**` e `/v3/api-docs/**` de cada serviço
 
 > **Pendência conhecida:** em `cliente`, `veiculo` e `estoque`, a anotação `@Secured` em nível de classe também bloqueia os endpoints `GET`, que deveriam ser públicos. Consulte `docs/migracao-microsservicos.md` para detalhes.
@@ -169,9 +170,17 @@ No Windows:
 .\mvnw.cmd -pl services/cliente spring-boot:run
 ```
 
-Os serviços já possuem valores padrão sensatos (usuário/senha `mecanica`, portas de banco e de aplicação descritas na tabela acima), então normalmente não é necessário nenhum arquivo `.env` para rodar localmente. Cada serviço permite sobrescrever suas configurações por variáveis de ambiente (ex.: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`), caso necessário.
+Ao executar um serviço diretamente pela IDE ou Maven, os valores locais padrão continuam disponíveis. O Compose completo exige `MECANICA_POSTGRES_USER`, `MECANICA_POSTGRES_PASSWORD` e `MECANICA_JWT_SECRET` no `.env` para não manter credenciais fixas no YAML. O prefixo evita colisões com outras stacks do monorepo.
 
 ## Subindo toda a aplicação com Docker
+
+Na primeira execução, crie o `.env` local a partir do exemplo:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Revise pelo menos `MECANICA_POSTGRES_USER`, `MECANICA_POSTGRES_PASSWORD`, `MECANICA_JWT_SECRET`, `MECANICA_ADMIN_EMAIL` e `MECANICA_ADMIN_PASSWORD`. Os valores do exemplo são exclusivos para desenvolvimento local.
 
 Para construir e iniciar os seis microsserviços e o PostgreSQL de uma vez:
 
@@ -180,6 +189,8 @@ docker compose -f compose.app.yaml up -d --build
 ```
 
 O PostgreSQL desse compose cria um banco independente para cada microsserviço. As APIs ficam disponíveis nas portas `8081` a `8086`, compatíveis com a collection unificada do Postman.
+
+Cada imagem compila somente o microsserviço indicado no argumento `SERVICE`. Os containers são considerados saudáveis quando `GET /actuator/health/readiness` responde com sucesso.
 
 Para acompanhar o estado dos containers:
 
@@ -203,11 +214,11 @@ docker compose -f services/cliente/compose.yaml ps
 
 ## Configuração do Serviço `atendimento`
 
-O serviço `atendimento` concentra autenticação JWT, notificações por e-mail e integrações HTTP com os demais serviços. Principais variáveis de ambiente (todas com valor padrão para uso local):
+O serviço `atendimento` concentra autenticação JWT, notificações por e-mail e integrações HTTP com os demais serviços. As variáveis usadas pelo Compose ficam no `.env`; consulte `.env.example` para os valores locais:
 
 - `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`: banco `mecanica_atendimento`.
-- `JWT_SECRET` (mínimo 32 caracteres), `JWT_EXPIRATION_SECONDS`, `JWT_ISSUER`: emissão/validação do token JWT.
-- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NOME`: admin criado automaticamente na inicialização do serviço.
+- `MECANICA_JWT_SECRET` (mínimo 32 caracteres), `MECANICA_JWT_EXPIRATION_SECONDS`, `MECANICA_JWT_ISSUER`: emissão/validação do token JWT no Compose.
+- `MECANICA_ADMIN_EMAIL`, `MECANICA_ADMIN_PASSWORD`, `MECANICA_ADMIN_NOME`: admin criado automaticamente na inicialização do serviço pelo Compose.
 - `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`: envio de e-mail.
 - `NOTIFICACAO_EMAIL_ADMIN`, `NOTIFICACAO_EMAIL_REMETENTE`: notificações administrativas (`skip` por padrão).
 - `CLIENTE_SERVICE_URL`, `VEICULO_SERVICE_URL`, `SERVICO_SERVICE_URL`, `ESTOQUE_SERVICE_URL`: URLs base dos demais serviços (por padrão, `http://localhost:<porta>` de cada um).
@@ -355,19 +366,33 @@ services/cliente/target/site/jacoco/index.html
 
 ## Parar e Limpar Docker
 
+Parar toda a aplicação sem apagar o banco:
+
+```powershell
+docker compose -f compose.app.yaml down
+```
+
+Limpar completamente a aplicação, incluindo o volume do PostgreSQL e as imagens locais:
+
+```powershell
+docker compose -f compose.app.yaml down -v --rmi local --remove-orphans
+```
+
+O segundo comando apaga definitivamente os dados locais dos seis bancos. Na próxima subida, `docker/postgres/init-databases.sql` será executado novamente.
+
 Parar o banco de um serviço:
 
 ```bash
 docker compose -f services/cliente/compose.yaml down
 ```
 
-Parar e remover volumes/imagens locais do Dependency-Track:
+Parar e remover volumes/imagens locais do Dependency-Track, que usa o `compose.yaml` separado:
 
 ```bash
 docker compose down -v --rmi local --remove-orphans
 ```
 
-Use o comando com volumes apenas quando quiser descartar os dados locais do PostgreSQL do serviço e/ou do Dependency-Track.
+Use comandos com `-v` apenas quando quiser descartar os dados persistidos localmente.
 
 ## Problemas Comuns
 

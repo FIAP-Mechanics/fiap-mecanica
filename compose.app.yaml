@@ -4,24 +4,32 @@ x-app-common: &app-common
   restart: unless-stopped
   mem_limit: 384m
   environment: &app-environment
-    SPRING_DATASOURCE_USERNAME: mecanica
-    SPRING_DATASOURCE_PASSWORD: mecanica
-    JWT_SECRET: 0123456789abcdef0123456789abcdef
+    SPRING_DATASOURCE_USERNAME: ${MECANICA_POSTGRES_USER:?Defina MECANICA_POSTGRES_USER no arquivo .env}
+    SPRING_DATASOURCE_PASSWORD: ${MECANICA_POSTGRES_PASSWORD:?Defina MECANICA_POSTGRES_PASSWORD no arquivo .env}
+    JWT_SECRET: ${MECANICA_JWT_SECRET:?Defina MECANICA_JWT_SECRET com pelo menos 32 caracteres no arquivo .env}
+    MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health
+    MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
     JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=20.0
+  healthcheck:
+    test: ["CMD-SHELL", "curl --fail --silent --show-error http://localhost:$${SERVER_PORT}/actuator/health/readiness > /dev/null"]
+    interval: 10s
+    timeout: 5s
+    retries: 12
+    start_period: 30s
 
 services:
   postgres-mecanica:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: mecanica
-      POSTGRES_PASSWORD: mecanica
+      POSTGRES_DB: ${MECANICA_POSTGRES_DB:-postgres}
+      POSTGRES_USER: ${MECANICA_POSTGRES_USER:?Defina MECANICA_POSTGRES_USER no arquivo .env}
+      POSTGRES_PASSWORD: ${MECANICA_POSTGRES_PASSWORD:?Defina MECANICA_POSTGRES_PASSWORD no arquivo .env}
     volumes:
       - postgres-mecanica-data:/var/lib/postgresql/data
       - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mecanica -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -38,6 +46,7 @@ services:
         SERVICE: cliente
     environment:
       <<: *app-environment
+      SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-mecanica:5432/mecanica_cliente
     depends_on:
       postgres-mecanica:
@@ -55,6 +64,7 @@ services:
         SERVICE: veiculo
     environment:
       <<: *app-environment
+      SERVER_PORT: 8082
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-mecanica:5432/mecanica_veiculo
     depends_on:
       postgres-mecanica:
@@ -72,6 +82,7 @@ services:
         SERVICE: funcionario
     environment:
       <<: *app-environment
+      SERVER_PORT: 8083
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-mecanica:5432/mecanica_funcionario
     depends_on:
       postgres-mecanica:
@@ -89,6 +100,7 @@ services:
         SERVICE: servico
     environment:
       <<: *app-environment
+      SERVER_PORT: 8084
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-mecanica:5432/mecanica_servico
     depends_on:
       postgres-mecanica:
@@ -106,6 +118,7 @@ services:
         SERVICE: estoque
     environment:
       <<: *app-environment
+      SERVER_PORT: 8085
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-mecanica:5432/mecanica_estoque
     depends_on:
       postgres-mecanica:
@@ -123,15 +136,18 @@ services:
         SERVICE: atendimento
     environment:
       <<: *app-environment
+      SERVER_PORT: 8086
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-mecanica:5432/mecanica_atendimento
       CLIENTE_SERVICE_URL: http://cliente:8081
       VEICULO_SERVICE_URL: http://veiculo:8082
       FUNCIONARIO_SERVICE_URL: http://funcionario:8083
       SERVICO_SERVICE_URL: http://servico:8084
       ESTOQUE_SERVICE_URL: http://estoque:8085
-      ADMIN_EMAIL: admin@mecanica.com
-      ADMIN_PASSWORD: admin123
-      ADMIN_NOME: Administrador Padrão
+      JWT_EXPIRATION_SECONDS: ${MECANICA_JWT_EXPIRATION_SECONDS:-3600}
+      JWT_ISSUER: ${MECANICA_JWT_ISSUER:-http://localhost:8086}
+      ADMIN_EMAIL: ${MECANICA_ADMIN_EMAIL:-admin@mecanica.com}
+      ADMIN_PASSWORD: ${MECANICA_ADMIN_PASSWORD:-admin123}
+      ADMIN_NOME: ${MECANICA_ADMIN_NOME:-Administrador Padrão}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
@@ -144,15 +160,15 @@ services:
       postgres-mecanica:
         condition: service_healthy
       cliente:
-        condition: service_started
+        condition: service_healthy
       veiculo:
-        condition: service_started
+        condition: service_healthy
       funcionario:
-        condition: service_started
+        condition: service_healthy
       servico:
-        condition: service_started
+        condition: service_healthy
       estoque:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "8086:8086"
 
