@@ -4,6 +4,7 @@ import com.fiap.mecanica.atendimento.domain.Status;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,6 +34,9 @@ public class OrdemServicoJpaEntity {
 
     @Column
     private String observacoesDiagnostico;
+
+    @Column(name = "data_criacao")
+    private LocalDateTime dataCriacao;
 
     @ElementCollection
     @CollectionTable(name = "ordem_servico_historico", joinColumns = @JoinColumn(name = "ordem_servico_id"))

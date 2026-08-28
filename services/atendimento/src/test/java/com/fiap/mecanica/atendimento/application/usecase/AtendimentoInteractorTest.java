@@ -247,22 +247,67 @@ class AtendimentoInteractorTest {
     @Test
     void deveListarAtendimentosEmAbertoComSucesso() {
         OrdemServico os1 = OrdemServico.builder()
+                .id("os-1")
                 .status(Status.RECEBIDA)
                 .clienteId(ID_CLIENTE)
                 .veiculoId(ID_VEICULO)
                 .build();
         OrdemServico os2 = OrdemServico.builder()
+                .id("os-2")
                 .status(Status.EM_DIAGNOSTICO)
                 .clienteId(ID_CLIENTE)
                 .veiculoId(ID_VEICULO)
                 .build();
 
-        when(ordemServicoGateway.buscarTodosPorStatusNotIn(List.of(Status.ENTREGUE, Status.CANCELADA))).thenReturn(List.of(os1, os2));
+        when(ordemServicoGateway.buscarTodosPorStatusNotIn(List.of(Status.FINALIZADA, Status.ENTREGUE, Status.CANCELADA))).thenReturn(List.of(os1, os2));
 
         List<OrdemServico> resultado = atendimentoInteractor.listarAtendimentosEmAberto();
 
         assertThat(resultado).hasSize(2);
-        verify(ordemServicoGateway).buscarTodosPorStatusNotIn(List.of(Status.ENTREGUE, Status.CANCELADA));
+        assertThat(resultado).extracting(OrdemServico::getId).containsExactly("os-2", "os-1");
+        verify(ordemServicoGateway).buscarTodosPorStatusNotIn(List.of(Status.FINALIZADA, Status.ENTREGUE, Status.CANCELADA));
+    }
+
+    @Test
+    void deveOrdenarAtendimentosEmAbertoPorPrioridadeDeStatusEDataDeCriacaoMaisAntiga() {
+        LocalDateTime agora = LocalDateTime.now();
+
+        OrdemServico recebidaMaisAntiga = OrdemServico.builder()
+                .id("recebida-antiga")
+                .status(Status.RECEBIDA)
+                .dataCriacao(agora.minusDays(2))
+                .clienteId(ID_CLIENTE)
+                .veiculoId(ID_VEICULO)
+                .build();
+        OrdemServico recebidaMaisRecente = OrdemServico.builder()
+                .id("recebida-recente")
+                .status(Status.RECEBIDA)
+                .dataCriacao(agora.minusDays(1))
+                .clienteId(ID_CLIENTE)
+                .veiculoId(ID_VEICULO)
+                .build();
+        OrdemServico aguardandoAprovacao = OrdemServico.builder()
+                .id("aguardando-aprovacao")
+                .status(Status.AGUARDANDO_APROVACAO)
+                .dataCriacao(agora)
+                .clienteId(ID_CLIENTE)
+                .veiculoId(ID_VEICULO)
+                .build();
+        OrdemServico emExecucao = OrdemServico.builder()
+                .id("em-execucao")
+                .status(Status.EM_EXECUCAO)
+                .dataCriacao(agora)
+                .clienteId(ID_CLIENTE)
+                .veiculoId(ID_VEICULO)
+                .build();
+
+        when(ordemServicoGateway.buscarTodosPorStatusNotIn(List.of(Status.FINALIZADA, Status.ENTREGUE, Status.CANCELADA)))
+                .thenReturn(List.of(recebidaMaisRecente, recebidaMaisAntiga, aguardandoAprovacao, emExecucao));
+
+        List<OrdemServico> resultado = atendimentoInteractor.listarAtendimentosEmAberto();
+
+        assertThat(resultado).extracting(OrdemServico::getId)
+                .containsExactly("em-execucao", "aguardando-aprovacao", "recebida-antiga", "recebida-recente");
     }
 
     @Test

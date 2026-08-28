@@ -38,6 +38,13 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
     private final EstoqueIntegracaoGateway estoqueIntegracaoGateway;
     private final NotificationGateway notificationGateway;
 
+    private static final Map<Status, Integer> PRIORIDADE_LISTAGEM = Map.of(
+            Status.EM_EXECUCAO, 0,
+            Status.AGUARDANDO_APROVACAO, 1,
+            Status.EM_DIAGNOSTICO, 2,
+            Status.RECEBIDA, 3
+    );
+
     public AtendimentoInteractor(OrdemServicoGateway ordemServicoGateway,
                                   ClienteIntegracaoGateway clienteIntegracaoGateway,
                                   VeiculoIntegracaoGateway veiculoIntegracaoGateway,
@@ -63,6 +70,7 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
                 .clienteId(clienteId)
                 .veiculoId(veiculoId)
                 .relatoCliente(relatoCliente)
+                .dataCriacao(LocalDateTime.now())
                 .build();
 
         Orcamento orcamento = Orcamento.builder()
@@ -82,7 +90,13 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
 
     @Override
     public List<OrdemServico> listarAtendimentosEmAberto() {
-        return ordemServicoGateway.buscarTodosPorStatusNotIn(List.of(Status.ENTREGUE, Status.CANCELADA));
+        return ordemServicoGateway.buscarTodosPorStatusNotIn(
+                        List.of(Status.FINALIZADA, Status.ENTREGUE, Status.CANCELADA))
+                .stream()
+                .sorted(Comparator
+                        .comparing((OrdemServico os) -> PRIORIDADE_LISTAGEM.getOrDefault(os.getStatus(), Integer.MAX_VALUE))
+                        .thenComparing(OrdemServico::getDataCriacao, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
     }
 
     @Override

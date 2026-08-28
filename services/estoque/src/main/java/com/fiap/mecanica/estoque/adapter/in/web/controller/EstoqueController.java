@@ -32,7 +32,6 @@ import static com.fiap.mecanica.estoque.adapter.in.web.presenter.EstoquePresente
 @AllArgsConstructor
 @RestController
 @RequestMapping("/estoque")
-@Secured({"ROLE_ADMIN", "ROLE_ATENDENTE", "ROLE_MECANICO"})
 @Tag(name = "Estoque", description = "Operacoes de gerenciamento do estoque")
 public class EstoqueController {
     private final EstoqueUseCase estoqueUseCase;
@@ -52,6 +51,7 @@ public class EstoqueController {
     }
 
     @Operation(summary = "Registrar insumo no estoque")
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE", "ROLE_MECANICO"})
     @PostMapping
     public EstoqueDto create(@Valid @RequestBody CadastrarEstoqueRequest request) {
         Estoque estoque = toEntity(request);
@@ -59,6 +59,7 @@ public class EstoqueController {
     }
 
     @Operation(summary = "Atualizar quantidade do insumo no estoque")
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE", "ROLE_MECANICO"})
     @PutMapping("/{idInsumo}")
     public EstoqueDto updateQuantidade(
             @PathVariable Long idInsumo,
@@ -67,6 +68,7 @@ public class EstoqueController {
     }
 
     @Operation(summary = "Atualizar dados do insumo")
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE", "ROLE_MECANICO"})
     @PatchMapping("/insumo/{idInsumo}")
     public EstoqueDto updateInsumo(
             @PathVariable Long idInsumo,
@@ -75,18 +77,21 @@ public class EstoqueController {
     }
 
     @Operation(summary = "Excluir logicamente registro do estoque")
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE", "ROLE_MECANICO"})
     @DeleteMapping("/{idInsumo}")
     public EstoqueDto delete(@PathVariable Long idInsumo) {
         return toDto(estoqueUseCase.excluirEstoque(idInsumo));
     }
 
     @Operation(summary = "Reativar registro do estoque")
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE", "ROLE_MECANICO"})
     @PutMapping("/{idInsumo}/reativar")
     public EstoqueDto reativar(@PathVariable Long idInsumo) {
         return toDto(estoqueUseCase.reativarEstoque(idInsumo));
     }
 
     @Operation(summary = "Deduzir itens do estoque", description = "Usado por outros microsservicos (ex.: atendimento) para abater quantidades do estoque")
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE", "ROLE_MECANICO"})
     @PostMapping("/deduzir")
     public void deduzir(@Valid @RequestBody List<DeduzirEstoqueItemRequest> itens) {
         estoqueUseCase.deduzirEstoque(EstoquePresenter.toCommands(itens));

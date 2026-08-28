@@ -68,6 +68,77 @@
           "response": []
         },
         {
+          "name": "Consultar Status",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            },
+            "url": {
+              "raw": "{{baseUrl}}/atendimento/:id/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "atendimento",
+                ":id",
+                "status"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "549f0930-1461-4286-8676-c282990ada76",
+                  "description": "UUID do atendimento."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Decisão Externa do Orçamento",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"aprovado\": true\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/atendimento/:id/decisao-orcamento",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "atendimento",
+                ":id",
+                "decisao-orcamento"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "549f0930-1461-4286-8676-c282990ada76",
+                  "description": "UUID do atendimento."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Relatório Tempo Médio",
           "request": {
             "method": "GET",

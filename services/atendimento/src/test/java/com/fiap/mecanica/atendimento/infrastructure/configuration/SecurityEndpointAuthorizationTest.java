@@ -72,6 +72,28 @@ class SecurityEndpointAuthorizationTest {
     }
 
     @Test
+    void qualquerUmPodeConsultarStatusSemToken() throws Exception {
+        when(atendimentoUseCase.buscarPorId(ORDEM_ID)).thenReturn(ordem(Status.EM_DIAGNOSTICO));
+
+        mockMvc.perform(get("/atendimento/{id}/status", ORDEM_ID))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void qualquerUmPodeRegistrarDecisaoExternaDoOrcamentoSemToken() throws Exception {
+        when(atendimentoUseCase.aprovarOrdemServico(ORDEM_ID)).thenReturn(ordem(Status.EM_EXECUCAO));
+
+        mockMvc.perform(post("/atendimento/{id}/decisao-orcamento", ORDEM_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "aprovado": true
+                                }
+                                """))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void relatorioTempoMedioServicosEhRestritoAoAdmin() throws Exception {
         when(atendimentoUseCase.listarTempoMedioExecucaoServicos()).thenReturn(List.of());
 

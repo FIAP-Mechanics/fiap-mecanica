@@ -98,8 +98,6 @@ Endpoints públicos:
 - Todos os endpoints `GET` dos demais serviços (`cliente`, `veiculo`, `funcionario`, `servico`, `estoque`)
 - `/swagger-ui/**` e `/v3/api-docs/**` de cada serviço
 
-> **Pendência conhecida:** em `cliente`, `veiculo` e `estoque`, a anotação `@Secured` em nível de classe também bloqueia os endpoints `GET`, que deveriam ser públicos. Consulte `docs/migracao-microsservicos.md` para detalhes.
-
 ## Requisitos
 
 Para rodar com Docker:

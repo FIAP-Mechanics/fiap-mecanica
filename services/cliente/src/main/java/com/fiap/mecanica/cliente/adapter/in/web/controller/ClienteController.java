@@ -29,7 +29,6 @@ import static com.fiap.mecanica.cliente.adapter.in.web.presenter.ClientePresente
 @AllArgsConstructor
 @RestController
 @RequestMapping("/cliente")
-@Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
 @Tag(name = "Clientes", description = "Operações de gerenciamento de clientes")
 public class ClienteController {
 
@@ -83,6 +82,7 @@ public class ClienteController {
             @ApiResponse(responseCode = "400", description = "Dados inválidos", content = @Content),
             @ApiResponse(responseCode = "409", description = "Já existe um cliente com esse documento", content = @Content)
     })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
     @PostMapping
     public ClienteDto create(@Valid @RequestBody CadastrarClienteRequest request) {
         Cliente cliente = toEntity(request);
@@ -95,6 +95,7 @@ public class ClienteController {
                     content = @Content(schema = @Schema(implementation = ClienteDto.class))),
             @ApiResponse(responseCode = "404", description = "Cliente não encontrado", content = @Content)
     })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
     @PatchMapping("/{id}")
     public ClienteDto update(
             @Parameter(description = "ID do cliente") @PathVariable Long id,
@@ -109,6 +110,7 @@ public class ClienteController {
             @ApiResponse(responseCode = "404", description = "Cliente ou veículo não encontrado", content = @Content),
             @ApiResponse(responseCode = "409", description = "Vínculo já existe", content = @Content)
     })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
     @PutMapping("/{idCliente}/veiculo/{idVeiculo}")
     public void vincularClienteVeiculo(
             @Parameter(description = "ID do cliente") @PathVariable Long idCliente,

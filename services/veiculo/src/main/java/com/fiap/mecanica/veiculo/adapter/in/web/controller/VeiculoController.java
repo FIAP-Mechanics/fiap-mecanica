@@ -27,7 +27,6 @@ import static com.fiap.mecanica.veiculo.adapter.in.web.presenter.VeiculoPresente
 @AllArgsConstructor
 @RestController
 @RequestMapping("/veiculos")
-@Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
 @Tag(name = "Veículos", description = "Operações de gerenciamento de veículos")
 public class VeiculoController {
 
@@ -72,6 +71,7 @@ public class VeiculoController {
                     content = @Content(schema = @Schema(implementation = VeiculoDto.class))),
             @ApiResponse(responseCode = "400", description = "Dados inválidos", content = @Content)
     })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
     @PostMapping
     public VeiculoDto create(@Valid @RequestBody CadastrarVeiculoRequest request) {
         Veiculo veiculo = toEntity(request);
@@ -84,6 +84,7 @@ public class VeiculoController {
                     content = @Content(schema = @Schema(implementation = VeiculoDto.class))),
             @ApiResponse(responseCode = "404", description = "Veículo não encontrado", content = @Content)
     })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
     @PatchMapping("/{id}")
     public VeiculoDto update(
             @Parameter(description = "ID do veículo") @PathVariable Long id,
@@ -98,6 +99,7 @@ public class VeiculoController {
                     content = @Content(schema = @Schema(implementation = VeiculoDto.class))),
             @ApiResponse(responseCode = "404", description = "Veículo não encontrado", content = @Content)
     })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
     @DeleteMapping("/{id}")
     public VeiculoDto delete(@Parameter(description = "ID do veículo") @PathVariable Long id) {
         return toDto(veiculoUseCase.excluirVeiculo(id));
@@ -109,6 +111,7 @@ public class VeiculoController {
                     content = @Content(schema = @Schema(implementation = VeiculoDto.class))),
             @ApiResponse(responseCode = "404", description = "Veículo não encontrado", content = @Content)
     })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
     @PutMapping("/{id}/reativar")
     public VeiculoDto reativar(@Parameter(description = "ID do veículo") @PathVariable Long id) {
         return toDto(veiculoUseCase.reativarVeiculo(id));

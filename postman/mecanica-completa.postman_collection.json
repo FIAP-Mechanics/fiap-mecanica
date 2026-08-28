@@ -358,6 +358,7 @@
           "response": []
         },
         { "name": "2 - Buscar atendimento por ID", "request": { "method": "GET", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}" }, "response": [] },
+        { "name": "Consultar status da OS", "request": { "method": "GET", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}/status" }, "response": [] },
         { "name": "3 - Listar atendimentos abertos", "request": { "method": "GET", "header": [], "url": "{{atendimentoUrl}}/atendimento/abertos" }, "response": [] },
         { "name": "4 - Iniciar diagnóstico", "request": { "method": "PATCH", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}/diagnostico/iniciar" }, "response": [] },
         {
@@ -371,6 +372,7 @@
           "response": []
         },
         { "name": "6 - Aprovar ordem de serviço", "request": { "method": "POST", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}/aprovar" }, "response": [] },
+        { "name": "Decisão externa do orçamento", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"aprovado\": true\n}", "options": { "raw": { "language": "json" } } }, "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}/decisao-orcamento" }, "response": [] },
         { "name": "7 - Finalizar ordem de serviço", "request": { "method": "POST", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}/finalizar" }, "response": [] },
         { "name": "8 - Entregar veículo", "request": { "method": "POST", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoId}}/entregar" }, "response": [] },
         { "name": "9 - Relatório de tempo médio", "request": { "method": "GET", "header": [], "url": "{{atendimentoUrl}}/atendimento/relatorios/tempo-medio-servicos" }, "response": [] },

@@ -1,6 +1,7 @@
 package com.fiap.mecanica.atendimento.adapter.in.web.presenter;
 
 import com.fiap.mecanica.atendimento.adapter.in.web.response.OrdemServicoDto;
+import com.fiap.mecanica.atendimento.adapter.in.web.response.StatusOrdemServicoDto;
 import com.fiap.mecanica.atendimento.domain.Orcamento;
 import com.fiap.mecanica.atendimento.domain.OrdemServico;
 import com.fiap.mecanica.atendimento.domain.OrdemServicoInsumo;
@@ -105,6 +106,35 @@ class AtendimentoPresenterTest {
                 .build();
 
         OrdemServicoDto resultado = AtendimentoPresenter.toDto(ordemServico);
+
+        assertThat(resultado.status()).isNull();
+        assertThat(resultado.descricaoStatus()).isNull();
+    }
+
+    // ===================== toStatusDto =====================
+
+    @Test
+    void deveConverterParaStatusDto() {
+        OrdemServico ordemServico = OrdemServico.builder()
+                .id(UUID_ORDEM)
+                .status(Status.EM_DIAGNOSTICO)
+                .build();
+
+        StatusOrdemServicoDto resultado = AtendimentoPresenter.toStatusDto(ordemServico);
+
+        assertThat(resultado.id()).isEqualTo(UUID_ORDEM);
+        assertThat(resultado.status()).isEqualTo(Status.EM_DIAGNOSTICO);
+        assertThat(resultado.descricaoStatus()).isEqualTo(Status.EM_DIAGNOSTICO.getDescricao());
+    }
+
+    @Test
+    void deveConverterParaStatusDtoComStatusNulo() {
+        OrdemServico ordemServico = OrdemServico.builder()
+                .id(UUID_ORDEM)
+                .status(null)
+                .build();
+
+        StatusOrdemServicoDto resultado = AtendimentoPresenter.toStatusDto(ordemServico);
 
         assertThat(resultado.status()).isNull();
         assertThat(resultado.descricaoStatus()).isNull();
