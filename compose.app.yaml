@@ -7,8 +7,6 @@ x-app-common: &app-common
     SPRING_DATASOURCE_USERNAME: ${MECANICA_POSTGRES_USER:?Defina MECANICA_POSTGRES_USER no arquivo .env}
     SPRING_DATASOURCE_PASSWORD: ${MECANICA_POSTGRES_PASSWORD:?Defina MECANICA_POSTGRES_PASSWORD no arquivo .env}
     JWT_SECRET: ${MECANICA_JWT_SECRET:?Defina MECANICA_JWT_SECRET com pelo menos 32 caracteres no arquivo .env}
-    MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health
-    MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
     JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=20.0
   healthcheck:
     test: ["CMD-SHELL", "curl --fail --silent --show-error http://localhost:$${SERVER_PORT}/actuator/health/readiness > /dev/null"]
