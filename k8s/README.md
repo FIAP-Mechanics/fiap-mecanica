@@ -14,6 +14,7 @@ k8s/
 ## O que está configurado
 
 - Services das APIs do tipo `ClusterIP`, nas portas 8081 a 8086.
+- Init container aguarda o PostgreSQL aceitar conexões antes de iniciar cada API.
 - Probes de startup, liveness e readiness pelo Spring Boot Actuator; o readiness também verifica o PostgreSQL.
 - Shutdown gracioso: 30 segundos no Spring e 45 segundos no Pod.
 - HPA `autoscaling/v2`: CPU 70%, memória 75% e máximo de 5 réplicas.
