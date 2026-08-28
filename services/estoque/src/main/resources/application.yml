@@ -13,9 +13,22 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 server:
   port: 8085
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 springdoc:
   api-docs:

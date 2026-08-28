@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: funcionario-config
+  labels:
+    app.kubernetes.io/name: funcionario
+    app.kubernetes.io/part-of: oficina-mecanica
+data:
+  SERVER_PORT: "8083"
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-mecanica:5432/mecanica_funcionario

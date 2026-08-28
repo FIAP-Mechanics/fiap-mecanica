@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: estoque
+  labels:
+    app.kubernetes.io/name: estoque
+    app.kubernetes.io/part-of: oficina-mecanica
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: estoque
+  ports:
+  - name: http
+    port: 8085
+    targetPort: http
+    protocol: TCP
+

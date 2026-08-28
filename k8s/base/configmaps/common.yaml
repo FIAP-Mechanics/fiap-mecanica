@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: common-config
+  labels:
+    app.kubernetes.io/part-of: oficina-mecanica
+data:
+  JAVA_TOOL_OPTIONS: >-
+    -XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=20.0
+  MANAGEMENT_ENDPOINT_HEALTH_GROUP_READINESS_INCLUDE: readinessState,db

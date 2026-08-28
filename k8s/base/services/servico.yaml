@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: servico
+  labels:
+    app.kubernetes.io/name: servico
+    app.kubernetes.io/part-of: oficina-mecanica
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: servico
+  ports:
+  - name: http
+    port: 8084
+    targetPort: http
+    protocol: TCP
+
