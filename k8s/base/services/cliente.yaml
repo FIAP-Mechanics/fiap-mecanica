@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cliente
+  labels:
+    app.kubernetes.io/name: cliente
+    app.kubernetes.io/part-of: oficina-mecanica
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cliente
+  ports:
+  - name: http
+    port: 8081
+    targetPort: http
+    protocol: TCP
+

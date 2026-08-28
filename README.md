@@ -209,6 +209,17 @@ Verifique se um container de banco está rodando:
 docker compose -f services/cliente/compose.yaml ps
 ```
 
+## Kubernetes
+
+Os manifestos Kustomize dos seis microsserviços, PostgreSQL local, HPAs e Metrics Server ficam em [`k8s/`](k8s/README.md). Há overlays separados para Docker Desktop e produção.
+
+```powershell
+kubectl apply -k k8s/addons/metrics-server/overlays/local
+kubectl apply -k k8s/overlays/local
+```
+
+Consulte o guia antes de aplicar: os arquivos locais de Secret precisam existir e o overlay de produção exige imagens publicadas, banco externo e Secrets gerenciados.
+
 ## Configuração do Serviço `atendimento`
 
 O serviço `atendimento` concentra autenticação JWT, notificações por e-mail e integrações HTTP com os demais serviços. As variáveis usadas pelo Compose ficam no `.env`; consulte `.env.example` para os valores locais:

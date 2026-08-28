@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mecanica
+  labels:
+    app.kubernetes.io/name: oficina-mecanica
+    app.kubernetes.io/part-of: oficina-mecanica

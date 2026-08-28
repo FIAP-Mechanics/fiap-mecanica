@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atendimento-config
+  labels:
+    app.kubernetes.io/name: atendimento
+    app.kubernetes.io/part-of: oficina-mecanica
+data:
+  SERVER_PORT: "8086"
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-mecanica:5432/mecanica_atendimento
+  CLIENTE_SERVICE_URL: http://cliente:8081
+  VEICULO_SERVICE_URL: http://veiculo:8082
+  SERVICO_SERVICE_URL: http://servico:8084
+  ESTOQUE_SERVICE_URL: http://estoque:8085
+  JWT_EXPIRATION_SECONDS: "3600"
+  JWT_ISSUER: http://atendimento:8086
+  ADMIN_NOME: Administrador Padrão
+  MAIL_HOST: smtp.gmail.com
+  MAIL_PORT: "587"
+  MAIL_SMTP_AUTH: "true"
+  MAIL_SMTP_STARTTLS_ENABLE: "true"
+  NOTIFICACAO_EMAIL_ADMIN: skip
+  NOTIFICACAO_EMAIL_REMETENTE: skip

@@ -1,6 +1,10 @@
 HELP.md
 target/
 .env
+.env.*
+!.env.example
+!**/*.env.example
+k8s/overlays/*/secrets/*.env
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
