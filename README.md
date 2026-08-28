@@ -122,7 +122,6 @@ O projeto possui Maven Wrapper, então não é necessário instalar Maven localm
 ```text
 mecanica/
 ├── pom.xml                      # Root POM (packaging pom), apenas dependencyManagement/properties
-├── compose.yaml                 # Stack local do Dependency-Track (profile "security")
 ├── docs/                        # Documentação (plano de migração, diagramas, OpenAPI)
 ├── postman/                     # Collections e environments por microsserviço
 └── services/                    # Módulos dos microsserviços (Maven multi-módulo)
@@ -222,59 +221,6 @@ O serviço `atendimento` concentra autenticação JWT, notificações por e-mail
 - `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`: envio de e-mail.
 - `NOTIFICACAO_EMAIL_ADMIN`, `NOTIFICACAO_EMAIL_REMETENTE`: notificações administrativas (`skip` por padrão).
 - `CLIENTE_SERVICE_URL`, `VEICULO_SERVICE_URL`, `SERVICO_SERVICE_URL`, `ESTOQUE_SERVICE_URL`: URLs base dos demais serviços (por padrão, `http://localhost:<porta>` de cada um).
-
-## Dependency-Track e SBOM
-
-O projeto possui uma stack local do OWASP Dependency-Track no `compose.yaml` da raiz. Essa stack é independente dos microsserviços de aplicação e fica no profile `security`.
-
-Para subir:
-
-```powershell
-docker compose --profile security up -d dependency-track-frontend
-```
-
-Serviços esperados:
-
-- Frontend: `http://localhost:8082`
-- API Server: `http://localhost:8081`
-- PostgreSQL interno do Dependency-Track: `dependency-track-postgres:5432`
-
-> **Atenção:** as portas padrão do Dependency-Track (`8081` frontend/API) coincidem com as portas de alguns microsserviços (`cliente` usa `8081`, `veiculo` usa `8082`). Se for rodar o Dependency-Track e os microsserviços ao mesmo tempo, ajuste `DEPENDENCY_TRACK_API_PORT`/`DEPENDENCY_TRACK_FRONTEND_PORT` (via `.env` na raiz) para portas livres.
-
-Em um ambiente limpo, as credenciais iniciais do Dependency-Track são:
-
-```text
-usuário: admin
-senha: admin
-```
-
-No primeiro acesso, altere a senha do usuário `admin`. Se o volume Docker já existir, vale a senha alterada anteriormente.
-
-Para gerar o SBOM CycloneDX do projeto:
-
-```powershell
-.\mvnw.cmd org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
-```
-
-No Linux/macOS:
-
-```bash
-./mvnw org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
-```
-
-O arquivo gerado fica em:
-
-```text
-target/bom.json
-```
-
-Depois, crie um projeto no Dependency-Track e faça upload do `target/bom.json`.
-
-Para parar apenas o Dependency-Track:
-
-```powershell
-docker compose --profile security stop dependency-track-frontend dependency-track-apiserver dependency-track-postgres
-```
 
 ## Admin Padrão
 
@@ -386,12 +332,6 @@ Parar o banco de um serviço:
 docker compose -f services/cliente/compose.yaml down
 ```
 
-Parar e remover volumes/imagens locais do Dependency-Track, que usa o `compose.yaml` separado:
-
-```bash
-docker compose down -v --rmi local --remove-orphans
-```
-
 Use comandos com `-v` apenas quando quiser descartar os dados persistidos localmente.
 
 ## Problemas Comuns
@@ -405,7 +345,6 @@ Se a porta estiver ocupada:
 
 - `cliente` usa `8081`, `veiculo` usa `8082`, `funcionario` usa `8083`, `servico` usa `8084`, `estoque` usa `8085`, `atendimento` usa `8086`;
 - os bancos PostgreSQL de cada serviço usam `5432` (`cliente`), `5433` (`veiculo`), `5434` (`funcionario`), `5435` (`servico`), `5436` (`estoque`) e `5437` (`atendimento`);
-- Dependency-Track API usa `8081` e frontend usa `8082` por padrão (mesmas portas de `cliente`/`veiculo` — ajuste via `.env` se for usar os dois ao mesmo tempo);
 - pare outros serviços nessas portas ou ajuste o `compose.yaml`/variáveis de ambiente do serviço correspondente.
 
 Se o login falhar após limpar volumes:
@@ -413,9 +352,3 @@ Se o login falhar após limpar volumes:
 - aguarde o serviço `atendimento` terminar de subir;
 - confira nos logs se o admin padrão foi criado;
 - use as credenciais padrão ou as variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD` configuradas.
-
-Se o Dependency-Track demorar no primeiro start:
-
-- aguarde o API Server ficar `healthy`;
-- acompanhe com `docker logs dependency-track-apiserver --tail 100 -f`;
-- o primeiro start pode baixar bases de vulnerabilidades e criar índices internos.
