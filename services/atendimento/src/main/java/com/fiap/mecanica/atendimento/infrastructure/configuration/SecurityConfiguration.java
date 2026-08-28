@@ -43,7 +43,9 @@ public class SecurityConfiguration {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/atendimento/{id}"
+                                "/atendimento/{id}",
+                                "/atendimento/{id}/status",
+                                "/atendimento/{id}/decisao-orcamento"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt

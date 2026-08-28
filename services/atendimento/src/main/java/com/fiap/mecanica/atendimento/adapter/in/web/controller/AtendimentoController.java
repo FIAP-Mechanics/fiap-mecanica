@@ -2,12 +2,15 @@ package com.fiap.mecanica.atendimento.adapter.in.web.controller;
 
 import com.fiap.mecanica.atendimento.adapter.in.web.presenter.AtendimentoPresenter;
 import com.fiap.mecanica.atendimento.adapter.in.web.request.AdicionarItensOrcamentoRequest;
+import com.fiap.mecanica.atendimento.adapter.in.web.request.DecisaoOrcamentoRequest;
 import com.fiap.mecanica.atendimento.adapter.in.web.request.IniciarAtendimentoRequest;
 import com.fiap.mecanica.atendimento.adapter.in.web.response.OrdemServicoDto;
+import com.fiap.mecanica.atendimento.adapter.in.web.response.StatusOrdemServicoDto;
 import com.fiap.mecanica.atendimento.adapter.in.web.response.TempoMedioExecucaoServicoDto;
 import com.fiap.mecanica.atendimento.application.command.InsumoQuantidadeCommand;
 import com.fiap.mecanica.atendimento.application.command.ServicoQuantidadeCommand;
 import com.fiap.mecanica.atendimento.application.port.in.AtendimentoUseCase;
+import com.fiap.mecanica.atendimento.domain.OrdemServico;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -57,6 +60,19 @@ public class AtendimentoController {
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id) {
         return AtendimentoPresenter.toDto(atendimentoUseCase.buscarPorId(id));
+    }
+
+    @Operation(summary = "Consultar status da ordem de serviço", description = "Retorna apenas o status atual de uma ordem de serviço pelo seu ID")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Status retornado com sucesso",
+                    content = @Content(schema = @Schema(implementation = StatusOrdemServicoDto.class))),
+            @ApiResponse(responseCode = "404", description = "Ordem de serviço não encontrada", content = @Content)
+    })
+    @GetMapping("/{id}/status")
+    public StatusOrdemServicoDto consultarStatus(
+            @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
+            @PathVariable String id) {
+        return AtendimentoPresenter.toStatusDto(atendimentoUseCase.buscarPorId(id));
     }
 
     @Operation(summary = "Lista atendimentos em aberto", description = "Retorna todas as ordens de serviço que não estão entregues ou canceladas")
@@ -143,6 +159,24 @@ public class AtendimentoController {
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id) {
         return AtendimentoPresenter.toDto(atendimentoUseCase.cancelarOrdemServico(id));
+    }
+
+    @Operation(summary = "Registrar decisão externa do orçamento", description = "Canal público para o cliente aprovar ou recusar o orçamento da ordem de serviço, identificado apenas pelo ID")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Decisão registrada com sucesso",
+                    content = @Content(schema = @Schema(implementation = OrdemServicoDto.class))),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos, estoque insuficiente ou status incorreto", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Ordem de serviço não encontrada", content = @Content)
+    })
+    @PostMapping("/{id}/decisao-orcamento")
+    public OrdemServicoDto registrarDecisaoExternaOrcamento(
+            @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
+            @PathVariable String id,
+            @Valid @RequestBody DecisaoOrcamentoRequest request) {
+        OrdemServico ordemServico = request.aprovado()
+                ? atendimentoUseCase.aprovarOrdemServico(id)
+                : atendimentoUseCase.cancelarOrdemServico(id);
+        return AtendimentoPresenter.toDto(ordemServico);
     }
 
     @Operation(summary = "Finalizar ordem de serviço", description = "Altera o status da ordem de serviço para FINALIZADA, indicando que o serviço técnico foi concluído")

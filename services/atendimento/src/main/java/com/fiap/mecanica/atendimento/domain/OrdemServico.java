@@ -31,6 +31,8 @@ public class OrdemServico {
 
     private String observacoesDiagnostico;
 
+    private LocalDateTime dataCriacao;
+
     @Setter(AccessLevel.NONE)
     @Builder.Default
     private List<TrocaStatus> historicoDeEventos = new ArrayList<>();

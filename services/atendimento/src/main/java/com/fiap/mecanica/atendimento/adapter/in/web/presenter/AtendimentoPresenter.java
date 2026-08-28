@@ -4,6 +4,7 @@ import com.fiap.mecanica.atendimento.adapter.in.web.response.OrcamentoDto;
 import com.fiap.mecanica.atendimento.adapter.in.web.response.OrdemServicoDto;
 import com.fiap.mecanica.atendimento.adapter.in.web.response.OrdemServicoInsumoDto;
 import com.fiap.mecanica.atendimento.adapter.in.web.response.OrdemServicoServicoDto;
+import com.fiap.mecanica.atendimento.adapter.in.web.response.StatusOrdemServicoDto;
 import com.fiap.mecanica.atendimento.adapter.in.web.response.TempoMedioExecucaoServicoDto;
 import com.fiap.mecanica.atendimento.adapter.in.web.response.TrocaStatusDto;
 import com.fiap.mecanica.atendimento.domain.OrdemServico;
@@ -26,12 +27,21 @@ public class AtendimentoPresenter {
                 .relatoCliente(ordemServico.getRelatoCliente())
                 .observacoesDiagnostico(ordemServico.getObservacoesDiagnostico())
                 .orcamento(toOrcamentoDto(ordemServico))
+                .dataCriacao(ordemServico.getDataCriacao())
                 .historicoDeEventos(ordemServico.getHistoricoDeEventos().stream()
                         .map(evento -> TrocaStatusDto.builder()
                                 .status(evento.getNovoStatus())
                                 .dataHora(evento.getDataHora())
                                 .build())
                         .toList())
+                .build();
+    }
+
+    public static StatusOrdemServicoDto toStatusDto(OrdemServico ordemServico) {
+        return StatusOrdemServicoDto.builder()
+                .id(ordemServico.getId())
+                .status(ordemServico.getStatus())
+                .descricaoStatus(ordemServico.getStatus() != null ? ordemServico.getStatus().getDescricao() : null)
                 .build();
     }
 

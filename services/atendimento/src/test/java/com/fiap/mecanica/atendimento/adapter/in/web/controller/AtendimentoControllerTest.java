@@ -2,8 +2,10 @@ package com.fiap.mecanica.atendimento.adapter.in.web.controller;
 
 import com.fiap.mecanica.atendimento.adapter.in.web.presenter.AtendimentoPresenter;
 import com.fiap.mecanica.atendimento.adapter.in.web.request.AdicionarItensOrcamentoRequest;
+import com.fiap.mecanica.atendimento.adapter.in.web.request.DecisaoOrcamentoRequest;
 import com.fiap.mecanica.atendimento.adapter.in.web.request.IniciarAtendimentoRequest;
 import com.fiap.mecanica.atendimento.adapter.in.web.response.OrdemServicoDto;
+import com.fiap.mecanica.atendimento.adapter.in.web.response.StatusOrdemServicoDto;
 import com.fiap.mecanica.atendimento.adapter.in.web.response.TempoMedioExecucaoServicoDto;
 import com.fiap.mecanica.atendimento.application.command.ServicoQuantidadeCommand;
 import com.fiap.mecanica.atendimento.application.port.in.AtendimentoUseCase;
@@ -19,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -59,6 +62,46 @@ class AtendimentoControllerTest {
 
         assertThat(resultado).isEqualTo(AtendimentoPresenter.toDto(ordemServico));
         verify(atendimentoUseCase).buscarPorId(UUID_ORDEM);
+    }
+
+    @Test
+    void deveConsultarStatusComSucesso() {
+        OrdemServico ordemServico = criarOrdemServico(UUID_ORDEM, Status.EM_DIAGNOSTICO);
+
+        when(atendimentoUseCase.buscarPorId(UUID_ORDEM)).thenReturn(ordemServico);
+
+        StatusOrdemServicoDto resultado = controller.consultarStatus(UUID_ORDEM);
+
+        assertThat(resultado).isEqualTo(AtendimentoPresenter.toStatusDto(ordemServico));
+        verify(atendimentoUseCase).buscarPorId(UUID_ORDEM);
+    }
+
+    @Test
+    void deveRegistrarDecisaoExternaOrcamentoAprovadaComSucesso() {
+        DecisaoOrcamentoRequest request = new DecisaoOrcamentoRequest(true);
+        OrdemServico ordemServico = criarOrdemServico(UUID_ORDEM, Status.EM_EXECUCAO);
+
+        when(atendimentoUseCase.aprovarOrdemServico(UUID_ORDEM)).thenReturn(ordemServico);
+
+        OrdemServicoDto resultado = controller.registrarDecisaoExternaOrcamento(UUID_ORDEM, request);
+
+        assertThat(resultado).isEqualTo(AtendimentoPresenter.toDto(ordemServico));
+        verify(atendimentoUseCase).aprovarOrdemServico(UUID_ORDEM);
+        verify(atendimentoUseCase, never()).cancelarOrdemServico(UUID_ORDEM);
+    }
+
+    @Test
+    void deveRegistrarDecisaoExternaOrcamentoRecusadaComSucesso() {
+        DecisaoOrcamentoRequest request = new DecisaoOrcamentoRequest(false);
+        OrdemServico ordemServico = criarOrdemServico(UUID_ORDEM, Status.CANCELADA);
+
+        when(atendimentoUseCase.cancelarOrdemServico(UUID_ORDEM)).thenReturn(ordemServico);
+
+        OrdemServicoDto resultado = controller.registrarDecisaoExternaOrcamento(UUID_ORDEM, request);
+
+        assertThat(resultado).isEqualTo(AtendimentoPresenter.toDto(ordemServico));
+        verify(atendimentoUseCase).cancelarOrdemServico(UUID_ORDEM);
+        verify(atendimentoUseCase, never()).aprovarOrdemServico(UUID_ORDEM);
     }
 
     @Test

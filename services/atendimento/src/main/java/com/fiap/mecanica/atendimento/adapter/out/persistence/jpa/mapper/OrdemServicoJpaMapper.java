@@ -40,6 +40,7 @@ public class OrdemServicoJpaMapper {
                 .veiculoId(entity.getVeiculoId())
                 .relatoCliente(entity.getRelatoCliente())
                 .observacoesDiagnostico(entity.getObservacoesDiagnostico())
+                .dataCriacao(entity.getDataCriacao())
                 .historicoDeEventos(historico)
                 .build();
 
@@ -109,6 +110,7 @@ public class OrdemServicoJpaMapper {
                 .veiculoId(domain.getVeiculoId())
                 .relatoCliente(domain.getRelatoCliente())
                 .observacoesDiagnostico(domain.getObservacoesDiagnostico())
+                .dataCriacao(domain.getDataCriacao())
                 .historicoDeEventos(historico)
                 .build();
 
