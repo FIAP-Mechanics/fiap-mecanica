@@ -2,20 +2,29 @@
 
 FROM eclipse-temurin:21-jdk-jammy AS build
 
+ARG SERVICE
+
 WORKDIR /workspace
 
 COPY . .
 
-RUN --mount=type=cache,target=/root/.m2 chmod +x mvnw \
+RUN --mount=type=cache,target=/root/.m2 case "${SERVICE}" in \
+        cliente|veiculo|funcionario|servico|estoque|atendimento) ;; \
+        *) echo "SERVICE inválido: ${SERVICE}" >&2; exit 1 ;; \
+    esac \
+    && chmod +x mvnw \
     && ./mvnw \
-        -pl services/cliente,services/veiculo,services/funcionario,services/servico,services/estoque,services/atendimento \
+        -pl "services/${SERVICE}" \
         -am package -DskipTests
 
 FROM eclipse-temurin:21-jre-jammy
 
 ARG SERVICE
 
-RUN useradd --system --create-home --uid 10001 app
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --create-home --uid 10001 app
 
 WORKDIR /app
 

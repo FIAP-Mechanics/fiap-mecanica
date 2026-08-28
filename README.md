@@ -96,6 +96,7 @@ Endpoints públicos:
 - `POST /auth/login` (`services/atendimento`, porta 8086)
 - `GET /atendimento/{id}` (`services/atendimento`, porta 8086)
 - Todos os endpoints `GET` dos demais serviços (`cliente`, `veiculo`, `funcionario`, `servico`, `estoque`)
+- `/actuator/health/**` de cada serviço
 - `/swagger-ui/**` e `/v3/api-docs/**` de cada serviço
 
 ## Requisitos
@@ -119,7 +120,6 @@ O projeto possui Maven Wrapper, então não é necessário instalar Maven localm
 ```text
 mecanica/
 ├── pom.xml                      # Root POM (packaging pom), apenas dependencyManagement/properties
-├── compose.yaml                 # Stack local do Dependency-Track (profile "security")
 ├── docs/                        # Documentação (plano de migração, diagramas, OpenAPI)
 ├── postman/                     # Collections e environments por microsserviço
 └── services/                    # Módulos dos microsserviços (Maven multi-módulo)
@@ -167,9 +167,17 @@ No Windows:
 .\mvnw.cmd -pl services/cliente spring-boot:run
 ```
 
-Os serviços já possuem valores padrão sensatos (usuário/senha `mecanica`, portas de banco e de aplicação descritas na tabela acima), então normalmente não é necessário nenhum arquivo `.env` para rodar localmente. Cada serviço permite sobrescrever suas configurações por variáveis de ambiente (ex.: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`), caso necessário.
+Ao executar um serviço diretamente pela IDE ou Maven, os valores locais padrão continuam disponíveis. O Compose completo exige `MECANICA_POSTGRES_USER`, `MECANICA_POSTGRES_PASSWORD` e `MECANICA_JWT_SECRET` no `.env` para não manter credenciais fixas no YAML. O prefixo evita colisões com outras stacks do monorepo.
 
 ## Subindo toda a aplicação com Docker
+
+Na primeira execução, crie o `.env` local a partir do exemplo:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Revise pelo menos `MECANICA_POSTGRES_USER`, `MECANICA_POSTGRES_PASSWORD`, `MECANICA_JWT_SECRET`, `MECANICA_ADMIN_EMAIL` e `MECANICA_ADMIN_PASSWORD`. Os valores do exemplo são exclusivos para desenvolvimento local.
 
 Para construir e iniciar os seis microsserviços e o PostgreSQL de uma vez:
 
@@ -178,6 +186,8 @@ docker compose -f compose.app.yaml up -d --build
 ```
 
 O PostgreSQL desse compose cria um banco independente para cada microsserviço. As APIs ficam disponíveis nas portas `8081` a `8086`, compatíveis com a collection unificada do Postman.
+
+Cada imagem compila somente o microsserviço indicado no argumento `SERVICE`. Os containers são considerados saudáveis quando `GET /actuator/health/readiness` responde com sucesso.
 
 Para acompanhar o estado dos containers:
 
@@ -201,67 +211,14 @@ docker compose -f services/cliente/compose.yaml ps
 
 ## Configuração do Serviço `atendimento`
 
-O serviço `atendimento` concentra autenticação JWT, notificações por e-mail e integrações HTTP com os demais serviços. Principais variáveis de ambiente (todas com valor padrão para uso local):
+O serviço `atendimento` concentra autenticação JWT, notificações por e-mail e integrações HTTP com os demais serviços. As variáveis usadas pelo Compose ficam no `.env`; consulte `.env.example` para os valores locais:
 
 - `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`: banco `mecanica_atendimento`.
-- `JWT_SECRET` (mínimo 32 caracteres), `JWT_EXPIRATION_SECONDS`, `JWT_ISSUER`: emissão/validação do token JWT.
-- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NOME`: admin criado automaticamente na inicialização do serviço.
+- `MECANICA_JWT_SECRET` (mínimo 32 caracteres), `MECANICA_JWT_EXPIRATION_SECONDS`, `MECANICA_JWT_ISSUER`: emissão/validação do token JWT no Compose.
+- `MECANICA_ADMIN_EMAIL`, `MECANICA_ADMIN_PASSWORD`, `MECANICA_ADMIN_NOME`: admin criado automaticamente na inicialização do serviço pelo Compose.
 - `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`: envio de e-mail.
 - `NOTIFICACAO_EMAIL_ADMIN`, `NOTIFICACAO_EMAIL_REMETENTE`: notificações administrativas (`skip` por padrão).
 - `CLIENTE_SERVICE_URL`, `VEICULO_SERVICE_URL`, `SERVICO_SERVICE_URL`, `ESTOQUE_SERVICE_URL`: URLs base dos demais serviços (por padrão, `http://localhost:<porta>` de cada um).
-
-## Dependency-Track e SBOM
-
-O projeto possui uma stack local do OWASP Dependency-Track no `compose.yaml` da raiz. Essa stack é independente dos microsserviços de aplicação e fica no profile `security`.
-
-Para subir:
-
-```powershell
-docker compose --profile security up -d dependency-track-frontend
-```
-
-Serviços esperados:
-
-- Frontend: `http://localhost:8082`
-- API Server: `http://localhost:8081`
-- PostgreSQL interno do Dependency-Track: `dependency-track-postgres:5432`
-
-> **Atenção:** as portas padrão do Dependency-Track (`8081` frontend/API) coincidem com as portas de alguns microsserviços (`cliente` usa `8081`, `veiculo` usa `8082`). Se for rodar o Dependency-Track e os microsserviços ao mesmo tempo, ajuste `DEPENDENCY_TRACK_API_PORT`/`DEPENDENCY_TRACK_FRONTEND_PORT` (via `.env` na raiz) para portas livres.
-
-Em um ambiente limpo, as credenciais iniciais do Dependency-Track são:
-
-```text
-usuário: admin
-senha: admin
-```
-
-No primeiro acesso, altere a senha do usuário `admin`. Se o volume Docker já existir, vale a senha alterada anteriormente.
-
-Para gerar o SBOM CycloneDX do projeto:
-
-```powershell
-.\mvnw.cmd org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
-```
-
-No Linux/macOS:
-
-```bash
-./mvnw org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
-```
-
-O arquivo gerado fica em:
-
-```text
-target/bom.json
-```
-
-Depois, crie um projeto no Dependency-Track e faça upload do `target/bom.json`.
-
-Para parar apenas o Dependency-Track:
-
-```powershell
-docker compose --profile security stop dependency-track-frontend dependency-track-apiserver dependency-track-postgres
-```
 
 ## Admin Padrão
 
@@ -353,19 +310,27 @@ services/cliente/target/site/jacoco/index.html
 
 ## Parar e Limpar Docker
 
+Parar toda a aplicação sem apagar o banco:
+
+```powershell
+docker compose -f compose.app.yaml down
+```
+
+Limpar completamente a aplicação, incluindo o volume do PostgreSQL e as imagens locais:
+
+```powershell
+docker compose -f compose.app.yaml down -v --rmi local --remove-orphans
+```
+
+O segundo comando apaga definitivamente os dados locais dos seis bancos. Na próxima subida, `docker/postgres/init-databases.sql` será executado novamente.
+
 Parar o banco de um serviço:
 
 ```bash
 docker compose -f services/cliente/compose.yaml down
 ```
 
-Parar e remover volumes/imagens locais do Dependency-Track:
-
-```bash
-docker compose down -v --rmi local --remove-orphans
-```
-
-Use o comando com volumes apenas quando quiser descartar os dados locais do PostgreSQL do serviço e/ou do Dependency-Track.
+Use comandos com `-v` apenas quando quiser descartar os dados persistidos localmente.
 
 ## Problemas Comuns
 
@@ -378,7 +343,6 @@ Se a porta estiver ocupada:
 
 - `cliente` usa `8081`, `veiculo` usa `8082`, `funcionario` usa `8083`, `servico` usa `8084`, `estoque` usa `8085`, `atendimento` usa `8086`;
 - os bancos PostgreSQL de cada serviço usam `5432` (`cliente`), `5433` (`veiculo`), `5434` (`funcionario`), `5435` (`servico`), `5436` (`estoque`) e `5437` (`atendimento`);
-- Dependency-Track API usa `8081` e frontend usa `8082` por padrão (mesmas portas de `cliente`/`veiculo` — ajuste via `.env` se for usar os dois ao mesmo tempo);
 - pare outros serviços nessas portas ou ajuste o `compose.yaml`/variáveis de ambiente do serviço correspondente.
 
 Se o login falhar após limpar volumes:
@@ -386,9 +350,3 @@ Se o login falhar após limpar volumes:
 - aguarde o serviço `atendimento` terminar de subir;
 - confira nos logs se o admin padrão foi criado;
 - use as credenciais padrão ou as variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD` configuradas.
-
-Se o Dependency-Track demorar no primeiro start:
-
-- aguarde o API Server ficar `healthy`;
-- acompanhe com `docker logs dependency-track-apiserver --tail 100 -f`;
-- o primeiro start pode baixar bases de vulnerabilidades e criar índices internos.

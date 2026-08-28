@@ -13,6 +13,13 @@
     <name>services</name>
     <description>Módulos de microsserviços da oficina mecânica</description>
 
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+    </dependencies>
+
     <modules>
         <module>cliente</module>
         <module>veiculo</module>
