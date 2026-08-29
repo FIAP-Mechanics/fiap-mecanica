@@ -6,10 +6,15 @@ Os manifestos usam Kustomize e separam a configuração comum dos ambientes loca
 k8s/
 ├── base/                         # 6 Deployments, Services, ConfigMaps e HPAs
 ├── overlays/
-│   ├── local/                    # PostgreSQL + PVC + imagens locais
+│   ├── local/                    # Secrets locais + imagens locais
 │   └── production/               # registry e banco externos
 └── addons/metrics-server/        # instalação separada por ser cluster-wide
 ```
+
+O PostgreSQL do ambiente local não faz mais parte deste diretório: ele é provisionado pelo Terraform
+em `/infra` (ver `infra/README.md`), atendendo ao requisito do PDF de que o banco de dados seja
+criado via IaC. `kubectl apply -k k8s/overlays/local` assume que o Service `postgres-mecanica` já
+existe no namespace — ou seja, rode `terraform apply` em `/infra` antes.
 
 ## O que está configurado
 
@@ -19,7 +24,7 @@ k8s/
 - Shutdown gracioso: 30 segundos no Spring e 45 segundos no Pod.
 - HPA `autoscaling/v2`: CPU 70%, memória 75% e máximo de 5 réplicas.
 - Mínimo de 1 réplica no ambiente local e 2 em produção.
-- PostgreSQL 16 com PVC de 2 Gi apenas no overlay local.
+- PostgreSQL 16 com PVC de 2 Gi no ambiente local, provisionado pelo Terraform (`/infra`).
 - Metrics Server v0.9.0, compatível com Kubernetes 1.34 ou superior.
 
 Recursos iniciais:
@@ -31,19 +36,28 @@ Recursos iniciais:
 
 Esses valores consideram o consumo ocioso medido nos containers atuais. Ajuste-os após testes de carga e observação em produção.
 
-## Ambiente local no Docker Desktop
+## Ambiente local (kind via Terraform)
 
 Pré-requisitos:
 
-- Kubernetes 1.34+ habilitado no Docker Desktop;
-- provisionador `kind` usando o [containerd image store](https://docs.docker.com/desktop/use-desktop/kubernetes/#cluster-provisioning-method), ou um registry acessível pelo cluster;
-- `kubectl` apontando para o contexto do Docker Desktop;
+- Docker rodando;
+- `terraform`, `kind` e `kubectl` instalados;
 - `.env` do Compose configurado.
 
-Construa as seis imagens locais:
+Provisione o cluster kind e o PostgreSQL com Terraform (detalhes em `infra/README.md`):
+
+```powershell
+cd infra
+terraform init
+terraform apply
+cd ..
+```
+
+Construa as seis imagens locais e carregue-as no cluster kind (ele não enxerga o cache de imagens do host):
 
 ```powershell
 docker compose -f compose.app.yaml build
+kind load docker-image mecanica/cliente:local mecanica/veiculo:local mecanica/funcionario:local mecanica/servico:local mecanica/estoque:local mecanica/atendimento:local --name mecanica
 ```
 
 Crie os arquivos locais de Secret. Eles são ignorados pelo Git:
@@ -54,7 +68,7 @@ Copy-Item k8s/overlays/local/secrets/atendimento.env.example k8s/overlays/local/
 Copy-Item k8s/overlays/local/secrets/external-services.env.example k8s/overlays/local/secrets/external-services.env
 ```
 
-Os exemplos contêm apenas credenciais de sandbox. Troque os valores se o cluster local for compartilhado.
+Os exemplos contêm apenas credenciais de sandbox e já batem com o default do Terraform em `/infra`. Troque os valores dos dois lados (aqui e em `infra/variables.tf`/`-var`) se o cluster local for compartilhado.
 
 Instale o Metrics Server e depois a aplicação:
 
@@ -64,7 +78,7 @@ kubectl apply -k k8s/overlays/local
 kubectl wait --for=condition=available deployment --all -n mecanica --timeout=300s
 ```
 
-O overlay local adiciona `--kubelet-insecure-tls` somente ao Metrics Server do Docker Desktop. Essa opção não existe no overlay de produção.
+O overlay local adiciona `--kubelet-insecure-tls` ao Metrics Server, necessário porque o kind não expõe um certificado do kubelet válido para a cadeia padrão. Essa opção não existe no overlay de produção.
 
 Confira os recursos e as métricas:
 
@@ -81,18 +95,23 @@ kubectl port-forward service/atendimento 8086:8086 -n mecanica
 
 Se o Compose ainda estiver usando as portas 8081 a 8086, encerre-o antes do port-forward com `docker compose -f compose.app.yaml down`. Para usar toda a collection do Postman, abra um terminal para cada Service e encaminhe também as portas 8081 a 8085.
 
-Para remover o namespace local e o PVC do PostgreSQL:
+Para remover só a aplicação (Deployments/Services/HPA/Secrets), mantendo o cluster e o PostgreSQL no ar:
 
 ```powershell
 kubectl delete -k k8s/overlays/local
+kubectl delete -k k8s/addons/metrics-server/overlays/local
 ```
 
-O StatefulSet local marca o PVC para exclusão quando for removido. A exclusão definitiva do volume físico ainda segue a política de retenção da StorageClass do cluster.
-
-Remova o Metrics Server separadamente apenas se ele tiver sido instalado por este projeto:
+**Atenção**: esse comando também remove o Namespace `mecanica` (ele é um recurso de `k8s/base`), o que
+por cascata apaga o PostgreSQL provisionado pelo Terraform sem passar pelo `terraform destroy` — o
+estado do Terraform fica dessincronizado (ele ainda "acha" que os recursos existem). Se a intenção é
+recriar só a aplicação, prefira `kubectl delete deployment,service,hpa --all -n mecanica` (não apaga o
+namespace). Para uma remoção completa e consistente, destrua pelo Terraform — ele já derruba o cluster
+kind inteiro, dispensando o `kubectl delete` acima:
 
 ```powershell
-kubectl delete -k k8s/addons/metrics-server/overlays/local
+cd infra
+terraform destroy
 ```
 
 ## Secrets

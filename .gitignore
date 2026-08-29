@@ -37,7 +37,18 @@ build/
 ### VS Code ###
 .vscode/
 
+### Terraform ###
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/*.tfstate
+infra/*.tfstate.*
+infra/crash.log
+infra/*.tfvars
+!infra/*.tfvars.example
+
 ### Custom ###
 
 docs/
 .junie/
+infra/mecanica-config
+infra/*kubeconfig*

@@ -5,9 +5,6 @@ namespace: mecanica
 
 resources:
   - ../../base
-  - database/init-databases-configmap.yaml
-  - database/postgresql-service.yaml
-  - database/postgresql-statefulset.yaml
 
 secretGenerator:
   - name: mecanica-shared-secrets
