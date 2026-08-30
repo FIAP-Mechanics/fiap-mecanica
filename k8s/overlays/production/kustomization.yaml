@@ -37,20 +37,20 @@ patches:
 
 images:
   - name: mecanica/cliente
-    newName: ghcr.io/guilhermeqbs/mecanica-cliente
+    newName: ghcr.io/fiap-mechanics/mecanica-cliente
     newTag: latest
   - name: mecanica/veiculo
-    newName: ghcr.io/guilhermeqbs/mecanica-veiculo
+    newName: ghcr.io/fiap-mechanics/mecanica-veiculo
     newTag: latest
   - name: mecanica/funcionario
-    newName: ghcr.io/guilhermeqbs/mecanica-funcionario
+    newName: ghcr.io/fiap-mechanics/mecanica-funcionario
     newTag: latest
   - name: mecanica/servico
-    newName: ghcr.io/guilhermeqbs/mecanica-servico
+    newName: ghcr.io/fiap-mechanics/mecanica-servico
     newTag: latest
   - name: mecanica/estoque
-    newName: ghcr.io/guilhermeqbs/mecanica-estoque
+    newName: ghcr.io/fiap-mechanics/mecanica-estoque
     newTag: latest
   - name: mecanica/atendimento
-    newName: ghcr.io/guilhermeqbs/mecanica-atendimento
+    newName: ghcr.io/fiap-mechanics/mecanica-atendimento
     newTag: latest
