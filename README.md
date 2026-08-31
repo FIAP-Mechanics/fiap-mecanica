@@ -2,11 +2,24 @@
 
 Monorepo de microsserviços para gerenciamento de uma oficina mecânica. O sistema cobre cadastro de clientes, veículos, serviços, estoque/insumos, abertura e acompanhamento de ordens de serviço, cálculo de orçamento, notificações, autenticação JWT e controle de permissões por perfil.
 
-O projeto está organizado como um monorepo Maven multi-módulo, sem API Gateway: cada serviço é acessado diretamente pela sua própria porta. Consulte `docs/migracao-microsservicos.md` para o histórico completo da migração do monólito original para microsserviços.
+O projeto está organizado como um monorepo Maven multi-módulo, sem API Gateway: cada serviço é acessado diretamente pela sua própria porta.
 
 ## Objetivo
 
 O objetivo do projeto é apoiar o fluxo principal de atendimento de uma oficina, desde a chegada do cliente até a entrega do veículo, mantendo rastreabilidade da ordem de serviço e separando as responsabilidades entre atendente, mecânico, administrador e cliente.
+
+## Fase 2
+
+Nesta fase, a solução da oficina foi evoluída para atender aos requisitos de arquitetura, operação e entrega contínua do Tech Challenge:
+
+- os seis microsserviços seguem Clean Architecture, separando domínio, casos de uso, portas e adaptadores;
+- as APIs cobrem abertura e consulta da ordem de serviço, decisão externa sobre o orçamento, ordenação operacional das ordens e notificações por e-mail;
+- o ambiente de desenvolvimento completo é executado com Docker e Docker Compose;
+- os Deployments, Services, ConfigMaps, Secrets, probes e HPAs são declarados em manifestos Kubernetes com Kustomize;
+- o Terraform provisiona o cluster Kubernetes local e o PostgreSQL;
+- os workflows do GitHub Actions validam os serviços, publicam as imagens Docker e implantam a aplicação em um cluster efêmero.
+
+Os guias de execução estão nas seções [Docker](#subindo-toda-a-aplicação-com-docker), [Kubernetes](#kubernetes), [Terraform](#infraestrutura-como-código-terraform) e [CI/CD](#cicd).
 
 ## Microsserviços
 
@@ -34,9 +47,9 @@ Todos os endpoints abaixo são expostos pelo serviço `atendimento` (porta 8086)
 5. O mecânico inicia o diagnóstico em `PATCH /atendimento/{id}/diagnostico/iniciar`.
 6. O mecânico adiciona diagnóstico, serviços e insumos em `POST /atendimento/{id}/diagnostico`.
 7. O sistema calcula o orçamento e altera a OS para `AGUARDANDO_APROVACAO`.
-8. O cliente acompanha a OS por `GET /atendimento/{id}` e decide a aprovação em comunicação manual com a atendente.
-9. Se aprovado, a atendente registra em `POST /atendimento/{id}/aprovar`; o sistema baixa os insumos do estoque (`services/estoque`, porta 8085) e muda a OS para `EM_EXECUCAO`.
-10. Se recusado, o cancelamento é registrado em `POST /atendimento/{id}/cancelar`.
+8. O cliente acompanha a OS por `GET /atendimento/{id}` e a aplicação externa comunica sua decisão em `POST /atendimento/{id}/decisao-orcamento`, enviando `{"aprovado": true}` ou `{"aprovado": false}`.
+9. Se aprovado, o sistema baixa os insumos do estoque (`services/estoque`, porta 8085) e muda a OS para `EM_EXECUCAO`.
+10. Se recusado, a ordem é cancelada logicamente.
 11. O mecânico finaliza a execução em `POST /atendimento/{id}/finalizar`, informando o tempo gasto nos serviços.
 12. A atendente entrega o veículo em `POST /atendimento/{id}/entregar`.
 
@@ -119,9 +132,12 @@ O projeto possui Maven Wrapper, então não é necessário instalar Maven localm
 
 ```text
 mecanica/
-├── pom.xml                      # Root POM (packaging pom), apenas dependencyManagement/properties
-├── docs/                        # Documentação (plano de migração, diagramas, OpenAPI)
-├── postman/                     # Collections e environments por microsserviço
+├── .github/workflows/           # Pipelines de CI/CD
+├── docker/                      # Inicialização do PostgreSQL local
+├── infra/                       # Cluster e banco provisionados por Terraform
+├── k8s/                         # Manifestos Kubernetes e overlays Kustomize
+├── postman/                     # Collections por microsserviço e collection completa
+├── pom.xml                      # Root POM (packaging pom), dependencyManagement e plugins
 └── services/                    # Módulos dos microsserviços (Maven multi-módulo)
     ├── pom.xml                  # POM agregador dos módulos de serviço
     ├── cliente/                 # Microsserviço de Clientes (porta 8081)
@@ -143,9 +159,9 @@ services/<nome>/
     └── test/java/...     # testes unitários e de integração
 ```
 
-## Subindo um Microsserviço
+## Executando um Microsserviço isoladamente
 
-Não existe mais um `docker compose up` único para toda a aplicação. Cada serviço tem seu próprio `compose.yaml`, com o PostgreSQL correspondente, e é executado individualmente.
+O arquivo `compose.app.yaml` executa a aplicação completa. Para desenvolver ou testar apenas um microsserviço, cada serviço também possui seu próprio `compose.yaml`, responsável pelo PostgreSQL correspondente.
 
 Para subir o banco de dados de um serviço (exemplo com `cliente`):
 
@@ -201,24 +217,176 @@ Para encerrar a aplicação sem apagar os bancos:
 docker compose -f compose.app.yaml down
 ```
 
-Para subir todos os 6 serviços de uma vez (bancos de dados), execute o comando acima para cada `services/<nome>/compose.yaml` e depois inicie cada aplicação em um terminal separado (ou via IDE), na ordem que preferir — não há dependência de inicialização entre eles, exceto que `atendimento` chama os demais via HTTP em tempo de execução (portanto, para o fluxo completo de OS, os 5 serviços de domínio devem estar de pé antes de usar `atendimento`).
+## Infraestrutura como Código (Terraform)
 
-Verifique se um container de banco está rodando:
+O módulo [`infra/`](infra/) provisiona a infraestrutura local exigida pela Fase 2. Os manifests da aplicação continuam sob responsabilidade do Kustomize em `k8s/`.
 
-```bash
-docker compose -f services/cliente/compose.yaml ps
+| Arquivo | Recurso criado |
+|---|---|
+| `infra/cluster.tf` | Cluster Kubernetes local com kind |
+| `infra/namespace.tf` | Namespace `mecanica` |
+| `infra/database.tf` | Secret e ConfigMap do PostgreSQL, StatefulSet com PVC de 2 Gi e Services |
+
+Pré-requisitos: Docker em execução, Terraform 1.9 ou superior e `kubectl`. Para criar o cluster, namespace, PostgreSQL e os seis bancos lógicos:
+
+```powershell
+Set-Location infra
+terraform init
+terraform apply
+Set-Location ..
 ```
+
+O kind registra o contexto `kind-mecanica` no kubeconfig. Se necessário, exporte-o novamente:
+
+```powershell
+kind export kubeconfig --name mecanica
+```
+
+O PostgreSQL usa `var.postgres_username` e `var.postgres_password`. Esses valores devem coincidir com `DATABASE_USERNAME` e `DATABASE_PASSWORD` de `k8s/overlays/local/secrets/shared.env`. Os valores dos arquivos `.env.example` já são compatíveis com os defaults locais do Terraform.
+
+Para destruir todo o ambiente local de forma consistente, incluindo cluster e banco:
+
+```powershell
+Set-Location infra
+terraform destroy
+Set-Location ..
+```
+
+Não remova o namespace `mecanica` manualmente enquanto ele estiver no estado do Terraform, pois isso também apaga o PostgreSQL e deixa o estado dessincronizado.
 
 ## Kubernetes
 
-Os manifestos Kustomize dos seis microsserviços, PostgreSQL local, HPAs e Metrics Server ficam em [`k8s/`](k8s/README.md). Há overlays separados para Docker Desktop e produção.
+Os manifestos usam Kustomize e estão organizados assim:
+
+```text
+k8s/
+├── base/                         # 6 Deployments, Services, ConfigMaps e HPAs
+├── overlays/
+│   ├── local/                    # Secrets e imagens locais
+│   └── production/               # Imagens e banco externos
+└── addons/metrics-server/        # Addon aplicado separadamente
+```
+
+Configuração principal:
+
+- Services `ClusterIP` nas portas 8081 a 8086;
+- init containers aguardando o PostgreSQL;
+- probes de startup, liveness e readiness via Spring Boot Actuator;
+- shutdown gracioso de 30 segundos no Spring e 45 segundos no Pod;
+- HPA `autoscaling/v2`, com CPU em 70%, memória em 75% e máximo de 5 réplicas;
+- mínimo de 1 réplica local e 2 em produção;
+- Metrics Server v0.9.0.
+
+| Serviços | Requests | Limits |
+|---|---|---|
+| cliente, veiculo, funcionario, servico e estoque | 100m CPU / 384Mi | 500m CPU / 512Mi |
+| atendimento | 200m CPU / 512Mi | 750m CPU / 768Mi |
+
+### Ambiente local
+
+Depois do `terraform apply`, construa as imagens e carregue-as no cluster kind:
+
+```powershell
+docker compose -f compose.app.yaml build
+kind load docker-image mecanica/cliente:local mecanica/veiculo:local mecanica/funcionario:local mecanica/servico:local mecanica/estoque:local mecanica/atendimento:local --name mecanica
+```
+
+Crie os arquivos locais de Secrets, ignorados pelo Git:
+
+```powershell
+Copy-Item k8s/overlays/local/secrets/shared.env.example k8s/overlays/local/secrets/shared.env
+Copy-Item k8s/overlays/local/secrets/atendimento.env.example k8s/overlays/local/secrets/atendimento.env
+Copy-Item k8s/overlays/local/secrets/external-services.env.example k8s/overlays/local/secrets/external-services.env
+```
+
+Instale o Metrics Server e aplique a aplicação:
 
 ```powershell
 kubectl apply -k k8s/addons/metrics-server/overlays/local
 kubectl apply -k k8s/overlays/local
+kubectl wait --for=condition=available deployment --all -n mecanica --timeout=300s
 ```
 
-Consulte o guia antes de aplicar: os arquivos locais de Secret precisam existir e o overlay de produção exige imagens publicadas, banco externo e Secrets gerenciados.
+O overlay local habilita `--kubelet-insecure-tls` apenas para o Metrics Server do kind. Essa opção não é aplicada em produção.
+
+Confira os recursos e as métricas:
+
+```powershell
+kubectl get pods,services,hpa -n mecanica
+kubectl top pods -n mecanica
+```
+
+Como os Services são `ClusterIP`, use port-forward para acesso externo. Exemplo:
+
+```powershell
+kubectl port-forward service/atendimento 8086:8086 -n mecanica
+```
+
+Se o Compose estiver usando as portas 8081 a 8086, encerre-o antes do port-forward. Para a collection completa, encaminhe também os Services das portas 8081 a 8085.
+
+### Secrets
+
+| Secret | Chaves esperadas |
+|---|---|
+| `mecanica-shared-secrets` | `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `JWT_SECRET` |
+| `atendimento-secrets` | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD` |
+| `external-services-secrets` | `EXTERNAL_SERVICE_TOKEN`, reservado para integrações futuras |
+
+O `JWT_SECRET` deve ser igual nos seis serviços e ter ao menos 32 bytes. Kubernetes Secrets em Base64 não são criptografia; em produção, use um gerenciador de segredos ou External Secrets e nunca versione valores reais.
+
+Trocar `DATABASE_PASSWORD` no Secret não altera a senha de um PostgreSQL já inicializado. Da mesma forma, `ADMIN_PASSWORD` é usado somente ao criar o administrador inicial; rotações precisam ser coordenadas no banco.
+
+### Produção
+
+Antes de aplicar `k8s/overlays/production`:
+
+1. Substitua `postgres.example.internal` pelo DNS real do banco.
+2. Configure o issuer JWT, SMTP e endereços de notificação.
+3. Use registry e tags imutáveis para as seis imagens.
+4. Crie os seis bancos lógicos no PostgreSQL externo.
+5. Materialize os Secrets no namespace `mecanica-production` usando o gerenciador de segredos.
+
+```powershell
+kubectl apply -k k8s/addons/metrics-server/overlays/production
+kubectl apply -k k8s/overlays/production
+kubectl wait --for=condition=available deployment --all -n mecanica-production --timeout=300s
+```
+
+O overlay de produção não cria o PostgreSQL nem persiste credenciais; o Service `postgres-mecanica` funciona apenas como alias DNS para o banco externo.
+
+### Validação
+
+Sem acessar um cluster, valide a renderização:
+
+```powershell
+kubectl kustomize k8s/base
+kubectl kustomize k8s/overlays/local
+kubectl kustomize k8s/overlays/production
+kubectl kustomize k8s/addons/metrics-server/overlays/local
+kubectl kustomize k8s/addons/metrics-server/overlays/production
+```
+
+Com o cluster ativo, valide os recursos contra a API antes de aplicar:
+
+```powershell
+kubectl apply --dry-run=server -k k8s/overlays/local
+```
+
+Limitações conhecidas antes de produção real:
+
+- `ddl-auto: update` ainda altera o schema na inicialização e deve ser substituído por migrações versionadas;
+- a criação do administrador precisa ser atômica quando houver múltiplas réplicas;
+- o HPA de memória de aplicações JVM deve ser calibrado com métricas reais;
+- o script SQL local só executa quando o PVC do PostgreSQL está vazio.
+
+## CI/CD
+
+O GitHub Actions automatiza a validação e a implantação:
+
+- [Pull Request Validation](.github/workflows/maven.yml) executa build, testes e verificação de cobertura dos seis microsserviços em pull requests para `main`;
+- [Continuous Deployment](.github/workflows/cd.yml) é acionado em pushes para `main` ou manualmente, executa novamente os testes, publica as seis imagens no GHCR, provisiona um cluster kind efêmero e o PostgreSQL com Terraform, aplica os manifestos Kubernetes e valida o rollout.
+
+As seis imagens publicadas no GHCR devem estar com visibilidade pública. Assim, o cluster e quem estiver avaliando o projeto podem baixá-las sem configurar `GHCR_TOKEN` ou uma credencial de pull. O `GITHUB_TOKEN` automático continua sendo usado somente pelo workflow para publicar as imagens.
 
 ## Configuração do Serviço `atendimento`
 
@@ -275,11 +443,11 @@ Authorization: Bearer <token>
 
 ## Postman
 
-A collection unificada `postman/mecanica-completa.postman_collection.json` cobre todos os endpoints dos seis microsserviços e já contém as URLs locais, autenticação Bearer e scripts para salvar o token e os IDs criados. As collections separadas por microsserviço também permanecem em `postman/`.
+A [collection completa do Postman](postman/mecanica-completa.postman_collection.json) cobre todos os endpoints dos seis microsserviços e já contém as URLs locais, autenticação Bearer e scripts para salvar o token e os IDs criados. As collections separadas por microsserviço também permanecem em `postman/`.
 
 Para usar:
 
-1. Importe `postman/mecanica-completa.postman_collection.json` ou a collection do serviço desejado.
+1. Baixe e importe a [collection completa](postman/mecanica-completa.postman_collection.json) ou a collection do serviço desejado.
 2. Suba o banco do serviço (`docker compose -f services/<nome>/compose.yaml up -d`) e inicie a aplicação (`./mvnw -pl services/<nome> spring-boot:run`).
 3. Na collection unificada, execute primeiro `00 - Autenticação > Login e salvar token` (porta 8086).
 
