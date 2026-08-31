@@ -5,8 +5,7 @@ serviços, estoque/insumos, abertura e acompanhamento de ordens de serviço, cá
 autenticação JWT e controle de permissões por perfil.
 
 O projeto está organizado como um monorepo Maven multi-módulo, sem API Gateway: cada serviço é acessado diretamente pela
-sua própria porta. Consulte `docs/migracao-microsservicos.md` para o histórico completo da migração do monólito original
-para microsserviços.
+sua própria porta.
 
 ## Objetivo
 
@@ -14,22 +13,7 @@ O objetivo do projeto é apoiar o fluxo principal de atendimento de uma oficina,
 do veículo, mantendo rastreabilidade da ordem de serviço e separando as responsabilidades entre atendente, mecânico,
 administrador e cliente.
 
-## Objetivos da Fase 2
-
-A Fase 1 entregou o sistema de gestão de ordens de serviço, veículos, clientes e estoque. A Fase 2 evolui essa aplicação
-para suportar crescimento de demanda com qualidade, resiliência e escalabilidade, incorporando práticas modernas de
-infraestrutura e automação:
-
-- **Reduzir riscos operacionais por meio de infraestrutura escalável**: os seis microsserviços rodam em Kubernetes
-  com [Horizontal Pod Autoscaler](#kubernetes) baseado em CPU/memória.
-- **Automatizar o provisionamento e o deploy do ambiente**: o cluster Kubernetes e o banco de dados são provisionados
-  via [Terraform](#infraestrutura-como-código-terraform); a pipeline de [CI/CD](#cicd) builda, testa, publica as
-  imagens e aplica os manifestos automaticamente a cada push em `main`.
-- **Melhorar a qualidade e a organização do código**: Arquitetura Hexagonal nos seis serviços (`domain`/`application`/
-  `adapter`/`infrastructure`), validada por testes ArchUnit em cada `verify`, e testes automatizados
-  unitários/integração com gate mínimo de 80% de cobertura (linha e branch) via JaCoCo.
-- **Preparar a aplicação para picos de demanda**: HPA (`autoscaling/v2`) escalando dinamicamente de 1 até 5 réplicas por
-  serviço conforme utilização de CPU (70%) e memória (75%).
+## Arquitetura
 
 ### Componentes da aplicação
 
@@ -92,7 +76,7 @@ Todos os endpoints abaixo são expostos pelo serviço `atendimento` (porta 8086)
    os insumos do estoque (`services/estoque`, porta 8085) e muda a OS para `EM_EXECUCAO`.
 10. Se recusado (via `decisao-orcamento` ou `POST /atendimento/{id}/cancelar`, uso interno da atendente), o cancelamento
     é registrado.
-11. O mecânico finaliza a execução em `POST /atendimento/{id}/finalizar`, informando o tempo gasto nos serviços.
+11. O mecânico finaliza a execução em `POST /atendimento/{id}/finalizar`, e a OS passa para `FINALIZADA`.
 12. A atendente entrega o veículo em `POST /atendimento/{id}/entregar`.
 
 ## Status da OS
@@ -273,15 +257,17 @@ docker compose -f compose.app.yaml down
 
 ## Infraestrutura como Código (Terraform)
 
-O módulo [`infra/`](infra/) provisiona a infraestrutura local exigida pela Fase 2. Os manifests da aplicação continuam sob responsabilidade do Kustomize em `k8s/`.
+O módulo [`infra/`](infra/) provisiona a infraestrutura local exigida pela Fase 2. Os manifests da aplicação continuam
+sob responsabilidade do Kustomize em `k8s/`.
 
-| Arquivo | Recurso criado |
-|---|---|
-| `infra/cluster.tf` | Cluster Kubernetes local com kind |
-| `infra/namespace.tf` | Namespace `mecanica` |
-| `infra/database.tf` | Secret e ConfigMap do PostgreSQL, StatefulSet com PVC de 2 Gi e Services |
+| Arquivo              | Recurso criado                                                           |
+|----------------------|--------------------------------------------------------------------------|
+| `infra/cluster.tf`   | Cluster Kubernetes local com kind                                        |
+| `infra/namespace.tf` | Namespace `mecanica`                                                     |
+| `infra/database.tf`  | Secret e ConfigMap do PostgreSQL, StatefulSet com PVC de 2 Gi e Services |
 
-Pré-requisitos: Docker em execução, Terraform 1.9 ou superior e `kubectl`. Para criar o cluster, namespace, PostgreSQL e os seis bancos lógicos:
+Pré-requisitos: Docker em execução, Terraform 1.9 ou superior e `kubectl`. Para criar o cluster, namespace, PostgreSQL e
+os seis bancos lógicos:
 
 ```powershell
 Set-Location infra
@@ -296,7 +282,9 @@ O kind registra o contexto `kind-mecanica` no kubeconfig. Se necessário, export
 kind export kubeconfig --name mecanica
 ```
 
-O PostgreSQL usa `var.postgres_username` e `var.postgres_password`. Esses valores devem coincidir com `DATABASE_USERNAME` e `DATABASE_PASSWORD` de `k8s/overlays/local/secrets/shared.env`. Os valores dos arquivos `.env.example` já são compatíveis com os defaults locais do Terraform.
+O PostgreSQL usa `var.postgres_username` e `var.postgres_password`. Esses valores devem coincidir com
+`DATABASE_USERNAME` e `DATABASE_PASSWORD` de `k8s/overlays/local/secrets/shared.env`. Os valores dos arquivos
+`.env.example` já são compatíveis com os defaults locais do Terraform.
 
 Para destruir todo o ambiente local de forma consistente, incluindo cluster e banco:
 
@@ -306,7 +294,8 @@ terraform destroy
 Set-Location ..
 ```
 
-Não remova o namespace `mecanica` manualmente enquanto ele estiver no estado do Terraform, pois isso também apaga o PostgreSQL e deixa o estado dessincronizado.
+Não remova o namespace `mecanica` manualmente enquanto ele estiver no estado do Terraform, pois isso também apaga o
+PostgreSQL e deixa o estado dessincronizado.
 
 ## Kubernetes
 
@@ -331,10 +320,10 @@ Configuração principal:
 - mínimo de 1 réplica local e 2 em produção;
 - Metrics Server v0.9.0.
 
-| Serviços | Requests | Limits |
-|---|---|---|
+| Serviços                                         | Requests         | Limits           |
+|--------------------------------------------------|------------------|------------------|
 | cliente, veiculo, funcionario, servico e estoque | 100m CPU / 384Mi | 500m CPU / 512Mi |
-| atendimento | 200m CPU / 512Mi | 750m CPU / 768Mi |
+| atendimento                                      | 200m CPU / 512Mi | 750m CPU / 768Mi |
 
 ### Ambiente local
 
@@ -361,7 +350,8 @@ kubectl apply -k k8s/overlays/local
 kubectl wait --for=condition=available deployment --all -n mecanica --timeout=300s
 ```
 
-O overlay local habilita `--kubelet-insecure-tls` apenas para o Metrics Server do kind. Essa opção não é aplicada em produção.
+O overlay local habilita `--kubelet-insecure-tls` apenas para o Metrics Server do kind. Essa opção não é aplicada em
+produção.
 
 Confira os recursos e as métricas:
 
@@ -376,19 +366,22 @@ Como os Services são `ClusterIP`, use port-forward para acesso externo. Exemplo
 kubectl port-forward service/atendimento 8086:8086 -n mecanica
 ```
 
-Se o Compose estiver usando as portas 8081 a 8086, encerre-o antes do port-forward. Para a collection completa, encaminhe também os Services das portas 8081 a 8085.
+Se o Compose estiver usando as portas 8081 a 8086, encerre-o antes do port-forward. Para a collection completa,
+encaminhe também os Services das portas 8081 a 8085.
 
 ### Secrets
 
-| Secret | Chaves esperadas |
-|---|---|
-| `mecanica-shared-secrets` | `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `JWT_SECRET` |
-| `atendimento-secrets` | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD` |
-| `external-services-secrets` | `EXTERNAL_SERVICE_TOKEN`, reservado para integrações futuras |
+| Secret                      | Chaves esperadas                                                  |
+|-----------------------------|-------------------------------------------------------------------|
+| `mecanica-shared-secrets`   | `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `JWT_SECRET`            |
+| `atendimento-secrets`       | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD` |
+| `external-services-secrets` | `EXTERNAL_SERVICE_TOKEN`, reservado para integrações futuras      |
 
-O `JWT_SECRET` deve ser igual nos seis serviços e ter ao menos 32 bytes. Kubernetes Secrets em Base64 não são criptografia; em produção, use um gerenciador de segredos ou External Secrets e nunca versione valores reais.
+O `JWT_SECRET` deve ser igual nos seis serviços e ter ao menos 32 bytes. Kubernetes Secrets em Base64 não são
+criptografia; em produção, use um gerenciador de segredos ou External Secrets e nunca versione valores reais.
 
-Trocar `DATABASE_PASSWORD` no Secret não altera a senha de um PostgreSQL já inicializado. Da mesma forma, `ADMIN_PASSWORD` é usado somente ao criar o administrador inicial; rotações precisam ser coordenadas no banco.
+Trocar `DATABASE_PASSWORD` no Secret não altera a senha de um PostgreSQL já inicializado. Da mesma forma,
+`ADMIN_PASSWORD` é usado somente ao criar o administrador inicial; rotações precisam ser coordenadas no banco.
 
 ### Produção
 
@@ -406,7 +399,8 @@ kubectl apply -k k8s/overlays/production
 kubectl wait --for=condition=available deployment --all -n mecanica-production --timeout=300s
 ```
 
-O overlay de produção não cria o PostgreSQL nem persiste credenciais; o Service `postgres-mecanica` funciona apenas como alias DNS para o banco externo.
+O overlay de produção não cria o PostgreSQL nem persiste credenciais; o Service `postgres-mecanica` funciona apenas como
+alias DNS para o banco externo.
 
 ### Validação
 
@@ -437,10 +431,15 @@ Limitações conhecidas antes de produção real:
 
 O GitHub Actions automatiza a validação e a implantação:
 
-- [Pull Request Validation](.github/workflows/maven.yml) executa build, testes e verificação de cobertura dos seis microsserviços em pull requests para `main`;
-- [Continuous Deployment](.github/workflows/cd.yml) é acionado em pushes para `main` ou manualmente, executa novamente os testes, publica as seis imagens no GHCR, provisiona um cluster kind efêmero e o PostgreSQL com Terraform, aplica os manifestos Kubernetes e valida o rollout.
+- [Pull Request Validation](.github/workflows/maven.yml) executa build, testes e verificação de cobertura dos seis
+  microsserviços em pull requests para `main`;
+- [Continuous Deployment](.github/workflows/cd.yml) é acionado em pushes para `main` ou manualmente, executa novamente
+  os testes, publica as seis imagens no GHCR, provisiona um cluster kind efêmero e o PostgreSQL com Terraform, aplica os
+  manifestos Kubernetes e valida o rollout.
 
-As seis imagens publicadas no GHCR devem estar com visibilidade pública. Assim, o cluster e quem estiver avaliando o projeto podem baixá-las sem configurar `GHCR_TOKEN` ou uma credencial de pull. O `GITHUB_TOKEN` automático continua sendo usado somente pelo workflow para publicar as imagens.
+As seis imagens publicadas no GHCR devem estar com visibilidade pública. Assim, o cluster e quem estiver avaliando o
+projeto podem baixá-las sem configurar `GHCR_TOKEN` ou uma credencial de pull. O `GITHUB_TOKEN` automático continua
+sendo usado somente pelo workflow para publicar as imagens.
 
 ## Configuração do Serviço `atendimento`
 
@@ -507,8 +506,8 @@ collections separadas por microsserviço também permanecem em `postman/`.
 
 Para usar:
 
-1. Baixe e importe a [collection completa](postman/mecanica-completa.postman_collection.json) ou a collection do
-   serviço desejado.
+1. Baixe e importe a [collection completa](postman/mecanica-completa.postman_collection.json) ou a collection do serviço
+   desejado.
 2. Suba o banco do serviço (`docker compose -f services/<nome>/compose.yaml up -d`) e inicie a aplicação
    (`./mvnw -pl services/<nome> spring-boot:run`).
 3. Na collection unificada, execute primeiro `00 - Autenticação > Login e salvar token` (porta 8086).
