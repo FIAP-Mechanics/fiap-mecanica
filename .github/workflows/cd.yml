@@ -75,7 +75,6 @@ jobs:
 
     permissions:
       contents: read
-      packages: read
 
     steps:
       - name: Checkout
@@ -116,23 +115,6 @@ jobs:
 
       - name: Point kubectl at the ephemeral cluster
         run: echo "KUBECONFIG=${{ github.workspace }}/infra/kubeconfig.yaml" >> "$GITHUB_ENV"
-
-      - name: Configure GHCR pull credentials
-        env:
-          GHCR_USERNAME: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          kubectl create secret docker-registry ghcr-pull-secret \
-            --namespace=mecanica \
-            --docker-server=ghcr.io \
-            --docker-username="$GHCR_USERNAME" \
-            --docker-password="$GHCR_TOKEN" \
-            --dry-run=client \
-            --output=yaml | kubectl apply -f -
-          kubectl patch serviceaccount default \
-            --namespace=mecanica \
-            --type=merge \
-            --patch='{"imagePullSecrets":[{"name":"ghcr-pull-secret"}]}'
 
       - name: Install Metrics Server
         run: kubectl apply -k k8s/addons/metrics-server/overlays/local

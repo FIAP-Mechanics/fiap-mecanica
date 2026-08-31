@@ -386,7 +386,7 @@ O GitHub Actions automatiza a validação e a implantação:
 - [Pull Request Validation](.github/workflows/maven.yml) executa build, testes e verificação de cobertura dos seis microsserviços em pull requests para `main`;
 - [Continuous Deployment](.github/workflows/cd.yml) é acionado em pushes para `main` ou manualmente, executa novamente os testes, publica as seis imagens no GHCR, provisiona um cluster kind efêmero e o PostgreSQL com Terraform, aplica os manifestos Kubernetes e valida o rollout.
 
-Durante o deploy, o workflow cria uma credencial temporária de pull para permitir que o cluster baixe imagens privadas do GHCR. O cluster e essa credencial são destruídos ao final da execução, inclusive em caso de falha.
+As seis imagens publicadas no GHCR devem estar com visibilidade pública. Assim, o cluster e quem estiver avaliando o projeto podem baixá-las sem configurar `GHCR_TOKEN` ou uma credencial de pull. O `GITHUB_TOKEN` automático continua sendo usado somente pelo workflow para publicar as imagens.
 
 ## Configuração do Serviço `atendimento`
 
