@@ -33,53 +33,14 @@ infraestrutura e automação:
 
 ### Componentes da aplicação
 
-```mermaid
-graph LR
-    C[Cliente HTTP / Postman]
-    C --> ATD["atendimento :8086<br/>(OS + Auth JWT + e-mail)"]
-    C --> CLI[cliente :8081]
-    C --> VEI[veiculo :8082]
-    C --> FUN[funcionario :8083]
-    C --> SRV[servico :8084]
-    C --> EST[estoque :8085]
-    ATD -->|REST| CLI
-    ATD -->|REST| VEI
-    ATD -->|REST| SRV
-    ATD -->|REST| EST
-    CLI --> DB[(PostgreSQL<br/>1 base lógica por serviço)]
-    VEI --> DB
-    FUN --> DB
-    SRV --> DB
-    EST --> DB
-    ATD --> DB
-    ATD -.->|notificação| SMTP[(Servidor SMTP)]
-```
+![Diagrama de componentes da aplicação](img/componentes-aplicacao.png)
 
 Não há API Gateway: cada serviço é acessado diretamente pela sua porta. Apenas `atendimento` chama os demais serviços,
 via HTTP (nunca via banco ou dependência Maven entre módulos).
 
 ### Infraestrutura provisionada
 
-```mermaid
-graph TB
-    subgraph TF["Terraform · /infra"]
-        TFC[kind_cluster.this]
-        TFN[Namespace mecanica]
-        TFDB[StatefulSet postgres-mecanica<br/>+ PVC 2Gi]
-        TFC --> TFN --> TFDB
-    end
-
-    subgraph K8S["Kubernetes · kubectl apply -k /k8s"]
-        MS[Metrics Server]
-        subgraph NS[namespace mecanica]
-            APPS["6x Deployment + Service + HPA<br/>cliente · veiculo · funcionario · servico · estoque · atendimento"]
-        end
-        MS -.->|métricas CPU/mem| APPS
-    end
-
-    TFN -->|namespace já existe| NS
-    TFDB -->|Service postgres - mecanica| APPS
-```
+![Diagrama de infraestrutura provisionada](img/infra-provisionada.png)
 
 O Terraform provisiona **apenas** a infraestrutura de base (cluster + namespace + banco); os Deployments/Services/HPA da
 aplicação são aplicados à parte via `kubectl apply -k` sobre `/k8s` — ver a seção
@@ -87,23 +48,7 @@ aplicação são aplicados à parte via `kubectl apply -k` sobre `/k8s` — ver 
 
 ### Fluxo de deploy (CI/CD)
 
-```mermaid
-sequenceDiagram
-    participant Dev
-    participant GH as GitHub Actions
-    participant GHCR
-    participant TF as Terraform
-    participant K8s as Cluster kind
-    Dev ->> GH: push para main
-    GH ->> GH: mvn verify (6 serviços, gate JaCoCo 80%)
-    GH ->> GH: docker build (6 imagens)
-    GH ->> GHCR: docker push (tag = sha do commit)
-    GH ->> TF: terraform apply (cluster + namespace + PostgreSQL)
-    GH ->> K8s: kubectl apply -k k8s/overlays/local
-    K8s -->> GH: kubectl rollout status (6 deployments)
-    GH ->> K8s: kubectl get hpa
-    GH ->> TF: terraform destroy (cluster efêmero)
-```
+![Diagrama de fluxo de deploy (CI/CD)](img/fluxo-deploy.png)
 
 O cluster do CI é efêmero: criado e destruído a cada execução, prova real de que o provisionamento com Terraform e o
 deploy com Kustomize funcionam de ponta a ponta a cada push.
