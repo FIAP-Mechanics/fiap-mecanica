@@ -1,56 +1,82 @@
 # Oficina Mecânica
 
-Monorepo de microsserviços para gerenciamento de uma oficina mecânica. O sistema cobre cadastro de clientes, veículos, serviços, estoque/insumos, abertura e acompanhamento de ordens de serviço, cálculo de orçamento, notificações, autenticação JWT e controle de permissões por perfil.
+Monorepo de microsserviços para gerenciamento de uma oficina mecânica. O sistema cobre cadastro de clientes, veículos,
+serviços, estoque/insumos, abertura e acompanhamento de ordens de serviço, cálculo de orçamento, notificações,
+autenticação JWT e controle de permissões por perfil.
 
-O projeto está organizado como um monorepo Maven multi-módulo, sem API Gateway: cada serviço é acessado diretamente pela sua própria porta.
+O projeto está organizado como um monorepo Maven multi-módulo, sem API Gateway: cada serviço é acessado diretamente pela
+sua própria porta.
 
 ## Objetivo
 
-O objetivo do projeto é apoiar o fluxo principal de atendimento de uma oficina, desde a chegada do cliente até a entrega do veículo, mantendo rastreabilidade da ordem de serviço e separando as responsabilidades entre atendente, mecânico, administrador e cliente.
+O objetivo do projeto é apoiar o fluxo principal de atendimento de uma oficina, desde a chegada do cliente até a entrega
+do veículo, mantendo rastreabilidade da ordem de serviço e separando as responsabilidades entre atendente, mecânico,
+administrador e cliente.
 
-## Fase 2
+## Arquitetura
 
-Nesta fase, a solução da oficina foi evoluída para atender aos requisitos de arquitetura, operação e entrega contínua do Tech Challenge:
+### Componentes da aplicação
 
-- os seis microsserviços seguem Clean Architecture, separando domínio, casos de uso, portas e adaptadores;
-- as APIs cobrem abertura e consulta da ordem de serviço, decisão externa sobre o orçamento, ordenação operacional das ordens e notificações por e-mail;
-- o ambiente de desenvolvimento completo é executado com Docker e Docker Compose;
-- os Deployments, Services, ConfigMaps, Secrets, probes e HPAs são declarados em manifestos Kubernetes com Kustomize;
-- o Terraform provisiona o cluster Kubernetes local e o PostgreSQL;
-- os workflows do GitHub Actions validam os serviços, publicam as imagens Docker e implantam a aplicação em um cluster efêmero.
+![Diagrama de componentes da aplicação](img/componentes-aplicacao.png)
 
-Os guias de execução estão nas seções [Docker](#subindo-toda-a-aplicação-com-docker), [Kubernetes](#kubernetes), [Terraform](#infraestrutura-como-código-terraform) e [CI/CD](#cicd).
+Não há API Gateway: cada serviço é acessado diretamente pela sua porta. Apenas `atendimento` chama os demais serviços,
+via HTTP (nunca via banco ou dependência Maven entre módulos).
+
+### Infraestrutura provisionada
+
+![Diagrama de infraestrutura provisionada](img/infra-provisionada.png)
+
+O Terraform provisiona **apenas** a infraestrutura de base (cluster + namespace + banco); os Deployments/Services/HPA da
+aplicação são aplicados à parte via `kubectl apply -k` sobre `/k8s` — ver a seção
+[Infraestrutura como Código (Terraform)](#infraestrutura-como-código-terraform) para a lista completa de recursos.
+
+### Fluxo de deploy (CI/CD)
+
+![Diagrama de fluxo de deploy (CI/CD)](img/fluxo-deploy.png)
+
+O cluster do CI é efêmero: criado e destruído a cada execução, prova real de que o provisionamento com Terraform e o
+deploy com Kustomize funcionam de ponta a ponta a cada push.
+
+Os guias de execução estão nas seções [Docker](#subindo-toda-a-aplicação-com-docker), [Kubernetes](#kubernetes),
+[Terraform](#infraestrutura-como-código-terraform) e [CI/CD](#cicd).
 
 ## Microsserviços
 
-| Serviço                    | Porta | Banco (Docker)              | Responsabilidade                                          |
-|-----------------------------|-------|------------------------------|-------------------------------------------------------------|
-| `services/cliente`          | 8081  | `postgres-cliente:5432`      | Cadastro de clientes                                         |
-| `services/veiculo`          | 8082  | `postgres-veiculo:5433`      | Cadastro de veículos                                          |
-| `services/funcionario`      | 8083  | `postgres-funcionario:5434`  | Cadastro de funcionários                                      |
-| `services/servico`          | 8084  | `postgres-servico:5435`      | Cadastro de tipos de serviço                                  |
-| `services/estoque`          | 8085  | `postgres-estoque:5436`      | Insumos e controle de estoque                                 |
-| `services/atendimento`      | 8086  | `postgres-atendimento:5437`  | Ordens de serviço, autenticação JWT e notificações por e-mail |
+| Serviço                | Porta | Banco (Docker)              | Responsabilidade                                              |
+|------------------------|-------|-----------------------------|---------------------------------------------------------------|
+| `services/cliente`     | 8081  | `postgres-cliente:5432`     | Cadastro de clientes                                          |
+| `services/veiculo`     | 8082  | `postgres-veiculo:5433`     | Cadastro de veículos                                          |
+| `services/funcionario` | 8083  | `postgres-funcionario:5434` | Cadastro de funcionários                                      |
+| `services/servico`     | 8084  | `postgres-servico:5435`     | Cadastro de tipos de serviço                                  |
+| `services/estoque`     | 8085  | `postgres-estoque:5436`     | Insumos e controle de estoque                                 |
+| `services/atendimento` | 8086  | `postgres-atendimento:5437` | Ordens de serviço, autenticação JWT e notificações por e-mail |
 
-Cada serviço em `services/<nome>` é um módulo Maven independente, com seu próprio `pom.xml`, `compose.yaml`, banco de dados e ciclo de vida. Não há Gateway/proxy: os clientes das APIs acessam cada serviço diretamente pela sua porta.
+Cada serviço em `services/<nome>` é um módulo Maven independente, com seu próprio `pom.xml`, `compose.yaml`, banco de
+dados e ciclo de vida. Não há Gateway/proxy: os clientes das APIs acessam cada serviço diretamente pela sua porta.
 
-O serviço `atendimento` concentra a autenticação do sistema (`POST /auth/login`) e consome os demais serviços (`cliente`, `veiculo`, `servico`, `estoque`) via HTTP (`RestClient`).
+O serviço `atendimento` concentra a autenticação do sistema (`POST /auth/login`) e consome os demais serviços
+(`cliente`, `veiculo`, `servico`, `estoque`) via HTTP (`RestClient`).
 
 ## Fluxo da Ordem de Serviço
 
 Todos os endpoints abaixo são expostos pelo serviço `atendimento` (porta 8086).
 
 1. O cliente solicita o atendimento para a atendente.
-2. A atendente identifica ou cadastra o cliente (`services/cliente`, porta 8081) e o veículo (`services/veiculo`, porta 8082).
+2. A atendente identifica ou cadastra o cliente (`services/cliente`, porta 8081) e o veículo (`services/veiculo`, porta
+   8082).
 3. A atendente inicia a ordem de serviço em `POST /atendimento/iniciar`.
 4. A ordem nasce com status `RECEBIDA`.
 5. O mecânico inicia o diagnóstico em `PATCH /atendimento/{id}/diagnostico/iniciar`.
 6. O mecânico adiciona diagnóstico, serviços e insumos em `POST /atendimento/{id}/diagnostico`.
 7. O sistema calcula o orçamento e altera a OS para `AGUARDANDO_APROVACAO`.
-8. O cliente acompanha a OS por `GET /atendimento/{id}` e a aplicação externa comunica sua decisão em `POST /atendimento/{id}/decisao-orcamento`, enviando `{"aprovado": true}` ou `{"aprovado": false}`.
-9. Se aprovado, o sistema baixa os insumos do estoque (`services/estoque`, porta 8085) e muda a OS para `EM_EXECUCAO`.
-10. Se recusado, a ordem é cancelada logicamente.
-11. O mecânico finaliza a execução em `POST /atendimento/{id}/finalizar`, informando o tempo gasto nos serviços.
+8. O cliente acompanha a OS por `GET /atendimento/{id}` e registra a aprovação ou recusa do orçamento pelo canal público
+   `POST /atendimento/{id}/decisao-orcamento` (identificado apenas pelo ID da OS) — ou a atendente registra em nome do
+   cliente pelos endpoints internos abaixo.
+9. Se aprovado (via `decisao-orcamento` ou `POST /atendimento/{id}/aprovar`, uso interno da atendente), o sistema baixa
+   os insumos do estoque (`services/estoque`, porta 8085) e muda a OS para `EM_EXECUCAO`.
+10. Se recusado (via `decisao-orcamento` ou `POST /atendimento/{id}/cancelar`, uso interno da atendente), o cancelamento
+    é registrado.
+11. O mecânico finaliza a execução em `POST /atendimento/{id}/finalizar`, e a OS passa para `FINALIZADA`.
 12. A atendente entrega o veículo em `POST /atendimento/{id}/entregar`.
 
 ## Status da OS
@@ -65,7 +91,8 @@ Todos os endpoints abaixo são expostos pelo serviço `atendimento` (porta 8086)
 
 ## Notificações
 
-O serviço `atendimento` envia e-mails ao cliente durante o fluxo da OS e ao administrador quando falta estoque. Os templates necessários estão na pasta `06 - Templates` da collection do Postman.
+O serviço `atendimento` envia e-mails ao cliente durante o fluxo da OS e ao administrador quando falta estoque. Os
+templates necessários estão na pasta `06 - Templates` da collection do Postman.
 
 Para desabilitar os e-mails, use no `.env`:
 
@@ -93,14 +120,16 @@ Após alterar o `.env`, recrie o container:
 docker compose -f compose.app.yaml up -d --force-recreate atendimento
 ```
 
-O e-mail do cliente é obtido automaticamente do cadastro. Falhas do SMTP são registradas nos logs e não interrompem a operação principal.
+O e-mail do cliente é obtido automaticamente do cadastro. Falhas do SMTP são registradas nos logs e não interrompem a
+operação principal.
 
 ## Perfis e Permissões
 
 As APIs administrativas usam JWT emitido pelo serviço `atendimento`. O token carrega a role do funcionário autenticado.
 
 - `ADMIN`: acesso total ao sistema, incluindo funcionários, templates, relatórios e operações administrativas.
-- `ATENDENTE`: opera clientes, veículos, estoque, abertura de atendimento, aprovação de orçamento, cancelamento e entrega da OS.
+- `ATENDENTE`: opera clientes, veículos, estoque, abertura de atendimento, aprovação de orçamento, cancelamento e
+  entrega da OS.
 - `MECANICO`: opera serviços, estoque, diagnóstico, inclusão de serviços/insumos na OS e finalização técnica.
 - Cliente: não possui login neste projeto; acompanha a OS pelo endpoint público `GET /atendimento/{id}`.
 
@@ -108,6 +137,8 @@ Endpoints públicos:
 
 - `POST /auth/login` (`services/atendimento`, porta 8086)
 - `GET /atendimento/{id}` (`services/atendimento`, porta 8086)
+- `POST /atendimento/{id}/decisao-orcamento` (`services/atendimento`, porta 8086) — canal de aprovação/recusa externa do
+  orçamento, identificado apenas pelo ID da OS
 - Todos os endpoints `GET` dos demais serviços (`cliente`, `veiculo`, `funcionario`, `servico`, `estoque`)
 - `/actuator/health/**` de cada serviço
 - `/swagger-ui/**` e `/v3/api-docs/**` de cada serviço
@@ -161,7 +192,8 @@ services/<nome>/
 
 ## Executando um Microsserviço isoladamente
 
-O arquivo `compose.app.yaml` executa a aplicação completa. Para desenvolver ou testar apenas um microsserviço, cada serviço também possui seu próprio `compose.yaml`, responsável pelo PostgreSQL correspondente.
+O arquivo `compose.app.yaml` executa a aplicação completa. Para desenvolver ou testar apenas um microsserviço, cada
+serviço também possui seu próprio `compose.yaml`, responsável pelo PostgreSQL correspondente.
 
 Para subir o banco de dados de um serviço (exemplo com `cliente`):
 
@@ -169,7 +201,8 @@ Para subir o banco de dados de um serviço (exemplo com `cliente`):
 docker compose -f services/cliente/compose.yaml up -d
 ```
 
-Repita o comando trocando `cliente` pelo nome do serviço desejado (`veiculo`, `funcionario`, `servico`, `estoque`, `atendimento`).
+Repita o comando trocando `cliente` pelo nome do serviço desejado (`veiculo`, `funcionario`, `servico`, `estoque`,
+`atendimento`).
 
 Em seguida, execute a aplicação do serviço (Linux/macOS):
 
@@ -183,7 +216,9 @@ No Windows:
 .\mvnw.cmd -pl services/cliente spring-boot:run
 ```
 
-Ao executar um serviço diretamente pela IDE ou Maven, os valores locais padrão continuam disponíveis. O Compose completo exige `MECANICA_POSTGRES_USER`, `MECANICA_POSTGRES_PASSWORD` e `MECANICA_JWT_SECRET` no `.env` para não manter credenciais fixas no YAML. O prefixo evita colisões com outras stacks do monorepo.
+Ao executar um serviço diretamente pela IDE ou Maven, os valores locais padrão continuam disponíveis. O Compose completo
+exige `MECANICA_POSTGRES_USER`, `MECANICA_POSTGRES_PASSWORD` e `MECANICA_JWT_SECRET` no `.env` para não manter
+credenciais fixas no YAML. O prefixo evita colisões com outras stacks do monorepo.
 
 ## Subindo toda a aplicação com Docker
 
@@ -193,7 +228,8 @@ Na primeira execução, crie o `.env` local a partir do exemplo:
 Copy-Item .env.example .env
 ```
 
-Revise pelo menos `MECANICA_POSTGRES_USER`, `MECANICA_POSTGRES_PASSWORD`, `MECANICA_JWT_SECRET`, `MECANICA_ADMIN_EMAIL` e `MECANICA_ADMIN_PASSWORD`. Os valores do exemplo são exclusivos para desenvolvimento local.
+Revise pelo menos `MECANICA_POSTGRES_USER`, `MECANICA_POSTGRES_PASSWORD`, `MECANICA_JWT_SECRET`, `MECANICA_ADMIN_EMAIL`
+e `MECANICA_ADMIN_PASSWORD`. Os valores do exemplo são exclusivos para desenvolvimento local.
 
 Para construir e iniciar os seis microsserviços e o PostgreSQL de uma vez:
 
@@ -201,9 +237,11 @@ Para construir e iniciar os seis microsserviços e o PostgreSQL de uma vez:
 docker compose -f compose.app.yaml up -d --build
 ```
 
-O PostgreSQL desse compose cria um banco independente para cada microsserviço. As APIs ficam disponíveis nas portas `8081` a `8086`, compatíveis com a collection unificada do Postman.
+O PostgreSQL desse compose cria um banco independente para cada microsserviço. As APIs ficam disponíveis nas portas
+`8081` a `8086`, compatíveis com a collection unificada do Postman.
 
-Cada imagem compila somente o microsserviço indicado no argumento `SERVICE`. Os containers são considerados saudáveis quando `GET /actuator/health/readiness` responde com sucesso.
+Cada imagem compila somente o microsserviço indicado no argumento `SERVICE`. Os containers são considerados saudáveis
+quando `GET /actuator/health/readiness` responde com sucesso.
 
 Para acompanhar o estado dos containers:
 
@@ -219,15 +257,17 @@ docker compose -f compose.app.yaml down
 
 ## Infraestrutura como Código (Terraform)
 
-O módulo [`infra/`](infra/) provisiona a infraestrutura local exigida pela Fase 2. Os manifests da aplicação continuam sob responsabilidade do Kustomize em `k8s/`.
+O módulo [`infra/`](infra/) provisiona a infraestrutura local exigida pela Fase 2. Os manifests da aplicação continuam
+sob responsabilidade do Kustomize em `k8s/`.
 
-| Arquivo | Recurso criado |
-|---|---|
-| `infra/cluster.tf` | Cluster Kubernetes local com kind |
-| `infra/namespace.tf` | Namespace `mecanica` |
-| `infra/database.tf` | Secret e ConfigMap do PostgreSQL, StatefulSet com PVC de 2 Gi e Services |
+| Arquivo              | Recurso criado                                                           |
+|----------------------|--------------------------------------------------------------------------|
+| `infra/cluster.tf`   | Cluster Kubernetes local com kind                                        |
+| `infra/namespace.tf` | Namespace `mecanica`                                                     |
+| `infra/database.tf`  | Secret e ConfigMap do PostgreSQL, StatefulSet com PVC de 2 Gi e Services |
 
-Pré-requisitos: Docker em execução, Terraform 1.9 ou superior e `kubectl`. Para criar o cluster, namespace, PostgreSQL e os seis bancos lógicos:
+Pré-requisitos: Docker em execução, Terraform 1.9 ou superior e `kubectl`. Para criar o cluster, namespace, PostgreSQL e
+os seis bancos lógicos:
 
 ```powershell
 Set-Location infra
@@ -242,7 +282,9 @@ O kind registra o contexto `kind-mecanica` no kubeconfig. Se necessário, export
 kind export kubeconfig --name mecanica
 ```
 
-O PostgreSQL usa `var.postgres_username` e `var.postgres_password`. Esses valores devem coincidir com `DATABASE_USERNAME` e `DATABASE_PASSWORD` de `k8s/overlays/local/secrets/shared.env`. Os valores dos arquivos `.env.example` já são compatíveis com os defaults locais do Terraform.
+O PostgreSQL usa `var.postgres_username` e `var.postgres_password`. Esses valores devem coincidir com
+`DATABASE_USERNAME` e `DATABASE_PASSWORD` de `k8s/overlays/local/secrets/shared.env`. Os valores dos arquivos
+`.env.example` já são compatíveis com os defaults locais do Terraform.
 
 Para destruir todo o ambiente local de forma consistente, incluindo cluster e banco:
 
@@ -252,7 +294,8 @@ terraform destroy
 Set-Location ..
 ```
 
-Não remova o namespace `mecanica` manualmente enquanto ele estiver no estado do Terraform, pois isso também apaga o PostgreSQL e deixa o estado dessincronizado.
+Não remova o namespace `mecanica` manualmente enquanto ele estiver no estado do Terraform, pois isso também apaga o
+PostgreSQL e deixa o estado dessincronizado.
 
 ## Kubernetes
 
@@ -277,10 +320,10 @@ Configuração principal:
 - mínimo de 1 réplica local e 2 em produção;
 - Metrics Server v0.9.0.
 
-| Serviços | Requests | Limits |
-|---|---|---|
+| Serviços                                         | Requests         | Limits           |
+|--------------------------------------------------|------------------|------------------|
 | cliente, veiculo, funcionario, servico e estoque | 100m CPU / 384Mi | 500m CPU / 512Mi |
-| atendimento | 200m CPU / 512Mi | 750m CPU / 768Mi |
+| atendimento                                      | 200m CPU / 512Mi | 750m CPU / 768Mi |
 
 ### Ambiente local
 
@@ -307,7 +350,8 @@ kubectl apply -k k8s/overlays/local
 kubectl wait --for=condition=available deployment --all -n mecanica --timeout=300s
 ```
 
-O overlay local habilita `--kubelet-insecure-tls` apenas para o Metrics Server do kind. Essa opção não é aplicada em produção.
+O overlay local habilita `--kubelet-insecure-tls` apenas para o Metrics Server do kind. Essa opção não é aplicada em
+produção.
 
 Confira os recursos e as métricas:
 
@@ -322,19 +366,22 @@ Como os Services são `ClusterIP`, use port-forward para acesso externo. Exemplo
 kubectl port-forward service/atendimento 8086:8086 -n mecanica
 ```
 
-Se o Compose estiver usando as portas 8081 a 8086, encerre-o antes do port-forward. Para a collection completa, encaminhe também os Services das portas 8081 a 8085.
+Se o Compose estiver usando as portas 8081 a 8086, encerre-o antes do port-forward. Para a collection completa,
+encaminhe também os Services das portas 8081 a 8085.
 
 ### Secrets
 
-| Secret | Chaves esperadas |
-|---|---|
-| `mecanica-shared-secrets` | `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `JWT_SECRET` |
-| `atendimento-secrets` | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD` |
-| `external-services-secrets` | `EXTERNAL_SERVICE_TOKEN`, reservado para integrações futuras |
+| Secret                      | Chaves esperadas                                                  |
+|-----------------------------|-------------------------------------------------------------------|
+| `mecanica-shared-secrets`   | `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `JWT_SECRET`            |
+| `atendimento-secrets`       | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD` |
+| `external-services-secrets` | `EXTERNAL_SERVICE_TOKEN`, reservado para integrações futuras      |
 
-O `JWT_SECRET` deve ser igual nos seis serviços e ter ao menos 32 bytes. Kubernetes Secrets em Base64 não são criptografia; em produção, use um gerenciador de segredos ou External Secrets e nunca versione valores reais.
+O `JWT_SECRET` deve ser igual nos seis serviços e ter ao menos 32 bytes. Kubernetes Secrets em Base64 não são
+criptografia; em produção, use um gerenciador de segredos ou External Secrets e nunca versione valores reais.
 
-Trocar `DATABASE_PASSWORD` no Secret não altera a senha de um PostgreSQL já inicializado. Da mesma forma, `ADMIN_PASSWORD` é usado somente ao criar o administrador inicial; rotações precisam ser coordenadas no banco.
+Trocar `DATABASE_PASSWORD` no Secret não altera a senha de um PostgreSQL já inicializado. Da mesma forma,
+`ADMIN_PASSWORD` é usado somente ao criar o administrador inicial; rotações precisam ser coordenadas no banco.
 
 ### Produção
 
@@ -352,7 +399,8 @@ kubectl apply -k k8s/overlays/production
 kubectl wait --for=condition=available deployment --all -n mecanica-production --timeout=300s
 ```
 
-O overlay de produção não cria o PostgreSQL nem persiste credenciais; o Service `postgres-mecanica` funciona apenas como alias DNS para o banco externo.
+O overlay de produção não cria o PostgreSQL nem persiste credenciais; o Service `postgres-mecanica` funciona apenas como
+alias DNS para o banco externo.
 
 ### Validação
 
@@ -383,21 +431,30 @@ Limitações conhecidas antes de produção real:
 
 O GitHub Actions automatiza a validação e a implantação:
 
-- [Pull Request Validation](.github/workflows/maven.yml) executa build, testes e verificação de cobertura dos seis microsserviços em pull requests para `main`;
-- [Continuous Deployment](.github/workflows/cd.yml) é acionado em pushes para `main` ou manualmente, executa novamente os testes, publica as seis imagens no GHCR, provisiona um cluster kind efêmero e o PostgreSQL com Terraform, aplica os manifestos Kubernetes e valida o rollout.
+- [Pull Request Validation](.github/workflows/maven.yml) executa build, testes e verificação de cobertura dos seis
+  microsserviços em pull requests para `main`;
+- [Continuous Deployment](.github/workflows/cd.yml) é acionado em pushes para `main` ou manualmente, executa novamente
+  os testes, publica as seis imagens no GHCR, provisiona um cluster kind efêmero e o PostgreSQL com Terraform, aplica os
+  manifestos Kubernetes e valida o rollout.
 
-As seis imagens publicadas no GHCR devem estar com visibilidade pública. Assim, o cluster e quem estiver avaliando o projeto podem baixá-las sem configurar `GHCR_TOKEN` ou uma credencial de pull. O `GITHUB_TOKEN` automático continua sendo usado somente pelo workflow para publicar as imagens.
+As seis imagens publicadas no GHCR devem estar com visibilidade pública. Assim, o cluster e quem estiver avaliando o
+projeto podem baixá-las sem configurar `GHCR_TOKEN` ou uma credencial de pull. O `GITHUB_TOKEN` automático continua
+sendo usado somente pelo workflow para publicar as imagens.
 
 ## Configuração do Serviço `atendimento`
 
-O serviço `atendimento` concentra autenticação JWT, notificações por e-mail e integrações HTTP com os demais serviços. As variáveis usadas pelo Compose ficam no `.env`; consulte `.env.example` para os valores locais:
+O serviço `atendimento` concentra autenticação JWT, notificações por e-mail e integrações HTTP com os demais serviços.
+As variáveis usadas pelo Compose ficam no `.env`; consulte `.env.example` para os valores locais:
 
 - `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`: banco `mecanica_atendimento`.
-- `MECANICA_JWT_SECRET` (mínimo 32 caracteres), `MECANICA_JWT_EXPIRATION_SECONDS`, `MECANICA_JWT_ISSUER`: emissão/validação do token JWT no Compose.
-- `MECANICA_ADMIN_EMAIL`, `MECANICA_ADMIN_PASSWORD`, `MECANICA_ADMIN_NOME`: admin criado automaticamente na inicialização do serviço pelo Compose.
+- `MECANICA_JWT_SECRET` (mínimo 32 caracteres), `MECANICA_JWT_EXPIRATION_SECONDS`, `MECANICA_JWT_ISSUER`:
+  emissão/validação do token JWT no Compose.
+- `MECANICA_ADMIN_EMAIL`, `MECANICA_ADMIN_PASSWORD`, `MECANICA_ADMIN_NOME`: admin criado automaticamente na
+  inicialização do serviço pelo Compose.
 - `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`: envio de e-mail.
 - `NOTIFICACAO_EMAIL_ADMIN`, `NOTIFICACAO_EMAIL_REMETENTE`: notificações administrativas (`skip` por padrão).
-- `CLIENTE_SERVICE_URL`, `VEICULO_SERVICE_URL`, `SERVICO_SERVICE_URL`, `ESTOQUE_SERVICE_URL`: URLs base dos demais serviços (por padrão, `http://localhost:<porta>` de cada um).
+- `CLIENTE_SERVICE_URL`, `VEICULO_SERVICE_URL`, `SERVICO_SERVICE_URL`, `ESTOQUE_SERVICE_URL`: URLs base dos demais
+  serviços (por padrão, `http://localhost:<porta>` de cada um).
 
 ## Admin Padrão
 
@@ -443,15 +500,20 @@ Authorization: Bearer <token>
 
 ## Postman
 
-A [collection completa do Postman](postman/mecanica-completa.postman_collection.json) cobre todos os endpoints dos seis microsserviços e já contém as URLs locais, autenticação Bearer e scripts para salvar o token e os IDs criados. As collections separadas por microsserviço também permanecem em `postman/`.
+A [collection completa do Postman](postman/mecanica-completa.postman_collection.json) cobre todos os endpoints dos seis
+microsserviços e já contém as URLs locais, autenticação Bearer e scripts para salvar o token e os IDs criados. As
+collections separadas por microsserviço também permanecem em `postman/`.
 
 Para usar:
 
-1. Baixe e importe a [collection completa](postman/mecanica-completa.postman_collection.json) ou a collection do serviço desejado.
-2. Suba o banco do serviço (`docker compose -f services/<nome>/compose.yaml up -d`) e inicie a aplicação (`./mvnw -pl services/<nome> spring-boot:run`).
+1. Baixe e importe a [collection completa](postman/mecanica-completa.postman_collection.json) ou a collection do serviço
+   desejado.
+2. Suba o banco do serviço (`docker compose -f services/<nome>/compose.yaml up -d`) e inicie a aplicação
+   (`./mvnw -pl services/<nome> spring-boot:run`).
 3. Na collection unificada, execute primeiro `00 - Autenticação > Login e salvar token` (porta 8086).
 
-O script do request de login salva o token JWT automaticamente na variável `accessToken`. Os cadastros também atualizam automaticamente `clienteId`, `veiculoId`, `funcionarioId`, `servicoId` e `insumoId` para uso nas requisições seguintes.
+O script do request de login salva o token JWT automaticamente na variável `accessToken`. Os cadastros também atualizam
+automaticamente `clienteId`, `veiculoId`, `funcionarioId`, `servicoId` e `insumoId` para uso nas requisições seguintes.
 
 ## Testes
 
@@ -473,7 +535,8 @@ Para rodar os testes de todos os serviços de uma vez:
 ./mvnw -pl services/cliente,services/veiculo,services/funcionario,services/servico,services/estoque,services/atendimento -am verify
 ```
 
-Os testes usam profile de teste com H2 em memória, então não dependem do PostgreSQL local. A cobertura mínima obrigatória é de 80% de linhas e branches por serviço, validada via JaCoCo (`jacoco-check`).
+Os testes usam profile de teste com H2 em memória, então não dependem do PostgreSQL local. A cobertura mínima
+obrigatória é de 80% de linhas e branches por serviço, validada via JaCoCo (`jacoco-check`).
 
 Para gerar relatório de cobertura JaCoCo de um serviço:
 
@@ -501,7 +564,8 @@ Limpar completamente a aplicação, incluindo o volume do PostgreSQL e as imagen
 docker compose -f compose.app.yaml down -v --rmi local --remove-orphans
 ```
 
-O segundo comando apaga definitivamente os dados locais dos seis bancos. Na próxima subida, `docker/postgres/init-databases.sql` será executado novamente.
+O segundo comando apaga definitivamente os dados locais dos seis bancos. Na próxima subida,
+`docker/postgres/init-databases.sql` será executado novamente.
 
 Parar o banco de um serviço:
 
@@ -520,8 +584,10 @@ Se um serviço com autenticação (`atendimento`) falhar por causa do JWT:
 
 Se a porta estiver ocupada:
 
-- `cliente` usa `8081`, `veiculo` usa `8082`, `funcionario` usa `8083`, `servico` usa `8084`, `estoque` usa `8085`, `atendimento` usa `8086`;
-- os bancos PostgreSQL de cada serviço usam `5432` (`cliente`), `5433` (`veiculo`), `5434` (`funcionario`), `5435` (`servico`), `5436` (`estoque`) e `5437` (`atendimento`);
+- `cliente` usa `8081`, `veiculo` usa `8082`, `funcionario` usa `8083`, `servico` usa `8084`, `estoque` usa `8085`,
+  `atendimento` usa `8086`;
+- os bancos PostgreSQL de cada serviço usam `5432` (`cliente`), `5433` (`veiculo`), `5434` (`funcionario`), `5435`
+  (`servico`), `5436` (`estoque`) e `5437` (`atendimento`);
 - pare outros serviços nessas portas ou ajuste o `compose.yaml`/variáveis de ambiente do serviço correspondente.
 
 Se o login falhar após limpar volumes:
