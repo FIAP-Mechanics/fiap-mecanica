@@ -1,51 +1,62 @@
 # Oficina Mecânica
 
-Monorepo de microsserviços para gerenciamento de uma oficina mecânica. O sistema cobre cadastro de clientes, veículos, serviços, estoque/insumos, abertura e acompanhamento de ordens de serviço, cálculo de orçamento, notificações, autenticação JWT e controle de permissões por perfil.
+Monorepo de microsserviços para gerenciamento de uma oficina mecânica. O sistema cobre cadastro de clientes, veículos,
+serviços, estoque/insumos, abertura e acompanhamento de ordens de serviço, cálculo de orçamento, notificações,
+autenticação JWT e controle de permissões por perfil.
 
-O projeto está organizado como um monorepo Maven multi-módulo, sem API Gateway: cada serviço é acessado diretamente pela sua própria porta. Consulte `docs/migracao-microsservicos.md` para o histórico completo da migração do monólito original para microsserviços.
+O projeto está organizado como um monorepo Maven multi-módulo, sem API Gateway: cada serviço é acessado diretamente pela
+sua própria porta. Consulte `docs/migracao-microsservicos.md` para o histórico completo da migração do monólito original
+para microsserviços.
 
 ## Objetivo
 
-O objetivo do projeto é apoiar o fluxo principal de atendimento de uma oficina, desde a chegada do cliente até a entrega do veículo, mantendo rastreabilidade da ordem de serviço e separando as responsabilidades entre atendente, mecânico, administrador e cliente.
+O objetivo do projeto é apoiar o fluxo principal de atendimento de uma oficina, desde a chegada do cliente até a entrega
+do veículo, mantendo rastreabilidade da ordem de serviço e separando as responsabilidades entre atendente, mecânico,
+administrador e cliente.
 
 ## Objetivos da Fase 2
 
-A Fase 1 entregou o sistema de gestão de ordens de serviço, veículos, clientes e estoque. A Fase 2 evolui essa aplicação para suportar crescimento de demanda com qualidade, resiliência e escalabilidade, incorporando práticas modernas de infraestrutura e automação:
+A Fase 1 entregou o sistema de gestão de ordens de serviço, veículos, clientes e estoque. A Fase 2 evolui essa aplicação
+para suportar crescimento de demanda com qualidade, resiliência e escalabilidade, incorporando práticas modernas de
+infraestrutura e automação:
 
-- **Reduzir riscos operacionais por meio de infraestrutura escalável**: os seis microsserviços rodam em Kubernetes com [Horizontal Pod Autoscaler](k8s/README.md) baseado em CPU/memória.
-- **Automatizar o provisionamento e o deploy do ambiente**: o cluster Kubernetes e o banco de dados são provisionados via [Terraform](infra/README.md); a pipeline de [CI/CD](#cicd) builda, testa, publica as imagens e aplica os manifestos automaticamente a cada push em `main`.
-- **Melhorar a qualidade e a organização do código**: Arquitetura Hexagonal nos seis serviços (`domain`/`application`/`adapter`/`infrastructure`), validada por testes ArchUnit em cada `verify`, e testes automatizados unitários/integração com gate mínimo de 80% de cobertura (linha e branch) via JaCoCo.
-- **Preparar a aplicação para picos de demanda**: HPA (`autoscaling/v2`) escalando dinamicamente de 1 até 5 réplicas por serviço conforme utilização de CPU (70%) e memória (75%).
+- **Reduzir riscos operacionais por meio de infraestrutura escalável**: os seis microsserviços rodam em Kubernetes
+  com [Horizontal Pod Autoscaler](k8s/README.md) baseado em CPU/memória.
+- **Automatizar o provisionamento e o deploy do ambiente**: o cluster Kubernetes e o banco de dados são provisionados
+  via [Terraform](infra/README.md); a pipeline de [CI/CD](#cicd) builda, testa, publica as imagens e aplica os
+  manifestos automaticamente a cada push em `main`.
+- **Melhorar a qualidade e a organização do código**: Arquitetura Hexagonal nos seis serviços (`domain`/`application`/
+  `adapter`/`infrastructure`), validada por testes ArchUnit em cada `verify`, e testes automatizados
+  unitários/integração com gate mínimo de 80% de cobertura (linha e branch) via JaCoCo.
+- **Preparar a aplicação para picos de demanda**: HPA (`autoscaling/v2`) escalando dinamicamente de 1 até 5 réplicas por
+  serviço conforme utilização de CPU (70%) e memória (75%).
 
 ### Componentes da aplicação
 
 ```mermaid
 graph LR
     C[Cliente HTTP / Postman]
-
     C --> ATD["atendimento :8086<br/>(OS + Auth JWT + e-mail)"]
     C --> CLI[cliente :8081]
     C --> VEI[veiculo :8082]
     C --> FUN[funcionario :8083]
     C --> SRV[servico :8084]
     C --> EST[estoque :8085]
-
     ATD -->|REST| CLI
     ATD -->|REST| VEI
     ATD -->|REST| SRV
     ATD -->|REST| EST
-
     CLI --> DB[(PostgreSQL<br/>1 base lógica por serviço)]
     VEI --> DB
     FUN --> DB
     SRV --> DB
     EST --> DB
     ATD --> DB
-
     ATD -.->|notificação| SMTP[(Servidor SMTP)]
 ```
 
-Não há API Gateway: cada serviço é acessado diretamente pela sua porta. Apenas `atendimento` chama os demais serviços, via HTTP (nunca via banco ou dependência Maven entre módulos).
+Não há API Gateway: cada serviço é acessado diretamente pela sua porta. Apenas `atendimento` chama os demais serviços,
+via HTTP (nunca via banco ou dependência Maven entre módulos).
 
 ### Infraestrutura provisionada
 
@@ -67,10 +78,12 @@ graph TB
     end
 
     TFN -->|namespace já existe| NS
-    TFDB -->|Service postgres-mecanica| APPS
+    TFDB -->|Service postgres - mecanica| APPS
 ```
 
-O Terraform provisiona **apenas** a infraestrutura de base (cluster + namespace + banco); os Deployments/Services/HPA da aplicação são aplicados à parte via `kubectl apply -k` sobre `/k8s` — ver [`infra/README.md`](infra/README.md) para a lista completa de recursos.
+O Terraform provisiona **apenas** a infraestrutura de base (cluster + namespace + banco); os Deployments/Services/HPA da
+aplicação são aplicados à parte via `kubectl apply -k` sobre `/k8s` — ver [`infra/README.md`](infra/README.md) para a
+lista completa de recursos.
 
 ### Fluxo de deploy (CI/CD)
 
@@ -81,49 +94,56 @@ sequenceDiagram
     participant GHCR
     participant TF as Terraform
     participant K8s as Cluster kind
-
-    Dev->>GH: push para main
-    GH->>GH: mvn verify (6 serviços, gate JaCoCo 80%)
-    GH->>GH: docker build (6 imagens)
-    GH->>GHCR: docker push (tag = sha do commit)
-    GH->>TF: terraform apply (cluster + namespace + PostgreSQL)
-    GH->>K8s: kubectl apply -k k8s/overlays/local
-    K8s-->>GH: kubectl rollout status (6 deployments)
-    GH->>K8s: kubectl get hpa
-    GH->>TF: terraform destroy (cluster efêmero)
+    Dev ->> GH: push para main
+    GH ->> GH: mvn verify (6 serviços, gate JaCoCo 80%)
+    GH ->> GH: docker build (6 imagens)
+    GH ->> GHCR: docker push (tag = sha do commit)
+    GH ->> TF: terraform apply (cluster + namespace + PostgreSQL)
+    GH ->> K8s: kubectl apply -k k8s/overlays/local
+    K8s -->> GH: kubectl rollout status (6 deployments)
+    GH ->> K8s: kubectl get hpa
+    GH ->> TF: terraform destroy (cluster efêmero)
 ```
 
-O cluster do CI é efêmero: criado e destruído a cada execução, prova real de que o provisionamento com Terraform e o deploy com Kustomize funcionam de ponta a ponta a cada push.
+O cluster do CI é efêmero: criado e destruído a cada execução, prova real de que o provisionamento com Terraform e o
+deploy com Kustomize funcionam de ponta a ponta a cada push.
 
 ## Microsserviços
 
-| Serviço                    | Porta | Banco (Docker)              | Responsabilidade                                          |
-|-----------------------------|-------|------------------------------|-------------------------------------------------------------|
-| `services/cliente`          | 8081  | `postgres-cliente:5432`      | Cadastro de clientes                                         |
-| `services/veiculo`          | 8082  | `postgres-veiculo:5433`      | Cadastro de veículos                                          |
-| `services/funcionario`      | 8083  | `postgres-funcionario:5434`  | Cadastro de funcionários                                      |
-| `services/servico`          | 8084  | `postgres-servico:5435`      | Cadastro de tipos de serviço                                  |
-| `services/estoque`          | 8085  | `postgres-estoque:5436`      | Insumos e controle de estoque                                 |
-| `services/atendimento`      | 8086  | `postgres-atendimento:5437`  | Ordens de serviço, autenticação JWT e notificações por e-mail |
+| Serviço                | Porta | Banco (Docker)              | Responsabilidade                                              |
+|------------------------|-------|-----------------------------|---------------------------------------------------------------|
+| `services/cliente`     | 8081  | `postgres-cliente:5432`     | Cadastro de clientes                                          |
+| `services/veiculo`     | 8082  | `postgres-veiculo:5433`     | Cadastro de veículos                                          |
+| `services/funcionario` | 8083  | `postgres-funcionario:5434` | Cadastro de funcionários                                      |
+| `services/servico`     | 8084  | `postgres-servico:5435`     | Cadastro de tipos de serviço                                  |
+| `services/estoque`     | 8085  | `postgres-estoque:5436`     | Insumos e controle de estoque                                 |
+| `services/atendimento` | 8086  | `postgres-atendimento:5437` | Ordens de serviço, autenticação JWT e notificações por e-mail |
 
-Cada serviço em `services/<nome>` é um módulo Maven independente, com seu próprio `pom.xml`, `compose.yaml`, banco de dados e ciclo de vida. Não há Gateway/proxy: os clientes das APIs acessam cada serviço diretamente pela sua porta.
+Cada serviço em `services/<nome>` é um módulo Maven independente, com seu próprio `pom.xml`, `compose.yaml`, banco de
+dados e ciclo de vida. Não há Gateway/proxy: os clientes das APIs acessam cada serviço diretamente pela sua porta.
 
-O serviço `atendimento` concentra a autenticação do sistema (`POST /auth/login`) e consome os demais serviços (`cliente`, `veiculo`, `servico`, `estoque`) via HTTP (`RestClient`).
+O serviço `atendimento` concentra a autenticação do sistema (`POST /auth/login`) e consome os demais serviços
+(`cliente`, `veiculo`, `servico`, `estoque`) via HTTP (`RestClient`).
 
 ## Fluxo da Ordem de Serviço
 
 Todos os endpoints abaixo são expostos pelo serviço `atendimento` (porta 8086).
 
 1. O cliente solicita o atendimento para a atendente.
-2. A atendente identifica ou cadastra o cliente (`services/cliente`, porta 8081) e o veículo (`services/veiculo`, porta 8082).
+2. A atendente identifica ou cadastra o cliente (`services/cliente`, porta 8081) e o veículo (`services/veiculo`, porta
+   8082).
 3. A atendente inicia a ordem de serviço em `POST /atendimento/iniciar`.
 4. A ordem nasce com status `RECEBIDA`.
 5. O mecânico inicia o diagnóstico em `PATCH /atendimento/{id}/diagnostico/iniciar`.
 6. O mecânico adiciona diagnóstico, serviços e insumos em `POST /atendimento/{id}/diagnostico`.
 7. O sistema calcula o orçamento e altera a OS para `AGUARDANDO_APROVACAO`.
-8. O cliente acompanha a OS por `GET /atendimento/{id}` e registra a aprovação ou recusa do orçamento pelo canal público `POST /atendimento/{id}/decisao-orcamento` (identificado apenas pelo ID da OS) — ou a atendente registra em nome do cliente pelos endpoints internos abaixo.
-9. Se aprovado (via `decisao-orcamento` ou `POST /atendimento/{id}/aprovar`, uso interno da atendente), o sistema baixa os insumos do estoque (`services/estoque`, porta 8085) e muda a OS para `EM_EXECUCAO`.
-10. Se recusado (via `decisao-orcamento` ou `POST /atendimento/{id}/cancelar`, uso interno da atendente), o cancelamento é registrado.
+8. O cliente acompanha a OS por `GET /atendimento/{id}` e registra a aprovação ou recusa do orçamento pelo canal público
+   `POST /atendimento/{id}/decisao-orcamento` (identificado apenas pelo ID da OS) — ou a atendente registra em nome do
+   cliente pelos endpoints internos abaixo.
+9. Se aprovado (via `decisao-orcamento` ou `POST /atendimento/{id}/aprovar`, uso interno da atendente), o sistema baixa
+   os insumos do estoque (`services/estoque`, porta 8085) e muda a OS para `EM_EXECUCAO`.
+10. Se recusado (via `decisao-orcamento` ou `POST /atendimento/{id}/cancelar`, uso interno da atendente), o cancelamento
+    é registrado.
 11. O mecânico finaliza a execução em `POST /atendimento/{id}/finalizar`, informando o tempo gasto nos serviços.
 12. A atendente entrega o veículo em `POST /atendimento/{id}/entregar`.
 
@@ -139,7 +159,8 @@ Todos os endpoints abaixo são expostos pelo serviço `atendimento` (porta 8086)
 
 ## Notificações
 
-O serviço `atendimento` envia e-mails ao cliente durante o fluxo da OS e ao administrador quando falta estoque. Os templates necessários estão na pasta `06 - Templates` da collection do Postman.
+O serviço `atendimento` envia e-mails ao cliente durante o fluxo da OS e ao administrador quando falta estoque. Os
+templates necessários estão na pasta `06 - Templates` da collection do Postman.
 
 Para desabilitar os e-mails, use no `.env`:
 
@@ -167,14 +188,16 @@ Após alterar o `.env`, recrie o container:
 docker compose -f compose.app.yaml up -d --force-recreate atendimento
 ```
 
-O e-mail do cliente é obtido automaticamente do cadastro. Falhas do SMTP são registradas nos logs e não interrompem a operação principal.
+O e-mail do cliente é obtido automaticamente do cadastro. Falhas do SMTP são registradas nos logs e não interrompem a
+operação principal.
 
 ## Perfis e Permissões
 
 As APIs administrativas usam JWT emitido pelo serviço `atendimento`. O token carrega a role do funcionário autenticado.
 
 - `ADMIN`: acesso total ao sistema, incluindo funcionários, templates, relatórios e operações administrativas.
-- `ATENDENTE`: opera clientes, veículos, estoque, abertura de atendimento, aprovação de orçamento, cancelamento e entrega da OS.
+- `ATENDENTE`: opera clientes, veículos, estoque, abertura de atendimento, aprovação de orçamento, cancelamento e
+  entrega da OS.
 - `MECANICO`: opera serviços, estoque, diagnóstico, inclusão de serviços/insumos na OS e finalização técnica.
 - Cliente: não possui login neste projeto; acompanha a OS pelo endpoint público `GET /atendimento/{id}`.
 
@@ -182,7 +205,8 @@ Endpoints públicos:
 
 - `POST /auth/login` (`services/atendimento`, porta 8086)
 - `GET /atendimento/{id}` (`services/atendimento`, porta 8086)
-- `POST /atendimento/{id}/decisao-orcamento` (`services/atendimento`, porta 8086) — canal de aprovação/recusa externa do orçamento, identificado apenas pelo ID da OS
+- `POST /atendimento/{id}/decisao-orcamento` (`services/atendimento`, porta 8086) — canal de aprovação/recusa externa do
+  orçamento, identificado apenas pelo ID da OS
 - Todos os endpoints `GET` dos demais serviços (`cliente`, `veiculo`, `funcionario`, `servico`, `estoque`)
 - `/actuator/health/**` de cada serviço
 - `/swagger-ui/**` e `/v3/api-docs/**` de cada serviço
@@ -233,7 +257,8 @@ services/<nome>/
 
 ## Subindo um Microsserviço
 
-Não existe mais um `docker compose up` único para toda a aplicação. Cada serviço tem seu próprio `compose.yaml`, com o PostgreSQL correspondente, e é executado individualmente.
+Não existe mais um `docker compose up` único para toda a aplicação. Cada serviço tem seu próprio `compose.yaml`, com o
+PostgreSQL correspondente, e é executado individualmente.
 
 Para subir o banco de dados de um serviço (exemplo com `cliente`):
 
@@ -241,7 +266,8 @@ Para subir o banco de dados de um serviço (exemplo com `cliente`):
 docker compose -f services/cliente/compose.yaml up -d
 ```
 
-Repita o comando trocando `cliente` pelo nome do serviço desejado (`veiculo`, `funcionario`, `servico`, `estoque`, `atendimento`).
+Repita o comando trocando `cliente` pelo nome do serviço desejado (`veiculo`, `funcionario`, `servico`, `estoque`,
+`atendimento`).
 
 Em seguida, execute a aplicação do serviço (Linux/macOS):
 
@@ -255,7 +281,9 @@ No Windows:
 .\mvnw.cmd -pl services/cliente spring-boot:run
 ```
 
-Ao executar um serviço diretamente pela IDE ou Maven, os valores locais padrão continuam disponíveis. O Compose completo exige `MECANICA_POSTGRES_USER`, `MECANICA_POSTGRES_PASSWORD` e `MECANICA_JWT_SECRET` no `.env` para não manter credenciais fixas no YAML. O prefixo evita colisões com outras stacks do monorepo.
+Ao executar um serviço diretamente pela IDE ou Maven, os valores locais padrão continuam disponíveis. O Compose completo
+exige `MECANICA_POSTGRES_USER`, `MECANICA_POSTGRES_PASSWORD` e `MECANICA_JWT_SECRET` no `.env` para não manter
+credenciais fixas no YAML. O prefixo evita colisões com outras stacks do monorepo.
 
 ## Subindo toda a aplicação com Docker
 
@@ -265,7 +293,8 @@ Na primeira execução, crie o `.env` local a partir do exemplo:
 Copy-Item .env.example .env
 ```
 
-Revise pelo menos `MECANICA_POSTGRES_USER`, `MECANICA_POSTGRES_PASSWORD`, `MECANICA_JWT_SECRET`, `MECANICA_ADMIN_EMAIL` e `MECANICA_ADMIN_PASSWORD`. Os valores do exemplo são exclusivos para desenvolvimento local.
+Revise pelo menos `MECANICA_POSTGRES_USER`, `MECANICA_POSTGRES_PASSWORD`, `MECANICA_JWT_SECRET`, `MECANICA_ADMIN_EMAIL`
+e `MECANICA_ADMIN_PASSWORD`. Os valores do exemplo são exclusivos para desenvolvimento local.
 
 Para construir e iniciar os seis microsserviços e o PostgreSQL de uma vez:
 
@@ -273,9 +302,11 @@ Para construir e iniciar os seis microsserviços e o PostgreSQL de uma vez:
 docker compose -f compose.app.yaml up -d --build
 ```
 
-O PostgreSQL desse compose cria um banco independente para cada microsserviço. As APIs ficam disponíveis nas portas `8081` a `8086`, compatíveis com a collection unificada do Postman.
+O PostgreSQL desse compose cria um banco independente para cada microsserviço. As APIs ficam disponíveis nas portas
+`8081` a `8086`, compatíveis com a collection unificada do Postman.
 
-Cada imagem compila somente o microsserviço indicado no argumento `SERVICE`. Os containers são considerados saudáveis quando `GET /actuator/health/readiness` responde com sucesso.
+Cada imagem compila somente o microsserviço indicado no argumento `SERVICE`. Os containers são considerados saudáveis
+quando `GET /actuator/health/readiness` responde com sucesso.
 
 Para acompanhar o estado dos containers:
 
@@ -289,7 +320,11 @@ Para encerrar a aplicação sem apagar os bancos:
 docker compose -f compose.app.yaml down
 ```
 
-Para subir todos os 6 serviços de uma vez (bancos de dados), execute o comando acima para cada `services/<nome>/compose.yaml` e depois inicie cada aplicação em um terminal separado (ou via IDE), na ordem que preferir — não há dependência de inicialização entre eles, exceto que `atendimento` chama os demais via HTTP em tempo de execução (portanto, para o fluxo completo de OS, os 5 serviços de domínio devem estar de pé antes de usar `atendimento`).
+Para subir todos os 6 serviços de uma vez (bancos de dados), execute o comando acima para cada
+`services/<nome>/compose.yaml` e depois inicie cada aplicação em um terminal separado (ou via IDE), na ordem que
+preferir — não há dependência de inicialização entre eles, exceto que `atendimento` chama os demais via HTTP em tempo de
+execução (portanto, para o fluxo completo de OS, os 5 serviços de domínio devem estar de pé antes de usar
+`atendimento`).
 
 Verifique se um container de banco está rodando:
 
@@ -301,12 +336,20 @@ docker compose -f services/cliente/compose.yaml ps
 
 Duas pipelines em `.github/workflows/`:
 
-- **`maven.yml`** (trigger: Pull Request): roda `mvn verify` de cada serviço tocado — feedback rápido de build, testes e gate de cobertura.
-- **`cd.yml`** (trigger: push em `main` ou `workflow_dispatch`): job `build-and-push` builda e testa os 6 serviços, builda as imagens Docker e publica no GHCR (`ghcr.io/<owner>/mecanica-<serviço>:<sha>`); job `provision-and-deploy` roda `terraform apply` (cluster + banco), aplica os manifestos (`kubectl apply -k k8s/overlays/local`), aguarda o rollout dos 6 Deployments, verifica o HPA e finaliza com `terraform destroy` — cluster kind efêmero, recriado a cada execução. Ver o diagrama de sequência acima.
+- **`maven.yml`** (trigger: Pull Request): roda `mvn verify` de cada serviço tocado — feedback rápido de build, testes e
+  gate de cobertura.
+- **`cd.yml`** (trigger: push em `main` ou `workflow_dispatch`): job `build-and-push` builda e testa os 6 serviços,
+  builda as imagens Docker e publica no GHCR (`ghcr.io/<owner>/mecanica-<serviço>:<sha>`); job `provision-and-deploy`
+  roda `terraform apply` (cluster + banco), aplica os manifestos (`kubectl apply -k k8s/overlays/local`), aguarda o
+  rollout dos 6 Deployments, verifica o HPA e finaliza com `terraform destroy` — cluster kind efêmero, recriado a cada
+  execução. Ver o diagrama de sequência acima.
 
 ## Provisionamento da Infraestrutura (Terraform)
 
-O Terraform provisiona o cluster Kubernetes local (`kind`) e o PostgreSQL usados pela aplicação — **execute antes** de aplicar os manifestos Kubernetes, pois o overlay `local` assume que o Namespace `mecanica` e o Service `postgres-mecanica` já existem. Lista completa dos recursos criados e como aplicar em [`infra/README.md`](infra/README.md).
+O Terraform provisiona o cluster Kubernetes local (`kind`) e o PostgreSQL usados pela aplicação — **execute antes** de
+aplicar os manifestos Kubernetes, pois o overlay `local` assume que o Namespace `mecanica` e o Service
+`postgres-mecanica` já existem. Lista completa dos recursos criados e como aplicar em [
+`infra/README.md`](infra/README.md).
 
 ```bash
 cd infra
@@ -319,25 +362,32 @@ cd ..
 
 Pré-requisito: `terraform apply` em `/infra` (seção anterior) já executado.
 
-Os manifestos Kustomize dos seis microsserviços, HPAs e Metrics Server ficam em [`k8s/`](k8s/README.md). Há overlays separados para ambiente local (Docker Desktop/kind) e produção — guia completo (build e carga das imagens, secrets, port-forward, produção) em `k8s/README.md`.
+Os manifestos Kustomize dos seis microsserviços, HPAs e Metrics Server ficam em [`k8s/`](k8s/README.md). Há overlays
+separados para ambiente local (Docker Desktop/kind) e produção — guia completo (build e carga das imagens, secrets,
+port-forward, produção) em `k8s/README.md`.
 
 ```powershell
 kubectl apply -k k8s/addons/metrics-server/overlays/local
 kubectl apply -k k8s/overlays/local
 ```
 
-Consulte o guia antes de aplicar: os arquivos locais de Secret precisam existir (`k8s/overlays/local/secrets/*.env`, copiados dos `.example`) e o overlay de produção exige imagens publicadas, banco externo e Secrets gerenciados.
+Consulte o guia antes de aplicar: os arquivos locais de Secret precisam existir (`k8s/overlays/local/secrets/*.env`,
+copiados dos `.example`) e o overlay de produção exige imagens publicadas, banco externo e Secrets gerenciados.
 
 ## Configuração do Serviço `atendimento`
 
-O serviço `atendimento` concentra autenticação JWT, notificações por e-mail e integrações HTTP com os demais serviços. As variáveis usadas pelo Compose ficam no `.env`; consulte `.env.example` para os valores locais:
+O serviço `atendimento` concentra autenticação JWT, notificações por e-mail e integrações HTTP com os demais serviços.
+As variáveis usadas pelo Compose ficam no `.env`; consulte `.env.example` para os valores locais:
 
 - `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`: banco `mecanica_atendimento`.
-- `MECANICA_JWT_SECRET` (mínimo 32 caracteres), `MECANICA_JWT_EXPIRATION_SECONDS`, `MECANICA_JWT_ISSUER`: emissão/validação do token JWT no Compose.
-- `MECANICA_ADMIN_EMAIL`, `MECANICA_ADMIN_PASSWORD`, `MECANICA_ADMIN_NOME`: admin criado automaticamente na inicialização do serviço pelo Compose.
+- `MECANICA_JWT_SECRET` (mínimo 32 caracteres), `MECANICA_JWT_EXPIRATION_SECONDS`, `MECANICA_JWT_ISSUER`:
+  emissão/validação do token JWT no Compose.
+- `MECANICA_ADMIN_EMAIL`, `MECANICA_ADMIN_PASSWORD`, `MECANICA_ADMIN_NOME`: admin criado automaticamente na
+  inicialização do serviço pelo Compose.
 - `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`: envio de e-mail.
 - `NOTIFICACAO_EMAIL_ADMIN`, `NOTIFICACAO_EMAIL_REMETENTE`: notificações administrativas (`skip` por padrão).
-- `CLIENTE_SERVICE_URL`, `VEICULO_SERVICE_URL`, `SERVICO_SERVICE_URL`, `ESTOQUE_SERVICE_URL`: URLs base dos demais serviços (por padrão, `http://localhost:<porta>` de cada um).
+- `CLIENTE_SERVICE_URL`, `VEICULO_SERVICE_URL`, `SERVICO_SERVICE_URL`, `ESTOQUE_SERVICE_URL`: URLs base dos demais
+  serviços (por padrão, `http://localhost:<porta>` de cada um).
 
 ## Admin Padrão
 
@@ -383,21 +433,19 @@ Authorization: Bearer <token>
 
 ## Postman
 
-A collection unificada `postman/mecanica-completa.postman_collection.json` cobre todos os endpoints dos seis microsserviços e já contém as URLs locais, autenticação Bearer e scripts para salvar o token e os IDs criados. As collections separadas por microsserviço também permanecem em `postman/`.
+A collection unificada `postman/mecanica-completa.postman_collection.json` cobre todos os endpoints dos seis
+microsserviços e já contém as URLs locais, autenticação Bearer e scripts para salvar o token e os IDs criados. As
+collections separadas por microsserviço também permanecem em `postman/`.
 
 Para usar:
 
 1. Importe `postman/mecanica-completa.postman_collection.json` ou a collection do serviço desejado.
-2. Suba o banco do serviço (`docker compose -f services/<nome>/compose.yaml up -d`) e inicie a aplicação (`./mvnw -pl services/<nome> spring-boot:run`).
+2. Suba o banco do serviço (`docker compose -f services/<nome>/compose.yaml up -d`) e inicie a aplicação
+   (`./mvnw -pl services/<nome> spring-boot:run`).
 3. Na collection unificada, execute primeiro `00 - Autenticação > Login e salvar token` (porta 8086).
 
-O script do request de login salva o token JWT automaticamente na variável `accessToken`. Os cadastros também atualizam automaticamente `clienteId`, `veiculoId`, `funcionarioId`, `servicoId` e `insumoId` para uso nas requisições seguintes.
-
-## Vídeo Demonstrativo
-
-**TODO**: publicar o vídeo (até 15 minutos, YouTube ou Vimeo, público ou não listado) demonstrando o deploy da aplicação, a execução do CI/CD, o consumo das APIs e a escalabilidade automática (HPA), e substituir este placeholder pelo link.
-
-`<link do vídeo aqui>`
+O script do request de login salva o token JWT automaticamente na variável `accessToken`. Os cadastros também atualizam
+automaticamente `clienteId`, `veiculoId`, `funcionarioId`, `servicoId` e `insumoId` para uso nas requisições seguintes.
 
 ## Testes
 
@@ -419,7 +467,8 @@ Para rodar os testes de todos os serviços de uma vez:
 ./mvnw -pl services/cliente,services/veiculo,services/funcionario,services/servico,services/estoque,services/atendimento -am verify
 ```
 
-Os testes usam profile de teste com H2 em memória, então não dependem do PostgreSQL local. A cobertura mínima obrigatória é de 80% de linhas e branches por serviço, validada via JaCoCo (`jacoco-check`).
+Os testes usam profile de teste com H2 em memória, então não dependem do PostgreSQL local. A cobertura mínima
+obrigatória é de 80% de linhas e branches por serviço, validada via JaCoCo (`jacoco-check`).
 
 Para gerar relatório de cobertura JaCoCo de um serviço:
 
@@ -447,7 +496,8 @@ Limpar completamente a aplicação, incluindo o volume do PostgreSQL e as imagen
 docker compose -f compose.app.yaml down -v --rmi local --remove-orphans
 ```
 
-O segundo comando apaga definitivamente os dados locais dos seis bancos. Na próxima subida, `docker/postgres/init-databases.sql` será executado novamente.
+O segundo comando apaga definitivamente os dados locais dos seis bancos. Na próxima subida,
+`docker/postgres/init-databases.sql` será executado novamente.
 
 Parar o banco de um serviço:
 
@@ -466,8 +516,10 @@ Se um serviço com autenticação (`atendimento`) falhar por causa do JWT:
 
 Se a porta estiver ocupada:
 
-- `cliente` usa `8081`, `veiculo` usa `8082`, `funcionario` usa `8083`, `servico` usa `8084`, `estoque` usa `8085`, `atendimento` usa `8086`;
-- os bancos PostgreSQL de cada serviço usam `5432` (`cliente`), `5433` (`veiculo`), `5434` (`funcionario`), `5435` (`servico`), `5436` (`estoque`) e `5437` (`atendimento`);
+- `cliente` usa `8081`, `veiculo` usa `8082`, `funcionario` usa `8083`, `servico` usa `8084`, `estoque` usa `8085`,
+  `atendimento` usa `8086`;
+- os bancos PostgreSQL de cada serviço usam `5432` (`cliente`), `5433` (`veiculo`), `5434` (`funcionario`), `5435`
+  (`servico`), `5436` (`estoque`) e `5437` (`atendimento`);
 - pare outros serviços nessas portas ou ajuste o `compose.yaml`/variáveis de ambiente do serviço correspondente.
 
 Se o login falhar após limpar volumes:
