@@ -106,6 +106,7 @@ jobs:
           cp k8s/overlays/local/secrets/external-services.env.example k8s/overlays/local/secrets/external-services.env
 
       - name: Terraform apply (cluster kind efêmero + PostgreSQL)
+        id: terraform_apply
         working-directory: infra
         run: |
           terraform init -input=false
@@ -140,6 +141,13 @@ jobs:
 
       - name: Show HPA status
         run: kubectl get hpa -n mecanica
+
+      - name: Show Kubernetes diagnostics on failure
+        if: failure() && steps.terraform_apply.outcome == 'success'
+        run: |
+          kubectl get pods,services,hpa -n mecanica -o wide || true
+          kubectl get events -n mecanica --sort-by=.lastTimestamp || true
+          kubectl describe pods -n mecanica || true
 
       - name: Terraform destroy (limpeza do cluster efêmero)
         if: always()
