@@ -8,6 +8,93 @@ O projeto está organizado como um monorepo Maven multi-módulo, sem API Gateway
 
 O objetivo do projeto é apoiar o fluxo principal de atendimento de uma oficina, desde a chegada do cliente até a entrega do veículo, mantendo rastreabilidade da ordem de serviço e separando as responsabilidades entre atendente, mecânico, administrador e cliente.
 
+## Objetivos da Fase 2
+
+A Fase 1 entregou o sistema de gestão de ordens de serviço, veículos, clientes e estoque. A Fase 2 evolui essa aplicação para suportar crescimento de demanda com qualidade, resiliência e escalabilidade, incorporando práticas modernas de infraestrutura e automação:
+
+- **Reduzir riscos operacionais por meio de infraestrutura escalável**: os seis microsserviços rodam em Kubernetes com [Horizontal Pod Autoscaler](k8s/README.md) baseado em CPU/memória.
+- **Automatizar o provisionamento e o deploy do ambiente**: o cluster Kubernetes e o banco de dados são provisionados via [Terraform](infra/README.md); a pipeline de [CI/CD](#cicd) builda, testa, publica as imagens e aplica os manifestos automaticamente a cada push em `main`.
+- **Melhorar a qualidade e a organização do código**: Arquitetura Hexagonal nos seis serviços (`domain`/`application`/`adapter`/`infrastructure`), validada por testes ArchUnit em cada `verify`, e testes automatizados unitários/integração com gate mínimo de 80% de cobertura (linha e branch) via JaCoCo.
+- **Preparar a aplicação para picos de demanda**: HPA (`autoscaling/v2`) escalando dinamicamente de 1 até 5 réplicas por serviço conforme utilização de CPU (70%) e memória (75%).
+
+### Componentes da aplicação
+
+```mermaid
+graph LR
+    C[Cliente HTTP / Postman]
+
+    C --> ATD["atendimento :8086<br/>(OS + Auth JWT + e-mail)"]
+    C --> CLI[cliente :8081]
+    C --> VEI[veiculo :8082]
+    C --> FUN[funcionario :8083]
+    C --> SRV[servico :8084]
+    C --> EST[estoque :8085]
+
+    ATD -->|REST| CLI
+    ATD -->|REST| VEI
+    ATD -->|REST| SRV
+    ATD -->|REST| EST
+
+    CLI --> DB[(PostgreSQL<br/>1 base lógica por serviço)]
+    VEI --> DB
+    FUN --> DB
+    SRV --> DB
+    EST --> DB
+    ATD --> DB
+
+    ATD -.->|notificação| SMTP[(Servidor SMTP)]
+```
+
+Não há API Gateway: cada serviço é acessado diretamente pela sua porta. Apenas `atendimento` chama os demais serviços, via HTTP (nunca via banco ou dependência Maven entre módulos).
+
+### Infraestrutura provisionada
+
+```mermaid
+graph TB
+    subgraph TF["Terraform · /infra"]
+        TFC[kind_cluster.this]
+        TFN[Namespace mecanica]
+        TFDB[StatefulSet postgres-mecanica<br/>+ PVC 2Gi]
+        TFC --> TFN --> TFDB
+    end
+
+    subgraph K8S["Kubernetes · kubectl apply -k /k8s"]
+        MS[Metrics Server]
+        subgraph NS[namespace mecanica]
+            APPS["6x Deployment + Service + HPA<br/>cliente · veiculo · funcionario · servico · estoque · atendimento"]
+        end
+        MS -.->|métricas CPU/mem| APPS
+    end
+
+    TFN -->|namespace já existe| NS
+    TFDB -->|Service postgres-mecanica| APPS
+```
+
+O Terraform provisiona **apenas** a infraestrutura de base (cluster + namespace + banco); os Deployments/Services/HPA da aplicação são aplicados à parte via `kubectl apply -k` sobre `/k8s` — ver [`infra/README.md`](infra/README.md) para a lista completa de recursos.
+
+### Fluxo de deploy (CI/CD)
+
+```mermaid
+sequenceDiagram
+    participant Dev
+    participant GH as GitHub Actions
+    participant GHCR
+    participant TF as Terraform
+    participant K8s as Cluster kind
+
+    Dev->>GH: push para main
+    GH->>GH: mvn verify (6 serviços, gate JaCoCo 80%)
+    GH->>GH: docker build (6 imagens)
+    GH->>GHCR: docker push (tag = sha do commit)
+    GH->>TF: terraform apply (cluster + namespace + PostgreSQL)
+    GH->>K8s: kubectl apply -k k8s/overlays/local
+    K8s-->>GH: kubectl rollout status (6 deployments)
+    GH->>K8s: kubectl get hpa
+    GH->>TF: terraform destroy (cluster efêmero)
+```
+
+O cluster do CI é efêmero: criado e destruído a cada execução, prova real de que o provisionamento com Terraform e o deploy com Kustomize funcionam de ponta a ponta a cada push.
+
 ## Microsserviços
 
 | Serviço                    | Porta | Banco (Docker)              | Responsabilidade                                          |
@@ -34,9 +121,9 @@ Todos os endpoints abaixo são expostos pelo serviço `atendimento` (porta 8086)
 5. O mecânico inicia o diagnóstico em `PATCH /atendimento/{id}/diagnostico/iniciar`.
 6. O mecânico adiciona diagnóstico, serviços e insumos em `POST /atendimento/{id}/diagnostico`.
 7. O sistema calcula o orçamento e altera a OS para `AGUARDANDO_APROVACAO`.
-8. O cliente acompanha a OS por `GET /atendimento/{id}` e decide a aprovação em comunicação manual com a atendente.
-9. Se aprovado, a atendente registra em `POST /atendimento/{id}/aprovar`; o sistema baixa os insumos do estoque (`services/estoque`, porta 8085) e muda a OS para `EM_EXECUCAO`.
-10. Se recusado, o cancelamento é registrado em `POST /atendimento/{id}/cancelar`.
+8. O cliente acompanha a OS por `GET /atendimento/{id}` e registra a aprovação ou recusa do orçamento pelo canal público `POST /atendimento/{id}/decisao-orcamento` (identificado apenas pelo ID da OS) — ou a atendente registra em nome do cliente pelos endpoints internos abaixo.
+9. Se aprovado (via `decisao-orcamento` ou `POST /atendimento/{id}/aprovar`, uso interno da atendente), o sistema baixa os insumos do estoque (`services/estoque`, porta 8085) e muda a OS para `EM_EXECUCAO`.
+10. Se recusado (via `decisao-orcamento` ou `POST /atendimento/{id}/cancelar`, uso interno da atendente), o cancelamento é registrado.
 11. O mecânico finaliza a execução em `POST /atendimento/{id}/finalizar`, informando o tempo gasto nos serviços.
 12. A atendente entrega o veículo em `POST /atendimento/{id}/entregar`.
 
@@ -95,6 +182,7 @@ Endpoints públicos:
 
 - `POST /auth/login` (`services/atendimento`, porta 8086)
 - `GET /atendimento/{id}` (`services/atendimento`, porta 8086)
+- `POST /atendimento/{id}/decisao-orcamento` (`services/atendimento`, porta 8086) — canal de aprovação/recusa externa do orçamento, identificado apenas pelo ID da OS
 - Todos os endpoints `GET` dos demais serviços (`cliente`, `veiculo`, `funcionario`, `servico`, `estoque`)
 - `/actuator/health/**` de cada serviço
 - `/swagger-ui/**` e `/v3/api-docs/**` de cada serviço
@@ -209,16 +297,36 @@ Verifique se um container de banco está rodando:
 docker compose -f services/cliente/compose.yaml ps
 ```
 
-## Kubernetes
+## CI/CD
 
-Os manifestos Kustomize dos seis microsserviços, PostgreSQL local, HPAs e Metrics Server ficam em [`k8s/`](k8s/README.md). Há overlays separados para Docker Desktop e produção.
+Duas pipelines em `.github/workflows/`:
+
+- **`maven.yml`** (trigger: Pull Request): roda `mvn verify` de cada serviço tocado — feedback rápido de build, testes e gate de cobertura.
+- **`cd.yml`** (trigger: push em `main` ou `workflow_dispatch`): job `build-and-push` builda e testa os 6 serviços, builda as imagens Docker e publica no GHCR (`ghcr.io/<owner>/mecanica-<serviço>:<sha>`); job `provision-and-deploy` roda `terraform apply` (cluster + banco), aplica os manifestos (`kubectl apply -k k8s/overlays/local`), aguarda o rollout dos 6 Deployments, verifica o HPA e finaliza com `terraform destroy` — cluster kind efêmero, recriado a cada execução. Ver o diagrama de sequência acima.
+
+## Provisionamento da Infraestrutura (Terraform)
+
+O Terraform provisiona o cluster Kubernetes local (`kind`) e o PostgreSQL usados pela aplicação — **execute antes** de aplicar os manifestos Kubernetes, pois o overlay `local` assume que o Namespace `mecanica` e o Service `postgres-mecanica` já existem. Lista completa dos recursos criados e como aplicar em [`infra/README.md`](infra/README.md).
+
+```bash
+cd infra
+terraform init
+terraform apply
+cd ..
+```
+
+## Deploy em Kubernetes
+
+Pré-requisito: `terraform apply` em `/infra` (seção anterior) já executado.
+
+Os manifestos Kustomize dos seis microsserviços, HPAs e Metrics Server ficam em [`k8s/`](k8s/README.md). Há overlays separados para ambiente local (Docker Desktop/kind) e produção — guia completo (build e carga das imagens, secrets, port-forward, produção) em `k8s/README.md`.
 
 ```powershell
 kubectl apply -k k8s/addons/metrics-server/overlays/local
 kubectl apply -k k8s/overlays/local
 ```
 
-Consulte o guia antes de aplicar: os arquivos locais de Secret precisam existir e o overlay de produção exige imagens publicadas, banco externo e Secrets gerenciados.
+Consulte o guia antes de aplicar: os arquivos locais de Secret precisam existir (`k8s/overlays/local/secrets/*.env`, copiados dos `.example`) e o overlay de produção exige imagens publicadas, banco externo e Secrets gerenciados.
 
 ## Configuração do Serviço `atendimento`
 
@@ -284,6 +392,12 @@ Para usar:
 3. Na collection unificada, execute primeiro `00 - Autenticação > Login e salvar token` (porta 8086).
 
 O script do request de login salva o token JWT automaticamente na variável `accessToken`. Os cadastros também atualizam automaticamente `clienteId`, `veiculoId`, `funcionarioId`, `servicoId` e `insumoId` para uso nas requisições seguintes.
+
+## Vídeo Demonstrativo
+
+**TODO**: publicar o vídeo (até 15 minutos, YouTube ou Vimeo, público ou não listado) demonstrando o deploy da aplicação, a execução do CI/CD, o consumo das APIs e a escalabilidade automática (HPA), e substituir este placeholder pelo link.
+
+`<link do vídeo aqui>`
 
 ## Testes
 
