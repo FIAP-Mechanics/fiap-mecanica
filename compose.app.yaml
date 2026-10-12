@@ -170,5 +170,41 @@ services:
     ports:
       - "8086:8086"
 
+  # API Gateway: mesma configuração usada no Kubernetes (k8s/addons/kong), renderizada na partida.
+  kong:
+    image: kong:3.9@sha256:92035d16d7ff86b7bc12fb1d0090d29357d924238b1880f78735f3f2fea6b631
+    restart: unless-stopped
+    mem_limit: 512m
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        sed -e "s|__JWT_ISSUER__|$$JWT_ISSUER|g" -e "s|__JWT_SECRET__|$$JWT_SECRET|g" -e "s|__CORS_ORIGIN__|*|g" \
+          /template/kong.yml.tpl > /tmp/kong.yml
+        exec /docker-entrypoint.sh kong docker-start
+    environment:
+      JWT_SECRET: ${MECANICA_JWT_SECRET:?Defina MECANICA_JWT_SECRET com pelo menos 32 caracteres no arquivo .env}
+      JWT_ISSUER: ${MECANICA_JWT_ISSUER:-http://localhost:8086}
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /tmp/kong.yml
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_ADMIN_LISTEN: "off"
+      KONG_STATUS_LISTEN: 0.0.0.0:8100
+      KONG_NGINX_WORKER_PROCESSES: "2"
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+    volumes:
+      - ./k8s/addons/kong/base/kong.yml.tpl:/template/kong.yml.tpl:ro
+    healthcheck:
+      test: ["CMD-SHELL", "kong health || curl --fail --silent http://localhost:8100/status/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    depends_on:
+      atendimento:
+        condition: service_healthy
+    ports:
+      - "8080:8000"
+
 volumes:
   postgres-mecanica-data:

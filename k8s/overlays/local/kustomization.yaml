@@ -5,6 +5,8 @@ namespace: mecanica
 
 resources:
   - ../../base
+  # Kong fica aqui (e não aplicado à parte) para o Kustomize reescrever o nome com hash do Secret mecanica-shared-secrets.
+  - ../../addons/kong/overlays/local
 
 secretGenerator:
   - name: mecanica-shared-secrets
