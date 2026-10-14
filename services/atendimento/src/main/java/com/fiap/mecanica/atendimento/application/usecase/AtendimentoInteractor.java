@@ -100,6 +100,13 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
     }
 
     @Override
+    public List<OrdemServico> listarAtendimentosDoCliente(Long clienteId) {
+        return ordemServicoGateway.buscarTodosPorClienteId(clienteId).stream()
+                .sorted(Comparator.comparing(OrdemServico::getDataCriacao, Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+    }
+
+    @Override
     public List<TempoMedioExecucaoServico> listarTempoMedioExecucaoServicos() {
         Map<Long, TempoMedioServico> indicadores = new HashMap<>();
         List<OrdemServico> ordensConcluidas = ordemServicoGateway.buscarTodosPorStatusIn(

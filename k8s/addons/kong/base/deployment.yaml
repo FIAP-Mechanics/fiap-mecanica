@@ -45,10 +45,34 @@ spec:
           sed -e "s|__JWT_ISSUER__|$(esc "$JWT_ISSUER")|g" \
               -e "s|__JWT_SECRET__|$(esc "$JWT_SECRET")|g" \
               -e "s|__CORS_ORIGIN__|$(esc "$CORS_ORIGIN")|g" \
+              -e "s|__LAMBDA_HOST__|$(esc "$LAMBDA_HOST")|g" \
+              -e "s|__LAMBDA_PORT__|$(esc "$LAMBDA_PORT")|g" \
+              -e "s|__LAMBDA_FUNCTION__|$(esc "$LAMBDA_FUNCTION")|g" \
+              -e "s|__LAMBDA_REGION__|$(esc "$LAMBDA_REGION")|g" \
+              -e "s|__LAMBDA_AWS_KEY__|$(esc "$LAMBDA_AWS_KEY")|g" \
+              -e "s|__LAMBDA_AWS_SECRET__|$(esc "$LAMBDA_AWS_SECRET")|g" \
+              -e "s|__LAMBDA_DISABLE_HTTPS__|$(esc "$LAMBDA_DISABLE_HTTPS")|g" \
               /template/kong.yml.tpl > /config/kong.yml
+          if [ -z "$LAMBDA_AWS_KEY" ]; then
+            sed -i -e '/aws_key:/d' -e '/aws_secret:/d' /config/kong.yml
+          fi
         env:
         - name: CORS_ORIGIN
           value: "*"
+        - name: LAMBDA_HOST
+          value: auth-cpf
+        - name: LAMBDA_PORT
+          value: "8080"
+        - name: LAMBDA_FUNCTION
+          value: function
+        - name: LAMBDA_REGION
+          value: us-east-1
+        - name: LAMBDA_AWS_KEY
+          value: local
+        - name: LAMBDA_AWS_SECRET
+          value: local
+        - name: LAMBDA_DISABLE_HTTPS
+          value: "true"
         - name: JWT_ISSUER
           valueFrom:
             configMapKeyRef:

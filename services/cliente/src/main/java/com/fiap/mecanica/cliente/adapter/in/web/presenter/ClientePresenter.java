@@ -43,6 +43,7 @@ public class ClientePresenter {
                 .email(cliente.getEmail())
                 .telefone(cliente.getTelefone())
                 .endereco(toDto(cliente.getEndereco()))
+                .ativo(cliente.isAtivo())
                 .build();
     }
 

@@ -16,4 +16,6 @@ public class Cliente {
     private String email;
     private String telefone;
     private Endereco endereco;
+    @Builder.Default
+    private boolean ativo = true;
 }

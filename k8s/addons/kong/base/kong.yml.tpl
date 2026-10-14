@@ -4,7 +4,8 @@ _transform: true
 # Template: __JWT_ISSUER__, __JWT_SECRET__ e __CORS_ORIGIN__ são substituídos pelo initContainer do Deployment
 # a partir de JWT_ISSUER (ConfigMap atendimento-config), JWT_SECRET (Secret mecanica-shared-secrets) e CORS_ORIGIN.
 # Mesma regra de acesso dos serviços: GET é público nos serviços de cadastro; escrita exige JWT.
-# Regex usam regex_priority: as rotas públicas (10) vencem a rota protegida do mesmo prefixo (0).
+# Regex usam regex_priority: rotas mais específicas vencem a rota protegida do mesmo prefixo (0).
+# __LAMBDA_*__ configuram o plugin aws-lambda de /auth/cpf (RIE local ou AWS Lambda real).
 
 consumers:
   - username: mecanica-servicos
@@ -37,6 +38,16 @@ services:
   - name: cliente
     url: http://cliente:8081
     routes:
+      - name: cliente-documento
+        paths: ["~/cliente/documento$"]
+        regex_priority: 20
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: iss
+              claims_to_verify: [exp]
+              run_on_preflight: false
       - name: cliente-leitura
         paths: [/cliente]
         methods: [GET, HEAD, OPTIONS]
@@ -119,37 +130,40 @@ services:
               claims_to_verify: [exp]
               run_on_preflight: false
 
-  # --- Atendimento: login e consulta/decisão do cliente públicos; o restante exige JWT ---
+  # --- Atendimento: só o login de funcionário é público; o restante exige JWT de funcionário ou de cliente (CPF) ---
+  - name: auth-cpf
+    url: http://localhost:8000
+    routes:
+      - name: auth-cpf-login
+        paths: [/auth/cpf]
+        methods: [POST, OPTIONS]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 20
+              policy: local
+              limit_by: ip
+          - name: aws-lambda
+            config:
+              host: "__LAMBDA_HOST__"
+              port: __LAMBDA_PORT__
+              disable_https: __LAMBDA_DISABLE_HTTPS__
+              aws_region: "__LAMBDA_REGION__"
+              function_name: "__LAMBDA_FUNCTION__"
+              aws_key: "__LAMBDA_AWS_KEY__"
+              aws_secret: "__LAMBDA_AWS_SECRET__"
+              awsgateway_compatible: true
+              forward_request_body: true
+              forward_request_headers: true
+              is_proxy_integration: true
+
   - name: atendimento
     url: http://atendimento:8086
     routes:
       - name: atendimento-login
         paths: [/auth/login]
         methods: [POST, OPTIONS]
-        strip_path: false
-      - name: atendimento-consulta-publica
-        paths:
-          - "~/atendimento/[^/]+$"
-          - "~/atendimento/[^/]+/status$"
-        methods: [GET, HEAD, OPTIONS]
-        regex_priority: 10
-        strip_path: false
-      # Mais específica que a consulta pública acima: /atendimento/abertos lista OS e exige JWT.
-      - name: atendimento-abertos
-        paths: ["~/atendimento/abertos$"]
-        methods: [GET, HEAD]
-        regex_priority: 20
-        strip_path: false
-        plugins:
-          - name: jwt
-            config:
-              key_claim_name: iss
-              claims_to_verify: [exp]
-              run_on_preflight: false
-      - name: atendimento-decisao-orcamento
-        paths: ["~/atendimento/[^/]+/decisao-orcamento$"]
-        methods: [POST, OPTIONS]
-        regex_priority: 10
         strip_path: false
       - name: atendimento-protegido
         paths: ["~/atendimento(/.*)?$", "~/templates(/.*)?$"]

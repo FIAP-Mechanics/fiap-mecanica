@@ -11,6 +11,7 @@ public record ClienteDto(
         @Schema(description = "CPF/CNPJ único do cliente", example = "123.456.789-99") String documento,
         @Schema(description = "E-mail único do cliente", example = "cliente@gmail.com") String email,
         @Schema(description = "Telefone do cliente", example = "31998495612") String telefone,
-        @Schema(description = "Endereço/residencia do cliente") EnderecoDto endereco
+        @Schema(description = "Endereço/residencia do cliente") EnderecoDto endereco,
+        @Schema(description = "Indica se o cliente está ativo", example = "true") boolean ativo
 ) {
 }

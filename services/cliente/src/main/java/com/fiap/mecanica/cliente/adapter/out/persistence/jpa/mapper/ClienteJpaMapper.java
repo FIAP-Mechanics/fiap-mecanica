@@ -19,6 +19,7 @@ public class ClienteJpaMapper {
                 .email(entity.getEmail())
                 .telefone(entity.getTelefone())
                 .endereco(toDomain(entity.getEndereco()))
+                .ativo(entity.isAtivo())
                 .build();
     }
 
@@ -31,6 +32,7 @@ public class ClienteJpaMapper {
                 .email(cliente.getEmail())
                 .telefone(cliente.getTelefone())
                 .endereco(toJpaEntity(cliente.getEndereco()))
+                .ativo(cliente.isAtivo())
                 .build();
     }
 

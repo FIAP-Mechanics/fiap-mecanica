@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-cpf
+  labels:
+    app.kubernetes.io/name: auth-cpf
+    app.kubernetes.io/component: serverless-emulator
+    app.kubernetes.io/part-of: oficina-mecanica
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: auth-cpf
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: auth-cpf
+        app.kubernetes.io/component: serverless-emulator
+        app.kubernetes.io/part-of: oficina-mecanica
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: auth-cpf
+        image: mecanica/auth-cpf:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+        env:
+        - name: DB_HOST
+          value: postgres-mecanica
+        - name: DB_NAME
+          value: mecanica_cliente
+        - name: DB_USER
+          value: auth_cpf_ro
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: auth-cpf-secrets
+              key: AUTH_CPF_DB_PASSWORD
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: mecanica-shared-secrets
+              key: JWT_SECRET
+        - name: JWT_ISSUER
+          valueFrom:
+            configMapKeyRef:
+              name: atendimento-config
+              key: JWT_ISSUER
+        readinessProbe:
+          tcpSocket:
+            port: http
+          periodSeconds: 5
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}

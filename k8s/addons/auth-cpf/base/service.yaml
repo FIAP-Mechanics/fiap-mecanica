@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-cpf
+  labels:
+    app.kubernetes.io/name: auth-cpf
+    app.kubernetes.io/part-of: oficina-mecanica
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: auth-cpf
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
