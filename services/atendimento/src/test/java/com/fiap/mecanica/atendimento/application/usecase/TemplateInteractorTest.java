@@ -4,6 +4,7 @@ import com.fiap.mecanica.atendimento.application.command.AtualizarTemplateComman
 import com.fiap.mecanica.atendimento.application.port.out.TemplateGateway;
 import com.fiap.mecanica.atendimento.domain.CodigoTemplate;
 import com.fiap.mecanica.atendimento.domain.TemplateNotificacao;
+import com.fiap.mecanica.atendimento.exception.TemplateJaCadastradoException;
 import com.fiap.mecanica.atendimento.exception.TemplateNotFound;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -75,6 +76,17 @@ class TemplateInteractorTest {
 
         assertThat(resultado).isNotNull();
         verify(templateGateway).salvar(template);
+    }
+
+    @Test
+    void deveLancarExcecaoAoCadastrarTemplateComCodigoJaExistente() {
+        TemplateNotificacao template = criarTemplate();
+        when(templateGateway.buscarPorCodigo(CODIGO.name())).thenReturn(Optional.of(template));
+
+        assertThatThrownBy(() -> templateInteractor.cadastrar(template))
+                .isInstanceOf(TemplateJaCadastradoException.class);
+
+        verify(templateGateway, never()).salvar(any(TemplateNotificacao.class));
     }
 
     // ===================== atualizar =====================

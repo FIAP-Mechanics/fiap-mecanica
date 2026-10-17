@@ -31,4 +31,13 @@ gh secret set DATABASE_PASSWORD --env "$env" --body "$DATABASE_PASSWORD"
 gh secret set AUTH_CPF_DB_PASSWORD --env "$env" --body "$AUTH_CPF_DB_PASSWORD"
 gh secret set ADMIN_PASSWORD --env "$env" --body "$ADMIN_PASSWORD"
 
+for nome in NEW_RELIC_LICENSE_KEY NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID; do
+  if [ -n "${!nome:-}" ]; then
+    gh secret set "$nome" --env "$env" --body "${!nome}"
+  fi
+done
+if [ -n "${ALERT_EMAIL:-}" ]; then
+  gh variable set ALERT_EMAIL --env "$env" --body "$ALERT_EMAIL"
+fi
+
 echo "Secrets de $env criados. Guarde a senha do administrador: admin@mecanica.com / $ADMIN_PASSWORD"

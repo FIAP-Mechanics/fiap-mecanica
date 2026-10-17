@@ -52,9 +52,16 @@ spec:
               -e "s|__LAMBDA_AWS_KEY__|$(esc "$LAMBDA_AWS_KEY")|g" \
               -e "s|__LAMBDA_AWS_SECRET__|$(esc "$LAMBDA_AWS_SECRET")|g" \
               -e "s|__LAMBDA_DISABLE_HTTPS__|$(esc "$LAMBDA_DISABLE_HTTPS")|g" \
+              -e "s|__OTEL_ENABLED__|$(esc "$OTEL_ENABLED")|g" \
+              -e "s|__OTEL_TRACES_ENDPOINT__|$(esc "$OTEL_TRACES_ENDPOINT")|g" \
+              -e "s|__OTEL_API_KEY__|$(esc "$OTEL_API_KEY")|g" \
+              -e "s|__DEPLOYMENT_ENVIRONMENT__|$(esc "$DEPLOYMENT_ENVIRONMENT")|g" \
               /template/kong.yml.tpl > /config/kong.yml
           if [ -z "$LAMBDA_AWS_KEY" ]; then
             sed -i -e '/aws_key:/d' -e '/aws_secret:/d' /config/kong.yml
+          fi
+          if [ -z "$OTEL_API_KEY" ]; then
+            sed -i -e '/^      headers:$/,/^        api-key:/d' /config/kong.yml
           fi
         env:
         - name: CORS_ORIGIN
@@ -73,6 +80,18 @@ spec:
           value: local
         - name: LAMBDA_DISABLE_HTTPS
           value: "true"
+        - name: OTEL_ENABLED
+          value: "false"
+        - name: OTEL_TRACES_ENDPOINT
+          value: http://localhost:4318/v1/traces
+        - name: OTEL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: newrelic-secrets
+              key: NEW_RELIC_LICENSE_KEY
+              optional: true
+        - name: DEPLOYMENT_ENVIRONMENT
+          value: local
         - name: JWT_ISSUER
           valueFrom:
             configMapKeyRef:
@@ -120,7 +139,12 @@ spec:
         - name: KONG_STATUS_LISTEN
           value: 0.0.0.0:8100
         - name: KONG_PROXY_ACCESS_LOG
-          value: /dev/stdout
+          value: /dev/stdout json_fmt
+        - name: KONG_NGINX_HTTP_LOG_FORMAT
+          value: >-
+            json_fmt escape=json '{"timestamp":"$time_iso8601","service.name":"kong-gateway","metodo":"$request_method","rota":"$uri","status":"$status","duracao_s":"$request_time","request_id":"$sent_http_x_request_id","upstream_status":"$upstream_status","remote_addr":"$remote_addr"}'
+        - name: KONG_TRACING_INSTRUMENTATIONS
+          value: request
         - name: KONG_PROXY_ERROR_LOG
           value: /dev/stderr
         - name: KONG_LOG_LEVEL

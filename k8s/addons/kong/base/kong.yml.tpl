@@ -32,6 +32,16 @@ plugins:
       minute: 600
       policy: local
       limit_by: ip
+  - name: opentelemetry
+    enabled: __OTEL_ENABLED__
+    config:
+      traces_endpoint: "__OTEL_TRACES_ENDPOINT__"
+      sampling_rate: 1
+      headers:
+        api-key: "__OTEL_API_KEY__"
+      resource_attributes:
+        service.name: kong-gateway
+        deployment.environment: "__DEPLOYMENT_ENVIRONMENT__"
 
 services:
   # --- Serviços de cadastro: GET público, demais métodos com JWT ---

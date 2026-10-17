@@ -3,12 +3,10 @@ package com.fiap.mecanica.atendimento.adapter.out.client;
 import com.fiap.mecanica.atendimento.adapter.out.client.dto.VeiculoIntegracaoDto;
 import com.fiap.mecanica.atendimento.exception.VeiculoInativoException;
 import com.fiap.mecanica.atendimento.exception.VeiculoNaoEncontradoException;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -17,7 +15,6 @@ import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,21 +40,18 @@ class VeiculoIntegracaoAdapterTest {
     @Mock
     private RestClient.ResponseSpec responseSpec;
 
-    private MockedStatic<RestClient> restClientMockedStatic;
+    @Mock
+    private RestClient.Builder restClientBuilder;
 
     private VeiculoIntegracaoAdapter veiculoIntegracaoAdapter;
 
     @BeforeEach
     void configurarAdapter() {
-        restClientMockedStatic = mockStatic(RestClient.class);
-        restClientMockedStatic.when(() -> RestClient.create(BASE_URL)).thenReturn(restClient);
-        veiculoIntegracaoAdapter = new VeiculoIntegracaoAdapter(BASE_URL, internalServiceTokenProvider);
+        when(restClientBuilder.baseUrl(BASE_URL)).thenReturn(restClientBuilder);
+        when(restClientBuilder.build()).thenReturn(restClient);
+        veiculoIntegracaoAdapter = new VeiculoIntegracaoAdapter(BASE_URL, internalServiceTokenProvider, restClientBuilder);
     }
 
-    @AfterEach
-    void finalizarMockStatic() {
-        restClientMockedStatic.close();
-    }
 
     // ===================== buscarVeiculo =====================
 

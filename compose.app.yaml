@@ -8,6 +8,10 @@ x-app-common: &app-common
     SPRING_DATASOURCE_PASSWORD: ${MECANICA_POSTGRES_PASSWORD:?Defina MECANICA_POSTGRES_PASSWORD no arquivo .env}
     JWT_SECRET: ${MECANICA_JWT_SECRET:?Defina MECANICA_JWT_SECRET com pelo menos 32 caracteres no arquivo .env}
     JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=20.0
+    OBSERVABILITY_EXPORT_ENABLED: ${OBSERVABILITY_EXPORT_ENABLED:-false}
+    NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY:-}
+    OTLP_ENDPOINT: ${OTLP_ENDPOINT:-https://otlp.nr-data.net}
+    DEPLOYMENT_ENVIRONMENT: ${DEPLOYMENT_ENVIRONMENT:-compose}
   healthcheck:
     test: ["CMD-SHELL", "curl --fail --silent --show-error http://localhost:$${SERVER_PORT}/actuator/health/readiness > /dev/null"]
     interval: 10s
@@ -225,7 +229,14 @@ services:
           -e "s|__LAMBDA_HOST__|auth-cpf|g" -e "s|__LAMBDA_PORT__|8080|g" -e "s|__LAMBDA_FUNCTION__|function|g" \
           -e "s|__LAMBDA_REGION__|us-east-1|g" -e "s|__LAMBDA_AWS_KEY__|local|g" -e "s|__LAMBDA_AWS_SECRET__|local|g" \
           -e "s|__LAMBDA_DISABLE_HTTPS__|true|g" \
+          -e "s|__OTEL_ENABLED__|$${OBSERVABILITY_EXPORT_ENABLED:-false}|g" \
+          -e "s|__OTEL_TRACES_ENDPOINT__|$${OTLP_ENDPOINT:-http://localhost:4318}/v1/traces|g" \
+          -e "s|__OTEL_API_KEY__|$$NEW_RELIC_LICENSE_KEY|g" \
+          -e "s|__DEPLOYMENT_ENVIRONMENT__|$${DEPLOYMENT_ENVIRONMENT:-compose}|g" \
           /template/kong.yml.tpl > /tmp/kong.yml
+        if [ -z "$$NEW_RELIC_LICENSE_KEY" ]; then
+          sed -i -e '/^      headers:$$/,/^        api-key:/d' /tmp/kong.yml
+        fi
         exec /docker-entrypoint.sh kong docker-start
     environment:
       JWT_SECRET: ${MECANICA_JWT_SECRET:?Defina MECANICA_JWT_SECRET com pelo menos 32 caracteres no arquivo .env}
@@ -236,7 +247,14 @@ services:
       KONG_ADMIN_LISTEN: "off"
       KONG_STATUS_LISTEN: 0.0.0.0:8100
       KONG_NGINX_WORKER_PROCESSES: "2"
-      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ACCESS_LOG: /dev/stdout json_fmt
+      KONG_NGINX_HTTP_LOG_FORMAT: >-
+        json_fmt escape=json '{"timestamp":"$$time_iso8601","service.name":"kong-gateway","metodo":"$$request_method","rota":"$$uri","status":"$$status","duracao_s":"$$request_time","request_id":"$$sent_http_x_request_id","upstream_status":"$$upstream_status","remote_addr":"$$remote_addr"}'
+      KONG_TRACING_INSTRUMENTATIONS: request
+      OBSERVABILITY_EXPORT_ENABLED: ${OBSERVABILITY_EXPORT_ENABLED:-false}
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY:-}
+      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-https://otlp.nr-data.net}
+      DEPLOYMENT_ENVIRONMENT: ${DEPLOYMENT_ENVIRONMENT:-compose}
       KONG_PROXY_ERROR_LOG: /dev/stderr
     volumes:
       - ./k8s/addons/kong/base/kong.yml.tpl:/template/kong.yml.tpl:ro

@@ -17,8 +17,9 @@ public class ServicoIntegracaoAdapter implements ServicoIntegracaoGateway {
 
     public ServicoIntegracaoAdapter(
             @Value("${clients.servico-service.base-url}") String baseUrl,
-            InternalServiceTokenProvider internalServiceTokenProvider) {
-        this.restClient = RestClient.create(baseUrl);
+            InternalServiceTokenProvider internalServiceTokenProvider,
+            RestClient.Builder restClientBuilder) {
+        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
         this.internalServiceTokenProvider = internalServiceTokenProvider;
     }
 

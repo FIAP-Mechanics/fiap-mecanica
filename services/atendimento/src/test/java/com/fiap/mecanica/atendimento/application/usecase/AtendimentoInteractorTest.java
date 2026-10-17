@@ -2,6 +2,7 @@ package com.fiap.mecanica.atendimento.application.usecase;
 
 import com.fiap.mecanica.atendimento.application.command.InsumoQuantidadeCommand;
 import com.fiap.mecanica.atendimento.application.command.ServicoQuantidadeCommand;
+import com.fiap.mecanica.atendimento.application.port.out.AtendimentoMetricasGateway;
 import com.fiap.mecanica.atendimento.application.port.out.ClienteIntegracaoGateway;
 import com.fiap.mecanica.atendimento.application.port.out.EstoqueIntegracaoGateway;
 import com.fiap.mecanica.atendimento.application.port.out.NotificationGateway;
@@ -33,6 +34,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -72,6 +74,9 @@ class AtendimentoInteractorTest {
     @Mock
     private NotificationGateway notificationGateway;
 
+    @Mock
+    private AtendimentoMetricasGateway metricasGateway;
+
     @InjectMocks
     private AtendimentoInteractor atendimentoInteractor;
 
@@ -101,6 +106,8 @@ class AtendimentoInteractorTest {
         assertThat(capturada.getClienteId()).isEqualTo(ID_CLIENTE);
         assertThat(capturada.getVeiculoId()).isEqualTo(ID_VEICULO);
         assertThat(capturada.getStatus()).isEqualTo(Status.RECEBIDA);
+        verify(metricasGateway).registrarOrdemCriada();
+        verifyNoMoreInteractions(metricasGateway);
     }
 
     @Test
@@ -429,6 +436,45 @@ class AtendimentoInteractorTest {
 
         assertThat(resultado.getStatus()).isEqualTo(Status.EM_DIAGNOSTICO);
         verify(ordemServicoGateway).salvar(any(OrdemServico.class));
+        verify(metricasGateway).registrarTransicao(eq(Status.RECEBIDA), eq(Status.EM_DIAGNOSTICO), any(Duration.class));
+    }
+
+    @Test
+    void deveRegistrarPermanenciaNoStatusAnteriorAoIniciarDiagnostico() {
+        OrdemServico ordemServico = criarOrdemServico();
+        ordemServico.setDataCriacao(LocalDateTime.now().minusMinutes(10));
+        when(ordemServicoGateway.buscarPorId(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        when(ordemServicoGateway.salvar(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        ArgumentCaptor<Duration> permanencia = ArgumentCaptor.forClass(Duration.class);
+
+        atendimentoInteractor.iniciarDiagnostico(UUID_ORDEM);
+
+        verify(metricasGateway).registrarTransicao(eq(Status.RECEBIDA), eq(Status.EM_DIAGNOSTICO), permanencia.capture());
+        assertThat(permanencia.getValue()).isGreaterThanOrEqualTo(Duration.ofMinutes(10));
+    }
+
+    @Test
+    void naoDeveRegistrarTransicaoQuandoOrdemServicoJaEstaNoStatusDestino() {
+        OrdemServico ordemServico = criarOrdemServico();
+        ordemServico.setStatus(Status.EM_DIAGNOSTICO);
+        when(ordemServicoGateway.buscarPorId(UUID_ORDEM)).thenReturn(Optional.of(ordemServico));
+        when(ordemServicoGateway.salvar(any(OrdemServico.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrdemServico resultado = atendimentoInteractor.iniciarDiagnostico(UUID_ORDEM);
+
+        assertThat(resultado.getStatus()).isEqualTo(Status.EM_DIAGNOSTICO);
+        assertThat(resultado.getHistoricoDeEventos()).isEmpty();
+        verify(metricasGateway, never()).registrarTransicao(any(), any(), any());
+    }
+
+    @Test
+    void naoDeveRegistrarTransicaoQuandoOrdemServicoNaoForEncontrada() {
+        when(ordemServicoGateway.buscarPorId(UUID_ORDEM)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> atendimentoInteractor.iniciarDiagnostico(UUID_ORDEM))
+                .isInstanceOf(OrdemServicoNaoEncontradaException.class);
+
+        verifyNoInteractions(metricasGateway);
     }
 
     // ===================== realizarDiagnostico =====================
@@ -657,6 +703,7 @@ class AtendimentoInteractorTest {
         assertThat(resultado.getHistoricoDeEventos().stream().anyMatch(e -> e.getNovoStatus() == Status.EM_EXECUCAO)).isTrue();
         verify(estoqueIntegracaoGateway).deduzirEstoque(anyList());
         verify(ordemServicoGateway).salvar(any(OrdemServico.class));
+        verify(metricasGateway).registrarTransicao(eq(Status.AGUARDANDO_APROVACAO), eq(Status.EM_EXECUCAO), any(Duration.class));
     }
 
     @Test
@@ -745,6 +792,7 @@ class AtendimentoInteractorTest {
         assertThat(resultado.getHistoricoDeEventos().stream().anyMatch(e -> e.getNovoStatus() == Status.CANCELADA)).isTrue();
         verify(estoqueIntegracaoGateway, never()).deduzirEstoque(anyList());
         verify(ordemServicoGateway).salvar(any(OrdemServico.class));
+        verify(metricasGateway).registrarTransicao(eq(Status.AGUARDANDO_APROVACAO), eq(Status.CANCELADA), any(Duration.class));
     }
 
     @Test
@@ -833,6 +881,7 @@ class AtendimentoInteractorTest {
         assertThat(resultado.getStatus()).isEqualTo(Status.ENTREGUE);
         verify(notificationGateway).notificarCliente(eq(CodigoTemplate.VEICULO_RETIRADO), any(ClienteIntegracaoGateway.ClienteIntegracao.class));
         verify(ordemServicoGateway).salvar(any(OrdemServico.class));
+        verify(metricasGateway).registrarTransicao(eq(Status.FINALIZADA), eq(Status.ENTREGUE), any(Duration.class));
     }
 
     private ClienteIntegracaoGateway.ClienteIntegracao criarCliente() {

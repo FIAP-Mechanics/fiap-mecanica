@@ -6,12 +6,10 @@ import com.fiap.mecanica.atendimento.adapter.out.client.dto.InsumoIntegracaoDto;
 import com.fiap.mecanica.atendimento.application.port.out.EstoqueIntegracaoGateway;
 import com.fiap.mecanica.atendimento.exception.EstoqueInsuficienteException;
 import com.fiap.mecanica.atendimento.exception.InsumoNaoEncontradoException;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -26,7 +24,6 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import tools.jackson.databind.ObjectMapper;
@@ -62,22 +59,19 @@ class EstoqueIntegracaoAdapterTest {
     @Mock
     private RestClient.RequestBodySpec requestBodySpec;
 
-    private MockedStatic<RestClient> restClientMockedStatic;
+    @Mock
+    private RestClient.Builder restClientBuilder;
 
     private EstoqueIntegracaoAdapter estoqueIntegracaoAdapter;
 
     @BeforeEach
     void configurarAdapter() {
-        restClientMockedStatic = mockStatic(RestClient.class);
-        restClientMockedStatic.when(() -> RestClient.create(BASE_URL)).thenReturn(restClient);
+        when(restClientBuilder.baseUrl(BASE_URL)).thenReturn(restClientBuilder);
+        when(restClientBuilder.build()).thenReturn(restClient);
         estoqueIntegracaoAdapter = new EstoqueIntegracaoAdapter(
-                BASE_URL, internalServiceTokenProvider, new ObjectMapper());
+                BASE_URL, internalServiceTokenProvider, new ObjectMapper(), restClientBuilder);
     }
 
-    @AfterEach
-    void finalizarMockStatic() {
-        restClientMockedStatic.close();
-    }
 
     // ===================== buscarInsumo =====================
 

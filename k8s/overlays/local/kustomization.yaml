@@ -23,6 +23,9 @@ secretGenerator:
   - name: external-services-secrets
     envs:
       - secrets/external-services.env
+  - name: newrelic-secrets
+    envs:
+      - secrets/newrelic.env
 
 images:
   - name: mecanica/cliente

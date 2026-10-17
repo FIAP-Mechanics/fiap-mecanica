@@ -4,3 +4,5 @@ metadata:
   name: common-config
 data:
   SPRING_JPA_SHOW_SQL: "false"
+  OBSERVABILITY_EXPORT_ENABLED: "true"
+  DEPLOYMENT_ENVIRONMENT: producao

@@ -186,6 +186,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
 
     steps:
       - name: Checkout
@@ -232,6 +233,21 @@ jobs:
       - name: Install Metrics Server
         run: kubectl apply -k k8s/addons/metrics-server/overlays/production
 
+      - name: Setup Helm
+        if: ${{ env.NEW_RELIC_LICENSE_KEY != '' }}
+        uses: azure/setup-helm@v4
+
+      - name: Install New Relic Kubernetes collector
+        if: ${{ env.NEW_RELIC_LICENSE_KEY != '' }}
+        run: |
+          helm repo add newrelic https://helm-charts.newrelic.com
+          helm upgrade --install nr-k8s-otel-collector newrelic/nr-k8s-otel-collector \
+            --namespace newrelic --create-namespace \
+            --values k8s/addons/newrelic/values.yaml \
+            --set cluster="${{ steps.infra.outputs.cluster }}" \
+            --set-string licenseKey="$NEW_RELIC_LICENSE_KEY" \
+            --wait --timeout 5m
+
       - name: Create namespace and secrets
         env:
           NS: ${{ steps.vars.outputs.ns }}
@@ -249,6 +265,8 @@ jobs:
             --from-literal=MAIL_PASSWORD=skip
           secret auth-cpf-secrets \
             --from-literal=AUTH_CPF_DB_PASSWORD='${{ secrets.AUTH_CPF_DB_PASSWORD }}'
+          secret newrelic-secrets \
+            --from-literal=NEW_RELIC_LICENSE_KEY='${{ secrets.NEW_RELIC_LICENSE_KEY }}'
 
       - name: Point overlay at the images just published
         working-directory: k8s/overlays/${{ env.ENVIRONMENT == 'producao' && 'production' || 'homologacao' }}
@@ -297,3 +315,37 @@ jobs:
         run: |
           kubectl get pods,services,hpa,jobs -n "$NS" -o wide || true
           kubectl get events -n "$NS" --sort-by=.lastTimestamp || true
+
+  observability:
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+      NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        if: ${{ env.NEW_RELIC_API_KEY != '' }}
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+
+      - name: Dashboards e alertas (observability)
+        if: ${{ env.NEW_RELIC_API_KEY != '' }}
+        working-directory: observability
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=observability/${ENVIRONMENT}.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+          terraform apply -auto-approve -input=false -var-file="envs/${ENVIRONMENT}.tfvars"

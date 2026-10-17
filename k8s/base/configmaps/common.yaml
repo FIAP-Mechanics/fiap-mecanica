@@ -8,3 +8,6 @@ data:
   JAVA_TOOL_OPTIONS: >-
     -XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=20.0
   MANAGEMENT_ENDPOINT_HEALTH_GROUP_READINESS_INCLUDE: readinessState,db
+  OBSERVABILITY_EXPORT_ENABLED: "false"
+  OTLP_ENDPOINT: https://otlp.nr-data.net
+  DEPLOYMENT_ENVIRONMENT: local

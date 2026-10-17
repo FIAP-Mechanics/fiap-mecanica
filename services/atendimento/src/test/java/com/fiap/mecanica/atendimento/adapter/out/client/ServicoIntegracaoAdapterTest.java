@@ -3,12 +3,10 @@ package com.fiap.mecanica.atendimento.adapter.out.client;
 import com.fiap.mecanica.atendimento.adapter.out.client.dto.ServicoIntegracaoDto;
 import com.fiap.mecanica.atendimento.application.port.out.ServicoIntegracaoGateway;
 import com.fiap.mecanica.atendimento.exception.ServicoNaoEncontradoException;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -19,7 +17,6 @@ import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,21 +44,18 @@ class ServicoIntegracaoAdapterTest {
     @Mock
     private RestClient.ResponseSpec responseSpec;
 
-    private MockedStatic<RestClient> restClientMockedStatic;
+    @Mock
+    private RestClient.Builder restClientBuilder;
 
     private ServicoIntegracaoAdapter servicoIntegracaoAdapter;
 
     @BeforeEach
     void configurarAdapter() {
-        restClientMockedStatic = mockStatic(RestClient.class);
-        restClientMockedStatic.when(() -> RestClient.create(BASE_URL)).thenReturn(restClient);
-        servicoIntegracaoAdapter = new ServicoIntegracaoAdapter(BASE_URL, internalServiceTokenProvider);
+        when(restClientBuilder.baseUrl(BASE_URL)).thenReturn(restClientBuilder);
+        when(restClientBuilder.build()).thenReturn(restClient);
+        servicoIntegracaoAdapter = new ServicoIntegracaoAdapter(BASE_URL, internalServiceTokenProvider, restClientBuilder);
     }
 
-    @AfterEach
-    void finalizarMockStatic() {
-        restClientMockedStatic.close();
-    }
 
     // ===================== buscarServico =====================
 
