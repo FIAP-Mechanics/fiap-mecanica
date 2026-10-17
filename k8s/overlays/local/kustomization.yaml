@@ -5,6 +5,10 @@ namespace: mecanica
 
 resources:
   - ../../base
+  # Kong fica aqui (e não aplicado à parte) para o Kustomize reescrever o nome com hash do Secret mecanica-shared-secrets.
+  - ../../addons/kong/overlays/local
+  # Emulação local da Lambda de autenticação por CPF; em produção a function roda na AWS.
+  - ../../addons/auth-cpf/base
 
 secretGenerator:
   - name: mecanica-shared-secrets
@@ -13,9 +17,15 @@ secretGenerator:
   - name: atendimento-secrets
     envs:
       - secrets/atendimento.env
+  - name: auth-cpf-secrets
+    envs:
+      - secrets/auth-cpf.env
   - name: external-services-secrets
     envs:
       - secrets/external-services.env
+  - name: newrelic-secrets
+    envs:
+      - secrets/newrelic.env
 
 images:
   - name: mecanica/cliente
@@ -29,4 +39,6 @@ images:
   - name: mecanica/estoque
     newTag: local
   - name: mecanica/atendimento
+    newTag: local
+  - name: mecanica/auth-cpf
     newTag: local

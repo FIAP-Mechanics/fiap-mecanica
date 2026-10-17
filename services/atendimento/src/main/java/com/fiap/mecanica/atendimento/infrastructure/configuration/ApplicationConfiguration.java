@@ -3,6 +3,7 @@ package com.fiap.mecanica.atendimento.infrastructure.configuration;
 import com.fiap.mecanica.atendimento.application.port.in.AtendimentoUseCase;
 import com.fiap.mecanica.atendimento.application.port.in.AuthUseCase;
 import com.fiap.mecanica.atendimento.application.port.in.TemplateUseCase;
+import com.fiap.mecanica.atendimento.application.port.out.AtendimentoMetricasGateway;
 import com.fiap.mecanica.atendimento.application.port.out.AuthenticationGateway;
 import com.fiap.mecanica.atendimento.application.port.out.ClienteIntegracaoGateway;
 import com.fiap.mecanica.atendimento.application.port.out.EstoqueIntegracaoGateway;
@@ -27,9 +28,10 @@ public class ApplicationConfiguration {
                                                   VeiculoIntegracaoGateway veiculoIntegracaoGateway,
                                                   ServicoIntegracaoGateway servicoIntegracaoGateway,
                                                   EstoqueIntegracaoGateway estoqueIntegracaoGateway,
-                                                  NotificationGateway notificationGateway) {
+                                                  NotificationGateway notificationGateway,
+                                                  AtendimentoMetricasGateway metricasGateway) {
         return new AtendimentoInteractor(ordemServicoGateway, clienteIntegracaoGateway, veiculoIntegracaoGateway,
-                servicoIntegracaoGateway, estoqueIntegracaoGateway, notificationGateway);
+                servicoIntegracaoGateway, estoqueIntegracaoGateway, notificationGateway, metricasGateway);
     }
 
     @Bean

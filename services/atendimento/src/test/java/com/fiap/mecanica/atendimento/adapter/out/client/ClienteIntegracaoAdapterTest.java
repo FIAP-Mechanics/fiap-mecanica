@@ -3,12 +3,10 @@ package com.fiap.mecanica.atendimento.adapter.out.client;
 import com.fiap.mecanica.atendimento.adapter.out.client.dto.ClienteIntegracaoDto;
 import com.fiap.mecanica.atendimento.application.port.out.ClienteIntegracaoGateway;
 import com.fiap.mecanica.atendimento.exception.ClienteNaoEncontradoException;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -17,7 +15,6 @@ import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,21 +43,18 @@ class ClienteIntegracaoAdapterTest {
     @Mock
     private RestClient.ResponseSpec responseSpec;
 
-    private MockedStatic<RestClient> restClientMockedStatic;
+    @Mock
+    private RestClient.Builder restClientBuilder;
 
     private ClienteIntegracaoAdapter clienteIntegracaoAdapter;
 
     @BeforeEach
     void configurarAdapter() {
-        restClientMockedStatic = mockStatic(RestClient.class);
-        restClientMockedStatic.when(() -> RestClient.create(BASE_URL)).thenReturn(restClient);
-        clienteIntegracaoAdapter = new ClienteIntegracaoAdapter(BASE_URL, internalServiceTokenProvider);
+        when(restClientBuilder.baseUrl(BASE_URL)).thenReturn(restClientBuilder);
+        when(restClientBuilder.build()).thenReturn(restClient);
+        clienteIntegracaoAdapter = new ClienteIntegracaoAdapter(BASE_URL, internalServiceTokenProvider, restClientBuilder);
     }
 
-    @AfterEach
-    void finalizarMockStatic() {
-        restClientMockedStatic.close();
-    }
 
     // ===================== buscarCliente =====================
 

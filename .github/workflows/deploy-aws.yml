@@ -1,0 +1,355 @@
+name: Deploy AWS
+
+on:
+  push:
+    branches:
+      - homologacao
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  ENVIRONMENT: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
+  AWS_REGION: us-east-1
+
+jobs:
+  build-and-push:
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - cliente
+          - veiculo
+          - funcionario
+          - servico
+          - estoque
+          - atendimento
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Build and Test ${{ matrix.service }}
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          JWT_SECRET: troque-por-uma-secret-com-pelo-menos-32-caracteres
+        run: ./mvnw -B -pl services/${{ matrix.service }} -am verify
+
+      - name: Compute image vars
+        id: vars
+        run: |
+          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          build-args: SERVICE=${{ matrix.service }}
+          push: true
+          tags: ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-${{ matrix.service }}:${{ steps.vars.outputs.tag }}
+
+  infra:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      TF_VAR_state_bucket: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_master_password: ${{ secrets.DATABASE_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+
+      - name: Cluster EKS (infra-k8s)
+        working-directory: infra/aws
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=infra-k8s/${ENVIRONMENT}.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+          terraform apply -auto-approve -input=false -var-file="envs/${ENVIRONMENT}.tfvars"
+
+      - name: Banco RDS (infra-db)
+        working-directory: infra-db
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=infra-db/${ENVIRONMENT}.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+          terraform apply -auto-approve -input=false -var-file="envs/${ENVIRONMENT}.tfvars"
+
+  lambda:
+    needs: infra
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      TF_VAR_state_bucket: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_db_password: ${{ secrets.AUTH_CPF_DB_PASSWORD }}
+      TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/auth-cpf/package-lock.json
+
+      - name: Typecheck and test
+        working-directory: functions/auth-cpf
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+
+      - name: Terraform init
+        working-directory: functions/auth-cpf/infra
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=auth-cpf/${ENVIRONMENT}.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+
+      - name: Provision ECR repository
+        working-directory: functions/auth-cpf/infra
+        run: terraform apply -auto-approve -input=false -var-file="envs/${ENVIRONMENT}.tfvars" -target=aws_ecr_repository.this
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        working-directory: functions/auth-cpf/infra
+        run: |
+          repo=$(terraform output -raw ecr_repository_url)
+          tag=${GITHUB_SHA::12}
+          docker build -t "$repo:$tag" ..
+          docker push "$repo:$tag"
+          echo "TF_VAR_image_tag=$tag" >> "$GITHUB_ENV"
+
+      - name: Terraform apply
+        working-directory: functions/auth-cpf/infra
+        run: terraform apply -auto-approve -input=false -var-file="envs/${ENVIRONMENT}.tfvars"
+
+  deploy:
+    needs: [build-and-push, lambda]
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute vars
+        id: vars
+        run: |
+          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "ns=mecanica-${{ github.ref_name == 'main' && 'production' || 'homologacao' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+          terraform_wrapper: false
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Read infrastructure outputs
+        id: infra
+        run: |
+          for stack in infra-k8s infra-db; do
+            dir=$([ "$stack" = infra-k8s ] && echo infra/aws || echo infra-db)
+            (cd "$dir" && terraform init -input=false \
+              -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+              -backend-config="key=$stack/${ENVIRONMENT}.tfstate" \
+              -backend-config="region=${AWS_REGION}" \
+              -backend-config="use_lockfile=true" > /dev/null)
+          done
+          echo "cluster=$(terraform -chdir=infra/aws output -raw cluster_name)" >> "$GITHUB_OUTPUT"
+          echo "db_host=$(terraform -chdir=infra-db output -raw db_host)" >> "$GITHUB_OUTPUT"
+
+      - name: Connect to EKS
+        run: aws eks update-kubeconfig --name "${{ steps.infra.outputs.cluster }}" --region "$AWS_REGION"
+
+      - name: Install Metrics Server
+        run: kubectl apply -k k8s/addons/metrics-server/overlays/production
+
+      - name: Create namespace and secrets
+        env:
+          NS: ${{ steps.vars.outputs.ns }}
+        run: |
+          kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f -
+          secret() { kubectl create secret generic "$@" -n "$NS" --dry-run=client -o yaml | kubectl apply -f -; }
+          secret mecanica-shared-secrets \
+            --from-literal=DATABASE_USERNAME=mecanica \
+            --from-literal=DATABASE_PASSWORD='${{ secrets.DATABASE_PASSWORD }}' \
+            --from-literal=JWT_SECRET='${{ secrets.JWT_SECRET }}'
+          secret atendimento-secrets \
+            --from-literal=ADMIN_EMAIL=admin@mecanica.com \
+            --from-literal=ADMIN_PASSWORD='${{ secrets.ADMIN_PASSWORD }}' \
+            --from-literal=MAIL_USERNAME=skip \
+            --from-literal=MAIL_PASSWORD=skip
+          secret auth-cpf-secrets \
+            --from-literal=AUTH_CPF_DB_PASSWORD='${{ secrets.AUTH_CPF_DB_PASSWORD }}'
+          secret newrelic-secrets \
+            --from-literal=NEW_RELIC_LICENSE_KEY='${{ secrets.NEW_RELIC_LICENSE_KEY }}'
+
+      - name: Point overlay at the images just published
+        working-directory: k8s/overlays/${{ env.ENVIRONMENT == 'producao' && 'production' || 'homologacao' }}
+        run: |
+          images=""
+          for s in cliente veiculo funcionario servico estoque atendimento; do
+            images="$images mecanica/$s=ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-$s:${{ steps.vars.outputs.tag }}"
+          done
+          kustomize edit set image $images
+          kustomize edit add patch --kind Service --name postgres-mecanica \
+            --patch '[{"op":"replace","path":"/spec/externalName","value":"${{ steps.infra.outputs.db_host }}"}]'
+          if [ -z "$NEW_RELIC_LICENSE_KEY" ]; then
+            sed -i 's/OBSERVABILITY_EXPORT_ENABLED: "true"/OBSERVABILITY_EXPORT_ENABLED: "false"/' patches/common-config.yaml
+          fi
+
+      - name: Replace immutable jobs
+        env:
+          NS: ${{ steps.vars.outputs.ns }}
+        run: kubectl delete job rds-bootstrap auth-cpf-db-init -n "$NS" --ignore-not-found
+
+      - name: Apply application manifests
+        run: kubectl apply -k k8s/overlays/${{ env.ENVIRONMENT == 'producao' && 'production' || 'homologacao' }}
+
+      - name: Wait for rollout
+        env:
+          NS: ${{ steps.vars.outputs.ns }}
+        run: |
+          for service in cliente veiculo funcionario servico estoque atendimento kong; do
+            kubectl rollout status deployment/"$service" -n "$NS" --timeout=600s
+          done
+          kubectl wait --for=condition=complete job/rds-bootstrap job/auth-cpf-db-init -n "$NS" --timeout=300s
+
+      - name: Setup Helm
+        if: ${{ env.NEW_RELIC_LICENSE_KEY != '' }}
+        uses: azure/setup-helm@v4
+
+      - name: Install New Relic Kubernetes collector
+        if: ${{ env.NEW_RELIC_LICENSE_KEY != '' }}
+        run: |
+          helm repo add newrelic https://helm-charts.newrelic.com
+          helm upgrade --install nr-k8s-otel-collector newrelic/nr-k8s-otel-collector \
+            --version 0.14.3 \
+            --namespace newrelic --create-namespace \
+            --values k8s/addons/newrelic/values.yaml \
+            --set cluster="${{ steps.infra.outputs.cluster }}" \
+            --set-string licenseKey="$NEW_RELIC_LICENSE_KEY" \
+            --wait --timeout 5m
+
+      - name: Smoke test
+        env:
+          NS: ${{ steps.vars.outputs.ns }}
+        run: |
+          for i in $(seq 1 60); do
+            host=$(kubectl get svc kong -n "$NS" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+            [ -n "$host" ] && curl -s -o /dev/null "http://$host/auth/cpf" && break
+            sleep 10
+          done
+          echo "Gateway: http://$host"
+          scripts/smoke-test.sh "http://$host" admin@mecanica.com '${{ secrets.ADMIN_PASSWORD }}'
+
+      - name: Show Kubernetes diagnostics on failure
+        if: failure()
+        env:
+          NS: ${{ steps.vars.outputs.ns }}
+        run: |
+          kubectl get pods,services,hpa,jobs -n "$NS" -o wide || true
+          kubectl get events -n "$NS" --sort-by=.lastTimestamp || true
+
+  observability:
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+      NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL || 'sem-destino@example.com' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        if: ${{ env.NEW_RELIC_API_KEY != '' && env.NEW_RELIC_ACCOUNT_ID != '' }}
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+
+      - name: Dashboards e alertas (observability)
+        if: ${{ env.NEW_RELIC_API_KEY != '' && env.NEW_RELIC_ACCOUNT_ID != '' }}
+        working-directory: observability
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=observability/${ENVIRONMENT}.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+          terraform apply -auto-approve -input=false -var-file="envs/${ENVIRONMENT}.tfvars"

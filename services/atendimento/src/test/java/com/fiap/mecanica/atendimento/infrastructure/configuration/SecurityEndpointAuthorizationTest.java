@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.util.List;
 
@@ -66,31 +67,93 @@ class SecurityEndpointAuthorizationTest {
     }
 
     @Test
-    void clienteNaoPodeListarAtendimentosAbertos() throws Exception {
+    void listagemDeAtendimentosAbertosExigeToken() throws Exception {
         mockMvc.perform(get("/atendimento/abertos"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void qualquerUmPodeConsultarStatusSemToken() throws Exception {
-        when(atendimentoUseCase.buscarPorId(ORDEM_ID)).thenReturn(ordem(Status.EM_DIAGNOSTICO));
-
+    void consultaDeStatusExigeToken() throws Exception {
         mockMvc.perform(get("/atendimento/{id}/status", ORDEM_ID))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void clientePodeConsultarStatusDaPropriaOrdem() throws Exception {
+        when(atendimentoUseCase.buscarPorId(ORDEM_ID)).thenReturn(ordemDoCliente(1L));
+
+        mockMvc.perform(get("/atendimento/{id}/status", ORDEM_ID).with(tokenDoCliente(1L)))
                 .andExpect(status().isOk());
     }
 
     @Test
-    void qualquerUmPodeRegistrarDecisaoExternaDoOrcamentoSemToken() throws Exception {
+    void clienteNaoPodeConsultarStatusDeOrdemDeOutroCliente() throws Exception {
+        when(atendimentoUseCase.buscarPorId(ORDEM_ID)).thenReturn(ordemDoCliente(1L));
+
+        mockMvc.perform(get("/atendimento/{id}/status", ORDEM_ID).with(tokenDoCliente(2L)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void funcionarioPodeConsultarStatusDeQualquerOrdem() throws Exception {
+        when(atendimentoUseCase.buscarPorId(ORDEM_ID)).thenReturn(ordemDoCliente(1L));
+
+        mockMvc.perform(get("/atendimento/{id}/status", ORDEM_ID).with(jwt().authorities(() -> "ROLE_MECANICO")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void decisaoDoOrcamentoExigeToken() throws Exception {
+        mockMvc.perform(post("/atendimento/{id}/decisao-orcamento", ORDEM_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aprovado\": true}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void clientePodeRegistrarDecisaoDoOrcamentoDaPropriaOrdem() throws Exception {
+        when(atendimentoUseCase.buscarPorId(ORDEM_ID)).thenReturn(ordemDoCliente(1L));
         when(atendimentoUseCase.aprovarOrdemServico(ORDEM_ID)).thenReturn(ordem(Status.EM_EXECUCAO));
 
         mockMvc.perform(post("/atendimento/{id}/decisao-orcamento", ORDEM_ID)
+                        .with(tokenDoCliente(1L))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "aprovado": true
-                                }
-                                """))
+                        .content("{\"aprovado\": true}"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void clienteNaoPodeRegistrarDecisaoDoOrcamentoDeOutroCliente() throws Exception {
+        when(atendimentoUseCase.buscarPorId(ORDEM_ID)).thenReturn(ordemDoCliente(1L));
+
+        mockMvc.perform(post("/atendimento/{id}/decisao-orcamento", ORDEM_ID)
+                        .with(tokenDoCliente(2L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"aprovado\": true}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void apenasClientePodeListarSuasOrdens() throws Exception {
+        when(atendimentoUseCase.listarAtendimentosDoCliente(1L)).thenReturn(List.of(ordemDoCliente(1L)));
+
+        mockMvc.perform(get("/atendimento/cliente/minhas"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/atendimento/cliente/minhas").with(jwt().authorities(() -> "ROLE_ATENDENTE")))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/atendimento/cliente/minhas").with(tokenDoCliente(1L)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void clienteNaoPodeAcessarEndpointsDeFuncionario() throws Exception {
+        mockMvc.perform(get("/atendimento/abertos").with(tokenDoCliente(1L)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/atendimento/{id}/finalizar", ORDEM_ID).with(tokenDoCliente(1L)))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -210,6 +273,18 @@ class SecurityEndpointAuthorizationTest {
         mockMvc.perform(get("/templates")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
                 .andExpect(status().isOk());
+    }
+
+    private OrdemServico ordemDoCliente(Long clienteId) {
+        return OrdemServico.builder()
+                .id(ORDEM_ID)
+                .clienteId(clienteId)
+                .status(Status.RECEBIDA)
+                .build();
+    }
+
+    private RequestPostProcessor tokenDoCliente(Long clienteId) {
+        return jwt().jwt(token -> token.claim("cliente_id", clienteId)).authorities(() -> "ROLE_CLIENTE");
     }
 
     private OrdemServico ordem(Status status) {

@@ -19,8 +19,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import com.fiap.mecanica.atendimento.exception.OrdemServicoNaoEncontradaException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,6 +39,7 @@ class AtendimentoControllerTest {
     private static final String UUID_ORDEM = "550e8400-e29b-41d4-a716-446655440000";
     private static final Long ID_CLIENTE = 1L;
     private static final Long ID_VEICULO = 2L;
+    private static final Long OUTRO_CLIENTE = 77L;
     private static final String RELATO = "Barulho na suspensão";
 
     @Mock
@@ -58,7 +67,7 @@ class AtendimentoControllerTest {
 
         when(atendimentoUseCase.buscarPorId(UUID_ORDEM)).thenReturn(ordemServico);
 
-        OrdemServicoDto resultado = controller.buscarPorId(UUID_ORDEM);
+        OrdemServicoDto resultado = controller.buscarPorId(UUID_ORDEM, criarAutenticacaoFuncionario());
 
         assertThat(resultado).isEqualTo(AtendimentoPresenter.toDto(ordemServico));
         verify(atendimentoUseCase).buscarPorId(UUID_ORDEM);
@@ -70,7 +79,7 @@ class AtendimentoControllerTest {
 
         when(atendimentoUseCase.buscarPorId(UUID_ORDEM)).thenReturn(ordemServico);
 
-        StatusOrdemServicoDto resultado = controller.consultarStatus(UUID_ORDEM);
+        StatusOrdemServicoDto resultado = controller.consultarStatus(UUID_ORDEM, criarAutenticacaoFuncionario());
 
         assertThat(resultado).isEqualTo(AtendimentoPresenter.toStatusDto(ordemServico));
         verify(atendimentoUseCase).buscarPorId(UUID_ORDEM);
@@ -81,9 +90,10 @@ class AtendimentoControllerTest {
         DecisaoOrcamentoRequest request = new DecisaoOrcamentoRequest(true);
         OrdemServico ordemServico = criarOrdemServico(UUID_ORDEM, Status.EM_EXECUCAO);
 
+        when(atendimentoUseCase.buscarPorId(UUID_ORDEM)).thenReturn(ordemServico);
         when(atendimentoUseCase.aprovarOrdemServico(UUID_ORDEM)).thenReturn(ordemServico);
 
-        OrdemServicoDto resultado = controller.registrarDecisaoExternaOrcamento(UUID_ORDEM, request);
+        OrdemServicoDto resultado = controller.registrarDecisaoExternaOrcamento(UUID_ORDEM, request, criarAutenticacaoFuncionario());
 
         assertThat(resultado).isEqualTo(AtendimentoPresenter.toDto(ordemServico));
         verify(atendimentoUseCase).aprovarOrdemServico(UUID_ORDEM);
@@ -95,9 +105,10 @@ class AtendimentoControllerTest {
         DecisaoOrcamentoRequest request = new DecisaoOrcamentoRequest(false);
         OrdemServico ordemServico = criarOrdemServico(UUID_ORDEM, Status.CANCELADA);
 
+        when(atendimentoUseCase.buscarPorId(UUID_ORDEM)).thenReturn(ordemServico);
         when(atendimentoUseCase.cancelarOrdemServico(UUID_ORDEM)).thenReturn(ordemServico);
 
-        OrdemServicoDto resultado = controller.registrarDecisaoExternaOrcamento(UUID_ORDEM, request);
+        OrdemServicoDto resultado = controller.registrarDecisaoExternaOrcamento(UUID_ORDEM, request, criarAutenticacaoFuncionario());
 
         assertThat(resultado).isEqualTo(AtendimentoPresenter.toDto(ordemServico));
         verify(atendimentoUseCase).cancelarOrdemServico(UUID_ORDEM);
@@ -204,6 +215,76 @@ class AtendimentoControllerTest {
 
         assertThat(resultado).isEqualTo(AtendimentoPresenter.toDto(ordemServico));
         verify(atendimentoUseCase).entregarVeiculo(UUID_ORDEM);
+    }
+
+    @Test
+    void deveBuscarOrdemServicoQuandoClienteForDonoDaOrdem() {
+        OrdemServico ordemServico = criarOrdemServicoDoCliente(ID_CLIENTE);
+        when(atendimentoUseCase.buscarPorId(UUID_ORDEM)).thenReturn(ordemServico);
+
+        OrdemServicoDto resultado = controller.buscarPorId(UUID_ORDEM, criarAutenticacaoCliente(ID_CLIENTE));
+
+        assertThat(resultado).isEqualTo(AtendimentoPresenter.toDto(ordemServico));
+    }
+
+    @Test
+    void deveLancarNaoEncontradaQuandoClienteNaoForDonoDaOrdemAoBuscarPorId() {
+        when(atendimentoUseCase.buscarPorId(UUID_ORDEM)).thenReturn(criarOrdemServicoDoCliente(ID_CLIENTE));
+
+        assertThatThrownBy(() -> controller.buscarPorId(UUID_ORDEM, criarAutenticacaoCliente(OUTRO_CLIENTE)))
+                .isInstanceOf(OrdemServicoNaoEncontradaException.class);
+    }
+
+    @Test
+    void deveLancarNaoEncontradaQuandoClienteNaoForDonoDaOrdemAoConsultarStatus() {
+        when(atendimentoUseCase.buscarPorId(UUID_ORDEM)).thenReturn(criarOrdemServicoDoCliente(ID_CLIENTE));
+
+        assertThatThrownBy(() -> controller.consultarStatus(UUID_ORDEM, criarAutenticacaoCliente(OUTRO_CLIENTE)))
+                .isInstanceOf(OrdemServicoNaoEncontradaException.class);
+    }
+
+    @Test
+    void naoDeveRegistrarDecisaoQuandoClienteNaoForDonoDaOrdem() {
+        when(atendimentoUseCase.buscarPorId(UUID_ORDEM)).thenReturn(criarOrdemServicoDoCliente(ID_CLIENTE));
+
+        assertThatThrownBy(() -> controller.registrarDecisaoExternaOrcamento(
+                UUID_ORDEM, new DecisaoOrcamentoRequest(true), criarAutenticacaoCliente(OUTRO_CLIENTE)))
+                .isInstanceOf(OrdemServicoNaoEncontradaException.class);
+
+        verify(atendimentoUseCase, never()).aprovarOrdemServico(UUID_ORDEM);
+        verify(atendimentoUseCase, never()).cancelarOrdemServico(UUID_ORDEM);
+    }
+
+    @Test
+    void deveListarMinhasOrdensDeServicoDoClienteDoToken() {
+        OrdemServico ordemServico = criarOrdemServicoDoCliente(ID_CLIENTE);
+        when(atendimentoUseCase.listarAtendimentosDoCliente(ID_CLIENTE)).thenReturn(List.of(ordemServico));
+
+        List<OrdemServicoDto> resultado = controller.listarMinhas(criarAutenticacaoCliente(ID_CLIENTE));
+
+        assertThat(resultado).containsExactly(AtendimentoPresenter.toDto(ordemServico));
+        verify(atendimentoUseCase).listarAtendimentosDoCliente(ID_CLIENTE);
+    }
+
+    private OrdemServico criarOrdemServicoDoCliente(Long clienteId) {
+        return OrdemServico.builder()
+                .id(UUID_ORDEM)
+                .clienteId(clienteId)
+                .status(Status.RECEBIDA)
+                .build();
+    }
+
+    private Authentication criarAutenticacaoFuncionario() {
+        return autenticacao(Map.of("sub", "funcionario"), "ROLE_ATENDENTE");
+    }
+
+    private Authentication criarAutenticacaoCliente(Long clienteId) {
+        return autenticacao(Map.of("sub", String.valueOf(clienteId), "cliente_id", clienteId), "ROLE_CLIENTE");
+    }
+
+    private Authentication autenticacao(Map<String, Object> claims, String papel) {
+        Jwt jwt = Jwt.withTokenValue("token").header("alg", "HS256").claims(c -> c.putAll(claims)).build();
+        return new JwtAuthenticationToken(jwt, List.of(new SimpleGrantedAuthority(papel)));
     }
 
     private OrdemServico criarOrdemServico(String id, Status status) {

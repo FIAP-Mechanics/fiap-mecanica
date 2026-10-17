@@ -15,4 +15,6 @@ public interface OrdemServicoGateway {
     List<OrdemServico> buscarTodosPorStatusNotIn(List<Status> status);
 
     List<OrdemServico> buscarTodosPorStatusIn(List<Status> status);
+
+    List<OrdemServico> buscarTodosPorClienteId(Long clienteId);
 }

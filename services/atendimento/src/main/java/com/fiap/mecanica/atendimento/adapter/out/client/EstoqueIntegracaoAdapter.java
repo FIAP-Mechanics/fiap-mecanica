@@ -28,8 +28,9 @@ public class EstoqueIntegracaoAdapter implements EstoqueIntegracaoGateway {
     public EstoqueIntegracaoAdapter(
             @Value("${clients.estoque-service.base-url}") String baseUrl,
             InternalServiceTokenProvider internalServiceTokenProvider,
-            ObjectMapper objectMapper) {
-        this.restClient = RestClient.create(baseUrl);
+            ObjectMapper objectMapper,
+            RestClient.Builder restClientBuilder) {
+        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
         this.internalServiceTokenProvider = internalServiceTokenProvider;
         this.objectMapper = objectMapper;
     }

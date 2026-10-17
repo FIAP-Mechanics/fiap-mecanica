@@ -9,10 +9,6 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
   lifecycle:
     timeout-per-shutdown-phase: 30s
 
@@ -29,6 +25,58 @@ management:
     health:
       probes:
         enabled: true
+  observations:
+    enable:
+      spring:
+        security: false
+  metrics:
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
+        "[http.client.requests]": true
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      otlp:
+        enabled: ${OBSERVABILITY_EXPORT_ENABLED:false}
+  logging:
+    export:
+      otlp:
+        enabled: false
+  otlp:
+    metrics:
+      export:
+        enabled: ${OBSERVABILITY_EXPORT_ENABLED:false}
+        url: ${OTLP_ENDPOINT:https://otlp.nr-data.net}/v1/metrics
+        step: 60s
+        aggregation-temporality: delta
+        histogram-flavor: base2-exponential-bucket-histogram
+        headers:
+          api-key: ${NEW_RELIC_LICENSE_KEY:}
+  opentelemetry:
+    resource-attributes:
+      "[deployment.environment]": ${DEPLOYMENT_ENVIRONMENT:local}
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTLP_ENDPOINT:https://otlp.nr-data.net}/v1/traces
+          headers:
+            api-key: ${NEW_RELIC_LICENSE_KEY:}
+
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      context:
+        include: true
+      rename:
+        traceId: trace.id
+        spanId: span.id
+      add:
+        "[service.name]": ${spring.application.name}
+        "[deployment.environment]": ${DEPLOYMENT_ENVIRONMENT:local}
 
 springdoc:
   api-docs:

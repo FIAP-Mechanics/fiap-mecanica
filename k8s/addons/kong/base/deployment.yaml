@@ -1,0 +1,201 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+  labels:
+    app.kubernetes.io/name: kong
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/part-of: oficina-mecanica
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kong
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kong
+        app.kubernetes.io/component: api-gateway
+        app.kubernetes.io/part-of: oficina-mecanica
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      # Gera o kong.yml final injetando issuer e segredo JWT, sem deixá-los em ConfigMap.
+      - name: render-config
+        image: busybox:1.37@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -ec
+        - |
+          esc() { printf '%s' "$1" | sed -e 's/[\/&|]/\\&/g'; }
+          if [ -n "$OTLP_ENDPOINT" ]; then OTEL_TRACES_ENDPOINT="$OTLP_ENDPOINT/v1/traces"; fi
+          if [ -z "$OTEL_API_KEY" ]; then OTEL_ENABLED=false; fi
+          sed -e "s|__JWT_ISSUER__|$(esc "$JWT_ISSUER")|g" \
+              -e "s|__JWT_SECRET__|$(esc "$JWT_SECRET")|g" \
+              -e "s|__CORS_ORIGIN__|$(esc "$CORS_ORIGIN")|g" \
+              -e "s|__LAMBDA_HOST__|$(esc "$LAMBDA_HOST")|g" \
+              -e "s|__LAMBDA_PORT__|$(esc "$LAMBDA_PORT")|g" \
+              -e "s|__LAMBDA_FUNCTION__|$(esc "$LAMBDA_FUNCTION")|g" \
+              -e "s|__LAMBDA_REGION__|$(esc "$LAMBDA_REGION")|g" \
+              -e "s|__LAMBDA_AWS_KEY__|$(esc "$LAMBDA_AWS_KEY")|g" \
+              -e "s|__LAMBDA_AWS_SECRET__|$(esc "$LAMBDA_AWS_SECRET")|g" \
+              -e "s|__LAMBDA_DISABLE_HTTPS__|$(esc "$LAMBDA_DISABLE_HTTPS")|g" \
+              -e "s|__OTEL_ENABLED__|$(esc "$OTEL_ENABLED")|g" \
+              -e "s|__OTEL_TRACES_ENDPOINT__|$(esc "$OTEL_TRACES_ENDPOINT")|g" \
+              -e "s|__OTEL_API_KEY__|$(esc "$OTEL_API_KEY")|g" \
+              -e "s|__DEPLOYMENT_ENVIRONMENT__|$(esc "$DEPLOYMENT_ENVIRONMENT")|g" \
+              /template/kong.yml.tpl > /config/kong.yml
+          if [ -z "$LAMBDA_AWS_KEY" ]; then
+            sed -i -e '/aws_key:/d' -e '/aws_secret:/d' /config/kong.yml
+          fi
+          if [ -z "$OTEL_API_KEY" ]; then
+            sed -i -e '/^      headers:$/,/^        api-key:/d' /config/kong.yml
+          fi
+        env:
+        - name: CORS_ORIGIN
+          value: "*"
+        - name: LAMBDA_HOST
+          value: auth-cpf
+        - name: LAMBDA_PORT
+          value: "8080"
+        - name: LAMBDA_FUNCTION
+          value: function
+        - name: LAMBDA_REGION
+          value: us-east-1
+        - name: LAMBDA_AWS_KEY
+          value: local
+        - name: LAMBDA_AWS_SECRET
+          value: local
+        - name: LAMBDA_DISABLE_HTTPS
+          value: "true"
+        - name: OTEL_ENABLED
+          value: "false"
+        - name: OTEL_TRACES_ENDPOINT
+          value: http://localhost:4318/v1/traces
+        - name: OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: OTLP_ENDPOINT
+              optional: true
+        - name: OTEL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: newrelic-secrets
+              key: NEW_RELIC_LICENSE_KEY
+              optional: true
+        - name: DEPLOYMENT_ENVIRONMENT
+          value: local
+        - name: JWT_ISSUER
+          valueFrom:
+            configMapKeyRef:
+              name: atendimento-config
+              key: JWT_ISSUER
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: mecanica-shared-secrets
+              key: JWT_SECRET
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            memory: 32Mi
+        volumeMounts:
+        - name: template
+          mountPath: /template
+          readOnly: true
+        - name: config
+          mountPath: /config
+      containers:
+      - name: kong
+        image: kong:3.9@sha256:92035d16d7ff86b7bc12fb1d0090d29357d924238b1880f78735f3f2fea6b631
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: KONG_DATABASE
+          value: "off"
+        # "auto" cria um worker por core do nó; com limite de 512Mi isso estoura a memória (OOMKilled).
+        - name: KONG_NGINX_WORKER_PROCESSES
+          value: "2"
+        - name: KONG_PREFIX
+          value: /kong-prefix
+        - name: KONG_DECLARATIVE_CONFIG
+          value: /config/kong.yml
+        - name: KONG_PROXY_LISTEN
+          value: 0.0.0.0:8000
+        - name: KONG_ADMIN_LISTEN
+          value: "off"
+        - name: KONG_STATUS_LISTEN
+          value: 0.0.0.0:8100
+        - name: KONG_PROXY_ACCESS_LOG
+          value: /dev/stdout json_fmt
+        - name: KONG_NGINX_HTTP_LOG_FORMAT
+          value: >-
+            json_fmt escape=json '{"timestamp":"$time_iso8601","service.name":"kong-gateway","metodo":"$request_method","rota":"$uri","status":"$status","duracao_s":"$request_time","request_id":"$sent_http_x_request_id","upstream_status":"$upstream_status","remote_addr":"$remote_addr"}'
+        - name: KONG_TRACING_INSTRUMENTATIONS
+          value: request
+        - name: KONG_PROXY_ERROR_LOG
+          value: /dev/stderr
+        - name: KONG_LOG_LEVEL
+          value: notice
+        ports:
+        - name: proxy
+          containerPort: 8000
+        - name: status
+          containerPort: 8100
+        readinessProbe:
+          httpGet:
+            path: /status/ready
+            port: status
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /status
+            port: status
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 512Mi
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: prefix
+          mountPath: /kong-prefix
+      volumes:
+      - name: template
+        configMap:
+          name: kong-config
+      - name: config
+        emptyDir:
+          medium: Memory
+      - name: prefix
+        emptyDir: {}

@@ -34,3 +34,9 @@ variable "postgres_password" {
   sensitive   = true
   default     = "mecanica-local-only"
 }
+
+variable "gateway_host_port" {
+  description = "Porta do host que encaminha para o NodePort 30080 do Kong (API Gateway) no cluster kind."
+  type        = number
+  default     = 8080
+}

@@ -233,6 +233,30 @@ class ClienteControllerTest {
     }
 
     @Test
+    void deveDesativarClienteERetornarDtoInativo() {
+        Cliente inativo = criarCliente();
+        inativo.setAtivo(false);
+        when(clienteUseCase.excluirCliente(ID_EXISTENTE)).thenReturn(inativo);
+
+        ClienteDto resultado = controller.delete(ID_EXISTENTE);
+
+        assertThat(resultado.id()).isEqualTo(ID_EXISTENTE);
+        assertThat(resultado.ativo()).isFalse();
+        verify(clienteUseCase).excluirCliente(ID_EXISTENTE);
+    }
+
+    @Test
+    void deveReativarClienteERetornarDtoAtivo() {
+        when(clienteUseCase.reativarCliente(ID_EXISTENTE)).thenReturn(criarCliente());
+
+        ClienteDto resultado = controller.reativar(ID_EXISTENTE);
+
+        assertThat(resultado.id()).isEqualTo(ID_EXISTENTE);
+        assertThat(resultado.ativo()).isTrue();
+        verify(clienteUseCase).reativarCliente(ID_EXISTENTE);
+    }
+
+    @Test
     void deveVincularVeiculoAoClienteComSucesso() {
         controller.vincularClienteVeiculo(ID_EXISTENTE, ID_VEICULO, "ABC1234", "Fiat", "Uno", 2020);
 

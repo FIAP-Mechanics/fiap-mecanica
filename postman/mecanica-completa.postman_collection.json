@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "c1f7d6c6-3d93-4b5d-a22c-82fd4b437f7a",
     "name": "Oficina Mecânica - API completa",
-    "description": "Collection unificada dos seis microsserviços. Execute primeiro 00 - Autenticação. As requisições de cadastro salvam automaticamente os IDs nas variáveis da collection.",
+    "description": "Collection unificada dos seis microsserviços. Execute primeiro 00 - Autenticação. As pastas de cliente por CPF (00 e 08) usam o API Gateway (gatewayUrl, porta 8080). As requisições de cadastro salvam automaticamente os IDs nas variáveis da collection.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -22,9 +22,11 @@
     { "key": "servicoUrl", "value": "http://localhost:8084", "type": "string" },
     { "key": "estoqueUrl", "value": "http://localhost:8085", "type": "string" },
     { "key": "atendimentoUrl", "value": "http://localhost:8086", "type": "string" },
+    { "key": "gatewayUrl", "value": "http://localhost:8080", "type": "string" },
     { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "clienteToken", "value": "", "type": "string" },
     { "key": "clienteId", "value": "1", "type": "string" },
-    { "key": "clienteDocumento", "value": "63648236000159", "type": "string" },
+    { "key": "clienteDocumento", "value": "52998224725", "type": "string" },
     { "key": "veiculoId", "value": "1", "type": "string" },
     { "key": "veiculoPlaca", "value": "ABC1D23", "type": "string" },
     { "key": "funcionarioId", "value": "1", "type": "string" },
@@ -63,6 +65,36 @@
                   "const json = pm.response.json();",
                   "pm.expect(json.access_token).to.be.a('string').and.not.empty;",
                   "pm.collectionVariables.set('accessToken', json.access_token);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login por CPF (cliente) e salvar token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cpf\": \"{{clienteDocumento}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{gatewayUrl}}/auth/cpf",
+            "description": "Function serverless (via Kong): valida o CPF, consulta o cliente e devolve um JWT com role CLIENTE. O cliente precisa estar cadastrado e ativo (pasta 01)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Autenticação por CPF realizada com sucesso', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.expect(json.access_token).to.be.a('string').and.not.empty;",
+                  "pm.collectionVariables.set('clienteToken', json.access_token);"
                 ]
               }
             }
@@ -132,7 +164,9 @@
           "name": "Listar veículos do cliente",
           "request": { "method": "GET", "header": [], "url": "{{clienteUrl}}/cliente/{{clienteId}}/veiculos" },
           "response": []
-        }
+        },
+        { "name": "Desativar cliente", "request": { "method": "DELETE", "header": [], "url": "{{clienteUrl}}/cliente/{{clienteId}}", "description": "Desativação lógica: o cliente deixa de autenticar por CPF (401)." }, "response": [] },
+        { "name": "Reativar cliente", "request": { "method": "PUT", "header": [], "url": "{{clienteUrl}}/cliente/{{clienteId}}/reativar" }, "response": [] }
       ]
     },
     {
@@ -399,6 +433,15 @@
           "response": []
         },
         { "name": "Cancelamento - Cancelar OS", "request": { "method": "POST", "header": [], "url": "{{atendimentoUrl}}/atendimento/{{atendimentoCancelamentoId}}/cancelar" }, "response": [] }
+      ]
+    },
+    {
+      "name": "08 - Área do cliente (token por CPF)",
+      "item": [
+        { "name": "Minhas ordens de serviço", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{clienteToken}}", "type": "string" }] }, "method": "GET", "header": [], "url": "{{gatewayUrl}}/atendimento/cliente/minhas" }, "response": [] },
+        { "name": "Consultar minha OS", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{clienteToken}}", "type": "string" }] }, "method": "GET", "header": [], "url": "{{gatewayUrl}}/atendimento/{{atendimentoId}}" }, "response": [] },
+        { "name": "Consultar status da minha OS", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{clienteToken}}", "type": "string" }] }, "method": "GET", "header": [], "url": "{{gatewayUrl}}/atendimento/{{atendimentoId}}/status" }, "response": [] },
+        { "name": "Sem token deve retornar 401", "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [], "url": "{{gatewayUrl}}/atendimento/cliente/minhas" }, "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Rota protegida exige token', () => pm.response.to.have.status(401));"] } }], "response": [] }
       ]
     }
   ]

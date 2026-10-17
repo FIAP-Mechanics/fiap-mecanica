@@ -71,6 +71,12 @@ spec:
         - configMapRef:
             name: funcionario-config
         env:
+        - name: NEW_RELIC_LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: newrelic-secrets
+              key: NEW_RELIC_LICENSE_KEY
+              optional: true
         - name: SPRING_DATASOURCE_USERNAME
           valueFrom:
             secretKeyRef:

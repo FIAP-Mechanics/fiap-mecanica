@@ -43,10 +43,7 @@ public class SecurityConfiguration {
                                 "/actuator/health/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/atendimento/{id}",
-                                "/atendimento/{id}/status",
-                                "/atendimento/{id}/decisao-orcamento"
+                                "/swagger-ui.html"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt

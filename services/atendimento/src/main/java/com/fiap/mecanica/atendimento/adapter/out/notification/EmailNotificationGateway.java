@@ -1,5 +1,6 @@
 package com.fiap.mecanica.atendimento.adapter.out.notification;
 
+import com.fiap.mecanica.atendimento.application.port.out.AtendimentoMetricasGateway;
 import com.fiap.mecanica.atendimento.application.port.out.ClienteIntegracaoGateway;
 import com.fiap.mecanica.atendimento.application.port.out.NotificationGateway;
 import com.fiap.mecanica.atendimento.application.port.out.TemplateGateway;
@@ -14,6 +15,9 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
 @Component
 public class EmailNotificationGateway implements NotificationGateway {
 
@@ -23,15 +27,18 @@ public class EmailNotificationGateway implements NotificationGateway {
     private final JavaMailSender mailSender;
     private final String emailAtualizacoes;
     private final String emailRemetente;
+    private final AtendimentoMetricasGateway metricasGateway;
 
     public EmailNotificationGateway(TemplateGateway templateGateway,
                                      JavaMailSender mailSender,
                                      @Value("${notificacao.email-atualizacoes}") String emailAtualizacoes,
-                                     @Value("${notificacao.email-remetente}") String emailRemetente) {
+                                     @Value("${notificacao.email-remetente}") String emailRemetente,
+                                     AtendimentoMetricasGateway metricasGateway) {
         this.templateGateway = templateGateway;
         this.mailSender = mailSender;
         this.emailAtualizacoes = emailAtualizacoes;
         this.emailRemetente = emailRemetente;
+        this.metricasGateway = metricasGateway;
     }
 
     @Override
@@ -70,9 +77,27 @@ public class EmailNotificationGateway implements NotificationGateway {
         try {
             mailSender.send(mensagem);
         } catch (MailException ex) {
+            metricasGateway.registrarFalhaNotificacao();
             LOGGER.error("Falha ao enviar notificação por e-mail. destinatario={}, assunto={}",
-                    mensagem.getTo(), mensagem.getSubject(), ex);
+                    mascararDestinatarios(mensagem.getTo()), mensagem.getSubject(), ex);
         }
+    }
+
+    private static String mascararDestinatarios(String[] destinatarios) {
+        if (destinatarios == null) {
+            return "";
+        }
+        return Arrays.stream(destinatarios)
+                .map(EmailNotificationGateway::mascararEmail)
+                .collect(Collectors.joining(","));
+    }
+
+    private static String mascararEmail(String email) {
+        int arroba = email == null ? -1 : email.indexOf('@');
+        if (arroba < 1) {
+            return "***";
+        }
+        return email.charAt(0) + "***" + email.substring(arroba);
     }
 
     private TemplateNotificacao buscarTemplate(CodigoTemplate template) {
