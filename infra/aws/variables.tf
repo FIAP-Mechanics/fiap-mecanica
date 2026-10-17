@@ -22,7 +22,7 @@ variable "vpc_cidr" {
 variable "kubernetes_version" {
   description = "Versão do Kubernetes do EKS."
   type        = string
-  default     = "1.33"
+  default     = "1.36"
 }
 
 variable "node_instance_type" {

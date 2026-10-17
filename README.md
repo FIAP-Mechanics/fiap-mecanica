@@ -546,7 +546,7 @@ Cliente ─► LoadBalancer ─► Kong ─► serviços (EKS) ─► RDS       
 
 | Terraform | State (S3) | Conteúdo |
 |---|---|---|
-| `infra/aws` | `infra-k8s/<ambiente>.tfstate` | VPC, subnets, NAT, EKS e grupo de nós (2 a 4 `t3.large`) |
+| `infra/aws` | `infra-k8s/<ambiente>.tfstate` | VPC, subnets, NAT, EKS e grupo de nós (homologação: 2 `t3.medium`; produção: 2 a 4 `t3.large`) |
 | `infra-db` | `infra-db/<ambiente>.tfstate` | RDS PostgreSQL 16 privado, acessível só pelos nós |
 | `functions/auth-cpf/infra` | `auth-cpf/<ambiente>.tfstate` | ECR, Lambda em subnets privadas, Secrets Manager |
 
