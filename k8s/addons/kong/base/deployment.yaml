@@ -42,6 +42,8 @@ spec:
         - -ec
         - |
           esc() { printf '%s' "$1" | sed -e 's/[\/&|]/\\&/g'; }
+          if [ -n "$OTLP_ENDPOINT" ]; then OTEL_TRACES_ENDPOINT="$OTLP_ENDPOINT/v1/traces"; fi
+          if [ -z "$OTEL_API_KEY" ]; then OTEL_ENABLED=false; fi
           sed -e "s|__JWT_ISSUER__|$(esc "$JWT_ISSUER")|g" \
               -e "s|__JWT_SECRET__|$(esc "$JWT_SECRET")|g" \
               -e "s|__CORS_ORIGIN__|$(esc "$CORS_ORIGIN")|g" \
@@ -84,6 +86,12 @@ spec:
           value: "false"
         - name: OTEL_TRACES_ENDPOINT
           value: http://localhost:4318/v1/traces
+        - name: OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: OTLP_ENDPOINT
+              optional: true
         - name: OTEL_API_KEY
           valueFrom:
             secretKeyRef:

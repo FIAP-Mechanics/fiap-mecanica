@@ -1,10 +1,10 @@
 variable "environment" {
-  description = "Ambiente (homologacao ou producao)."
+  description = "Ambiente (local, homologacao ou producao)."
   type        = string
 
   validation {
-    condition     = contains(["homologacao", "producao"], var.environment)
-    error_message = "environment deve ser homologacao ou producao."
+    condition     = contains(["local", "homologacao", "producao"], var.environment)
+    error_message = "environment deve ser local, homologacao ou producao."
   }
 }
 
@@ -32,6 +32,12 @@ variable "latency_p95_threshold_ms" {
 
 variable "memory_utilization_threshold_percent" {
   description = "Limite de uso de memória dos contêineres em relação ao limite configurado."
+  type        = number
+  default     = 90
+}
+
+variable "cpu_utilization_threshold_percent" {
+  description = "Limite de uso de CPU dos contêineres em relação ao limite configurado."
   type        = number
   default     = 90
 }

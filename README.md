@@ -721,15 +721,31 @@ A exportação vem **desligada** (`OBSERVABILITY_EXPORT_ENABLED=false`): sem con
 O `scripts/aws-lab-down.sh` destrói primeiro os dashboards e alertas do ambiente (se `NEW_RELIC_API_KEY` e `NEW_RELIC_ACCOUNT_ID`
 estiverem exportados), para que a derrubada do cluster não dispare alertas de perda de sinal.
 
-Na nuvem (homologação e produção) a exportação já vem ligada nos overlays, então a `NEW_RELIC_LICENSE_KEY` passa a ser
-obrigatória: sem ela os serviços e o Kong tentam enviar dados sem autenticação e recebem erro do New Relic a cada minuto, o que
-só polui os logs. Para desligar, defina `OBSERVABILITY_EXPORT_ENABLED: "false"` nos `patches/common-config.yaml` dos overlays.
+Na nuvem (homologação e produção) a exportação vem ligada nos overlays. O workflow *Deploy AWS* a desliga sozinho
+(`OBSERVABILITY_EXPORT_ENABLED: "false"`) quando não há `NEW_RELIC_LICENSE_KEY`, e o Kong só ativa o plugin de traces se a
+chave existir. O endpoint OTLP do Kong segue o `OTLP_ENDPOINT` do `common-config`, o mesmo usado pelos serviços.
+
+- **Ambientes do Terraform:** `local`, `homologacao` e `producao` (`envs/<ambiente>.tfvars`). O Compose e o kind enviam
+  `deployment.environment=local`; aplicar `envs/local.tfvars` cria o dashboard e os alertas para acompanhar a stack local
+  (os painéis de Kubernetes só têm dados com o coletor instalado).
+- **Kubernetes:** o coletor `nr-k8s-otel-collector` grava métricas OpenTelemetry na tabela `Metric` (`k8s.pod.*`,
+  `container.*`, `kube_*`), filtradas por `k8s.cluster.name` e `k8s.namespace.name`; os logs vão para `Log` com `request_id` e
+  `trace.id` já extraídos do JSON.
 
 ### Demonstração
 
 `scripts/gerar-trafego.sh <url-do-gateway> <email-admin> <senha-admin> [quantidade] [pausa]` percorre o ciclo completo da OS
 (abertura, diagnóstico, aprovação, execução, finalização e entrega), cancela uma a cada quatro e provoca um erro de estoque
-insuficiente e uma consulta a OS inexistente. Use-o para popular os dashboards antes de gravar a demonstração.
+insuficiente e uma consulta a OS inexistente (erros 4xx). Para gerar também um erro 5xx, que dispara o alerta de falha no
+processamento e aparece nos painéis de integração, informe como parar e retomar o serviço de estoque:
+
+```bash
+PARAR_ESTOQUE_CMD='docker compose -f compose.app.yaml stop estoque' \
+RETOMAR_ESTOQUE_CMD='docker compose -f compose.app.yaml start estoque' \
+scripts/gerar-trafego.sh http://localhost:8080 <email-admin> <senha-admin>
+```
+
+Use-o para popular os dashboards antes de gravar a demonstração.
 
 ## Configuração do Serviço `atendimento`
 

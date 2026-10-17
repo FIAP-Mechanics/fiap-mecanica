@@ -40,8 +40,6 @@ patches:
                 value: ""
               - name: OTEL_ENABLED
                 value: "true"
-              - name: OTEL_TRACES_ENDPOINT
-                value: https://otlp.nr-data.net/v1/traces
             containers:
             - name: kong
               env:

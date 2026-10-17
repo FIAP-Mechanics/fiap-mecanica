@@ -172,7 +172,7 @@ resource "newrelic_nrql_alert_condition" "pod_nao_pronto" {
   policy_id                    = newrelic_alert_policy.mecanica.id
   type                         = "static"
   name                         = "Pod reprovado no healthcheck (não pronto)"
-  description                  = "Um pod da aplicação não está pronto segundo a readiness probe do Kubernetes."
+  description                  = "Um contêiner da aplicação não está pronto segundo a readiness probe do Kubernetes."
   enabled                      = true
   violation_time_limit_seconds = 86400
   aggregation_method           = "cadence"
@@ -180,7 +180,7 @@ resource "newrelic_nrql_alert_condition" "pod_nao_pronto" {
   aggregation_delay            = 120
 
   nrql {
-    query = "SELECT latest(isReady) FROM K8sPodSample WHERE ${local.k8s_filter} AND status = 'Running' FACET podName"
+    query = "SELECT latest(kube_pod_container_status_ready) FROM Metric WHERE ${local.k8s_filter} AND k8s.deployment.name IS NOT NULL FACET k8s.pod.name"
   }
 
   critical {
@@ -203,12 +203,35 @@ resource "newrelic_nrql_alert_condition" "memoria_alta" {
   aggregation_delay            = 120
 
   nrql {
-    query = "SELECT average(memoryWorkingSetBytes) * 100 / average(memoryLimitBytes) FROM K8sContainerSample WHERE ${local.k8s_filter} AND memoryLimitBytes > 0 FACET podName"
+    query = "SELECT average(k8s.pod.memory_limit_utilization) * 100 FROM Metric WHERE ${local.k8s_filter} FACET k8s.pod.name"
   }
 
   critical {
     operator              = "above"
     threshold             = var.memory_utilization_threshold_percent
+    threshold_duration    = 300
+    threshold_occurrences = "all"
+  }
+}
+
+resource "newrelic_nrql_alert_condition" "cpu_alta" {
+  policy_id                    = newrelic_alert_policy.mecanica.id
+  type                         = "static"
+  name                         = "CPU dos contêineres próxima do limite"
+  description                  = "Um pod usa mais de ${var.cpu_utilization_threshold_percent}% do limite de CPU configurado."
+  enabled                      = true
+  violation_time_limit_seconds = 86400
+  aggregation_method           = "cadence"
+  aggregation_window           = 60
+  aggregation_delay            = 120
+
+  nrql {
+    query = "SELECT average(k8s.pod.cpu_limit_utilization) * 100 FROM Metric WHERE ${local.k8s_filter} FACET k8s.pod.name"
+  }
+
+  critical {
+    operator              = "above"
+    threshold             = var.cpu_utilization_threshold_percent
     threshold_duration    = 300
     threshold_occurrences = "all"
   }

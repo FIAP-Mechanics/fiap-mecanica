@@ -201,7 +201,7 @@ resource "newrelic_one_dashboard" "mecanica" {
       height = 3
 
       nrql_query {
-        query = "SELECT latest(isReady) AS 'pronto', latest(status) AS 'fase' FROM K8sPodSample WHERE ${local.k8s_filter} FACET podName SINCE 10 minutes ago LIMIT 50"
+        query = "SELECT latest(kube_pod_container_status_ready) AS 'pronto (1 = sim)' FROM Metric WHERE ${local.k8s_filter} AND k8s.deployment.name IS NOT NULL FACET k8s.pod.name SINCE 10 minutes ago LIMIT 50"
       }
     }
   }
@@ -217,7 +217,7 @@ resource "newrelic_one_dashboard" "mecanica" {
       height = 3
 
       nrql_query {
-        query = "SELECT average(cpuUsedCores) FROM K8sContainerSample WHERE ${local.k8s_filter} FACET podName TIMESERIES SINCE 1 hour ago"
+        query = "SELECT average(container.cpu.usage) AS 'cores' FROM Metric WHERE ${local.k8s_filter} FACET k8s.pod.name TIMESERIES SINCE 1 hour ago"
       }
     }
 
@@ -229,19 +229,19 @@ resource "newrelic_one_dashboard" "mecanica" {
       height = 3
 
       nrql_query {
-        query = "SELECT average(memoryWorkingSetBytes) / 1048576 AS 'MiB' FROM K8sContainerSample WHERE ${local.k8s_filter} FACET podName TIMESERIES SINCE 1 hour ago"
+        query = "SELECT average(k8s.pod.memory.working_set) / 1048576 AS 'MiB' FROM Metric WHERE ${local.k8s_filter} FACET k8s.pod.name TIMESERIES SINCE 1 hour ago"
       }
     }
 
     widget_line {
-      title  = "CPU dos nós (% do alocável)"
+      title  = "CPU dos nós (%)"
       row    = 4
       column = 1
       width  = 6
       height = 3
 
       nrql_query {
-        query = "SELECT average(allocatableCpuCoresUtilization) FROM K8sNodeSample WHERE clusterName = '${local.cluster_name}' FACET nodeName TIMESERIES SINCE 1 hour ago"
+        query = "SELECT average(node.cpu.usage.percentage) * 100 AS '% da CPU' FROM Metric WHERE ${local.k8s_cluster} FACET k8s.node.name TIMESERIES SINCE 1 hour ago"
       }
     }
 
@@ -253,7 +253,7 @@ resource "newrelic_one_dashboard" "mecanica" {
       height = 3
 
       nrql_query {
-        query = "SELECT average(memoryWorkingSetBytes) / 1048576 AS 'MiB' FROM K8sNodeSample WHERE clusterName = '${local.cluster_name}' FACET nodeName TIMESERIES SINCE 1 hour ago"
+        query = "SELECT average(k8s.node.memory.working_set) / 1048576 AS 'MiB' FROM Metric WHERE ${local.k8s_cluster} FACET k8s.node.name TIMESERIES SINCE 1 hour ago"
       }
     }
 
@@ -265,7 +265,7 @@ resource "newrelic_one_dashboard" "mecanica" {
       height = 3
 
       nrql_query {
-        query = "SELECT max(restartCount) AS 'reinícios' FROM K8sContainerSample WHERE ${local.k8s_filter} FACET podName SINCE 1 hour ago LIMIT 50"
+        query = "SELECT max(kube_pod_container_status_restarts_total) AS 'reinícios' FROM Metric WHERE ${local.k8s_filter} FACET k8s.pod.name SINCE 1 hour ago LIMIT 50"
       }
     }
 
@@ -277,7 +277,7 @@ resource "newrelic_one_dashboard" "mecanica" {
       height = 3
 
       nrql_query {
-        query = "SELECT latest(currentReplicas) AS 'atuais', latest(desiredReplicas) AS 'desejadas' FROM K8sHpaSample WHERE clusterName = '${local.cluster_name}' AND namespaceName = '${local.namespace}' FACET displayName TIMESERIES SINCE 1 hour ago"
+        query = "SELECT latest(kube_horizontalpodautoscaler_status_current_replicas) AS 'atuais', latest(kube_horizontalpodautoscaler_status_desired_replicas) AS 'desejadas' FROM Metric WHERE ${local.k8s_filter} FACET k8s.hpa.name TIMESERIES SINCE 1 hour ago"
       }
     }
   }

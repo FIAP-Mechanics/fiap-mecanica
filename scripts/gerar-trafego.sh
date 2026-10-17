@@ -65,12 +65,26 @@ for i in $(seq 1 "$total"); do
   echo "OS $i entregue ($os)"
 done
 
+abrir_os_com_diagnostico() {
+  local marca=$1 relato=$2 insumo_id=$3 quantidade=$4
+  local c v o
+  c=$(chamar POST /cliente "{\"nome\":\"Cliente Falha\",\"documento\":\"$(cpf_aleatorio)\",\"email\":\"falha@mecanica.com\",\"telefone\":\"31999999999\",\"endereco\":{\"cep\":\"30000-000\",\"estado\":\"MG\",\"cidade\":\"Belo Horizonte\",\"bairro\":\"Centro\",\"rua\":\"Rua A\",\"numero\":\"1\"}}" | campo '["id"]')
+  v=$(chamar POST /veiculos "{\"marca\":\"$marca\",\"modelo\":\"Uno\",\"placa\":\"$(placa_aleatoria)\",\"ano\":2020}" | campo '["id"]')
+  o=$(chamar POST /atendimento/iniciar "{\"cliente\":$c,\"veiculo\":$v,\"relatoCliente\":\"$relato\",\"servicos\":[]}" | campo '["id"]')
+  chamar PATCH "/atendimento/$o/diagnostico/iniciar" > /dev/null
+  chamar POST "/atendimento/$o/diagnostico" "{\"observacoes\":\"$relato\",\"servicos\":[],\"insumos\":[{\"insumo\":$insumo_id,\"quantidade\":$quantidade}]}" > /dev/null
+  echo "$o"
+}
+
 insumo_escasso=$(chamar POST /estoque '{"insumo":{"nome":"Fluido raro","precoUnitario":10.00},"quantidade":1}' | campo '["insumo"]["id"]')
-cliente=$(chamar POST /cliente "{\"nome\":\"Cliente Estoque\",\"documento\":\"$(cpf_aleatorio)\",\"email\":\"estoque@mecanica.com\",\"telefone\":\"31999999999\",\"endereco\":{\"cep\":\"30000-000\",\"estado\":\"MG\",\"cidade\":\"Belo Horizonte\",\"bairro\":\"Centro\",\"rua\":\"Rua A\",\"numero\":\"1\"}}" | campo '["id"]')
-veiculo=$(chamar POST /veiculos "{\"marca\":\"Fiat\",\"modelo\":\"Uno\",\"placa\":\"$(placa_aleatoria)\",\"ano\":2020}" | campo '["id"]')
-os=$(chamar POST /atendimento/iniciar "{\"cliente\":$cliente,\"veiculo\":$veiculo,\"relatoCliente\":\"Revisão\",\"servicos\":[]}" | campo '["id"]')
-chamar PATCH "/atendimento/$os/diagnostico/iniciar" > /dev/null
-chamar POST "/atendimento/$os/diagnostico" "{\"observacoes\":\"Falta insumo.\",\"servicos\":[],\"insumos\":[{\"insumo\":$insumo_escasso,\"quantidade\":5}]}" > /dev/null
+os=$(abrir_os_com_diagnostico Fiat "Falta insumo." "$insumo_escasso" 5)
 echo "Aprovação com estoque insuficiente (esperado 400): $(codigo POST "/atendimento/$os/aprovar")"
 echo "Consulta de OS inexistente (esperado 404): $(codigo GET "/atendimento/00000000-0000-0000-0000-000000000000")"
+
+if [[ -n "${PARAR_ESTOQUE_CMD:-}" ]]; then
+  os=$(abrir_os_com_diagnostico Chevrolet "Integração com estoque indisponível." "$insumo" 1)
+  bash -c "$PARAR_ESTOQUE_CMD"
+  trap 'bash -c "${RETOMAR_ESTOQUE_CMD:-true}"' EXIT
+  echo "Aprovação com o estoque fora do ar (esperado 500): $(codigo POST "/atendimento/$os/aprovar")"
+fi
 echo "Tráfego gerado em $gw"
