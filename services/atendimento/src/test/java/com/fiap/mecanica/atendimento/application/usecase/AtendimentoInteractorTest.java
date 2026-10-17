@@ -310,6 +310,29 @@ class AtendimentoInteractorTest {
                 .containsExactly("em-execucao", "aguardando-aprovacao", "recebida-antiga", "recebida-recente");
     }
 
+    // ===================== listarAtendimentosDoCliente =====================
+
+    @Test
+    void deveListarAtendimentosDoClienteDaMaisRecenteParaMaisAntiga() {
+        LocalDateTime agora = LocalDateTime.now();
+        OrdemServico antiga = OrdemServico.builder().id("antiga").clienteId(ID_CLIENTE).dataCriacao(agora.minusDays(3)).build();
+        OrdemServico recente = OrdemServico.builder().id("recente").clienteId(ID_CLIENTE).dataCriacao(agora.minusDays(1)).build();
+        OrdemServico semData = OrdemServico.builder().id("sem-data").clienteId(ID_CLIENTE).build();
+        when(ordemServicoGateway.buscarTodosPorClienteId(ID_CLIENTE)).thenReturn(List.of(semData, antiga, recente));
+
+        List<OrdemServico> resultado = atendimentoInteractor.listarAtendimentosDoCliente(ID_CLIENTE);
+
+        assertThat(resultado).extracting(OrdemServico::getId).containsExactly("recente", "antiga", "sem-data");
+        verify(ordemServicoGateway).buscarTodosPorClienteId(ID_CLIENTE);
+    }
+
+    @Test
+    void deveRetornarListaVaziaQuandoClienteNaoTiverAtendimentos() {
+        when(ordemServicoGateway.buscarTodosPorClienteId(ID_CLIENTE)).thenReturn(List.of());
+
+        assertThat(atendimentoInteractor.listarAtendimentosDoCliente(ID_CLIENTE)).isEmpty();
+    }
+
     @Test
     void deveListarTempoMedioExecucaoServicosComSucesso() {
         OrdemServico ordem1 = criarOrdemServicoConcluida(

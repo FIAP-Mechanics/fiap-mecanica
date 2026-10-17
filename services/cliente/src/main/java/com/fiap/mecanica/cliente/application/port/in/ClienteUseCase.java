@@ -16,4 +16,8 @@ public interface ClienteUseCase {
     Cliente cadastrarCliente(Cliente cliente);
 
     Cliente atualizarCliente(Long id, AtualizarClienteCommand command);
+
+    Cliente excluirCliente(Long id);
+
+    Cliente reativarCliente(Long id);
 }

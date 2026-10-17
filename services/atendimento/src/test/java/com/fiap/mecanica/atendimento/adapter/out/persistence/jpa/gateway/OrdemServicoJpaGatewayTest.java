@@ -111,6 +111,26 @@ class OrdemServicoJpaGatewayTest {
         assertThat(resultado).isEmpty();
     }
 
+    // ===================== buscarTodosPorClienteId =====================
+
+    @Test
+    void deveRetornarOrdensDeServicoDoCliente() {
+        when(repository.findAllByClienteId(1L)).thenReturn(List.of(criarEntity()));
+
+        List<OrdemServico> resultado = gateway.buscarTodosPorClienteId(1L);
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.getFirst().getId()).isEqualTo(ID);
+        verify(repository).findAllByClienteId(1L);
+    }
+
+    @Test
+    void deveRetornarListaVaziaQuandoClienteNaoTiverOrdens() {
+        when(repository.findAllByClienteId(1L)).thenReturn(List.of());
+
+        assertThat(gateway.buscarTodosPorClienteId(1L)).isEmpty();
+    }
+
     private OrdemServicoJpaEntity criarEntity() {
         return OrdemServicoJpaEntity.builder()
                 .id(ID)

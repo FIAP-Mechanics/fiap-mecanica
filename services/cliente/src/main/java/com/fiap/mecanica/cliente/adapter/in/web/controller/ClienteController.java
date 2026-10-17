@@ -104,6 +104,32 @@ public class ClienteController {
         return toDto(clienteUseCase.atualizarCliente(id, command));
     }
 
+    @Operation(summary = "Desativar cliente", description = "Desativa logicamente um cliente; ele deixa de poder se autenticar por CPF")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Cliente desativado com sucesso",
+                    content = @Content(schema = @Schema(implementation = ClienteDto.class))),
+            @ApiResponse(responseCode = "404", description = "Cliente não encontrado", content = @Content),
+            @ApiResponse(responseCode = "400", description = "Cliente já desativado", content = @Content)
+    })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
+    @DeleteMapping("/{id}")
+    public ClienteDto delete(@Parameter(description = "ID do cliente") @PathVariable Long id) {
+        return toDto(clienteUseCase.excluirCliente(id));
+    }
+
+    @Operation(summary = "Reativar cliente", description = "Reativa um cliente previamente desativado")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Cliente reativado com sucesso",
+                    content = @Content(schema = @Schema(implementation = ClienteDto.class))),
+            @ApiResponse(responseCode = "404", description = "Cliente não encontrado", content = @Content),
+            @ApiResponse(responseCode = "400", description = "Cliente já está ativo", content = @Content)
+    })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
+    @PutMapping("/{id}/reativar")
+    public ClienteDto reativar(@Parameter(description = "ID do cliente") @PathVariable Long id) {
+        return toDto(clienteUseCase.reativarCliente(id));
+    }
+
     @Operation(summary = "Vincular veículo ao cliente")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Veículo vinculado com sucesso"),

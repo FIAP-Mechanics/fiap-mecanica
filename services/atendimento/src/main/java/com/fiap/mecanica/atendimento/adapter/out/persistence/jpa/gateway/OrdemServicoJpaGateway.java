@@ -43,4 +43,11 @@ public class OrdemServicoJpaGateway implements OrdemServicoGateway {
                 .map(OrdemServicoJpaMapper::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<OrdemServico> buscarTodosPorClienteId(Long clienteId) {
+        return repository.findAllByClienteId(clienteId).stream()
+                .map(OrdemServicoJpaMapper::toDomain)
+                .toList();
+    }
 }
