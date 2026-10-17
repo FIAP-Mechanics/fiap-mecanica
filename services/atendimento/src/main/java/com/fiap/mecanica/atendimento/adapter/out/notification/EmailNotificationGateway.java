@@ -84,13 +84,16 @@ public class EmailNotificationGateway implements NotificationGateway {
     }
 
     private static String mascararDestinatarios(String[] destinatarios) {
+        if (destinatarios == null) {
+            return "";
+        }
         return Arrays.stream(destinatarios)
                 .map(EmailNotificationGateway::mascararEmail)
                 .collect(Collectors.joining(","));
     }
 
     private static String mascararEmail(String email) {
-        int arroba = email.indexOf('@');
+        int arroba = email == null ? -1 : email.indexOf('@');
         if (arroba < 1) {
             return "***";
         }

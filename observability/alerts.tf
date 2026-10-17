@@ -180,7 +180,7 @@ resource "newrelic_nrql_alert_condition" "pod_nao_pronto" {
   aggregation_delay            = 120
 
   nrql {
-    query = "SELECT latest(isReady) FROM K8sPodSample WHERE ${local.k8s_filter} FACET podName"
+    query = "SELECT latest(isReady) FROM K8sPodSample WHERE ${local.k8s_filter} AND status = 'Running' FACET podName"
   }
 
   critical {

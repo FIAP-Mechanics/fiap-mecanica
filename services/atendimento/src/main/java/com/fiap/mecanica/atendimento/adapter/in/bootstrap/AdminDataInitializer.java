@@ -31,7 +31,7 @@ public class AdminDataInitializer implements CommandLineRunner {
     @Override
     public void run(String @NonNull ... args) {
         if (funcionarioGateway.buscarPorEmail(adminEmail).isEmpty()) {
-            log.info("Criando usuário administrador padrão: {}", adminEmail);
+            log.info("Criando usuário administrador padrão.");
 
             Funcionario admin = Funcionario.builder()
                     .nome(adminNome)

@@ -19,7 +19,8 @@ destroy() {
 }
 
 if [ -n "${NEW_RELIC_API_KEY:-}" ] && [ -n "${NEW_RELIC_ACCOUNT_ID:-}" ]; then
-  destroy observability observability -var="alert_email=${ALERT_EMAIL:-sem-destino@example.com}"
+  destroy observability observability -var="alert_email=${ALERT_EMAIL:-sem-destino@example.com}" ||
+    echo "Aviso: não foi possível remover os dashboards e alertas do New Relic; seguindo com a derrubada da AWS." >&2
 fi
 
 cluster=mecanica-$env

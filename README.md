@@ -350,6 +350,7 @@ Copy-Item k8s/overlays/local/secrets/shared.env.example k8s/overlays/local/secre
 Copy-Item k8s/overlays/local/secrets/atendimento.env.example k8s/overlays/local/secrets/atendimento.env
 Copy-Item k8s/overlays/local/secrets/external-services.env.example k8s/overlays/local/secrets/external-services.env
 Copy-Item k8s/overlays/local/secrets/auth-cpf.env.example k8s/overlays/local/secrets/auth-cpf.env
+Copy-Item k8s/overlays/local/secrets/newrelic.env.example k8s/overlays/local/secrets/newrelic.env
 ```
 
 Instale o Metrics Server e aplique a aplicação:

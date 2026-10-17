@@ -327,20 +327,20 @@ jobs:
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
       NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
       NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
-      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL || 'sem-destino@example.com' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Terraform
-        if: ${{ env.NEW_RELIC_API_KEY != '' }}
+        if: ${{ env.NEW_RELIC_API_KEY != '' && env.NEW_RELIC_ACCOUNT_ID != '' }}
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.10.5"
 
       - name: Dashboards e alertas (observability)
-        if: ${{ env.NEW_RELIC_API_KEY != '' }}
+        if: ${{ env.NEW_RELIC_API_KEY != '' && env.NEW_RELIC_ACCOUNT_ID != '' }}
         working-directory: observability
         run: |
           terraform init -input=false \
