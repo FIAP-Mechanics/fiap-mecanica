@@ -52,3 +52,5 @@ docs/
 .junie/
 infra/mecanica-config
 infra/*kubeconfig*
+functions/
+observability/
