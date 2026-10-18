@@ -199,9 +199,7 @@ services:
 
   # Function serverless de autenticação por CPF: mesma imagem da AWS Lambda, executada com o Runtime Interface Emulator.
   auth-cpf:
-    image: mecanica/auth-cpf:local
-    build:
-      context: ./functions/auth-cpf
+    image: ghcr.io/fiap-mechanics/mecanica-auth-cpf:latest
     restart: unless-stopped
     mem_limit: 256m
     environment:

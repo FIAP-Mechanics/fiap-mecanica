@@ -1,11 +1,36 @@
 # Oficina Mecânica
 
-Monorepo de microsserviços para gerenciamento de uma oficina mecânica. O sistema cobre cadastro de clientes, veículos,
+Microsserviços para gerenciamento de uma oficina mecânica (Tech Challenge FIAP, Fase 3). O sistema cobre cadastro de clientes, veículos,
 serviços, estoque/insumos, abertura e acompanhamento de ordens de serviço, cálculo de orçamento, notificações,
 autenticação JWT e controle de permissões por perfil.
 
-O projeto está organizado como um monorepo Maven multi-módulo. No Kubernetes, a entrada única é o API Gateway
+Este é o **repositório 4 de 4** da entrega da Fase 3 (aplicação principal em Kubernetes). A aplicação é um projeto Maven
+multi-módulo. No Kubernetes, a entrada única é o API Gateway
 [Kong](#api-gateway-kong); no Docker Compose, cada serviço continua acessível pela sua própria porta.
+
+## Repositórios da entrega
+
+| # | Repositório | Papel |
+|---|---|---|
+| 1 | [fiap-mecanica-lambda](https://github.com/FIAP-Mechanics/fiap-mecanica-lambda) | Function serverless de autenticação por CPF (Lambda) |
+| 2 | [fiap-mecanica-k8s-infra](https://github.com/FIAP-Mechanics/fiap-mecanica-k8s-infra) | VPC e cluster EKS (Terraform), dashboards e alertas do New Relic |
+| 3 | [fiap-mecanica-infra-dbs](https://github.com/FIAP-Mechanics/fiap-mecanica-infra-dbs) | RDS PostgreSQL gerenciado (Terraform) |
+| 4 | **fiap-mecanica** (este) | Microsserviços, API Gateway (Kong) e manifests Kubernetes |
+
+Ordem de provisionamento: 2 → 3 → 1 → 4. Os repositórios se ligam por state remoto no S3 (2 e 3) e pela imagem
+`ghcr.io/fiap-mechanics/mecanica-auth-cpf` (1), usada no Docker Compose e no kind.
+
+## Documentação das APIs e deploys ativos
+
+- **Swagger:** cada serviço publica `/swagger-ui.html` (portas `8081` a `8086` no Compose; o Kong não expõe o Swagger).
+  A function de CPF tem o [`openapi.yaml`](https://github.com/FIAP-Mechanics/fiap-mecanica-lambda/blob/main/openapi.yaml).
+- **Postman:** [`postman/`](postman) (collection completa, uma por serviço e environments `gateway` e `direto`); veja a seção [Postman](#postman).
+- **Dockerfile:** [`Dockerfile`](Dockerfile) único, parametrizado por `SERVICE`, que gera a imagem de cada microsserviço.
+
+| Ambiente | API Gateway (Kong) | Dashboard New Relic |
+|---|---|---|
+| Homologação | _preencher após o deploy_ | _preencher após o deploy_ |
+| Produção | _preencher após o deploy_ | _preencher após o deploy_ |
 
 ## Objetivo
 
@@ -161,17 +186,15 @@ Para rodar os serviços fora do Docker:
 
 O projeto possui Maven Wrapper, então não é necessário instalar Maven localmente.
 
-## Estrutura do Monorepo
+## Estrutura do Repositório
 
 ```text
 mecanica/
 ├── .github/workflows/           # Pipelines de CI/CD
 ├── docker/                      # Inicialização do PostgreSQL local
-├── functions/auth-cpf/          # Function serverless de autenticação por CPF (código, Dockerfile, Terraform, CI/CD)
-├── infra/                       # Cluster kind e PostgreSQL locais (Terraform); infra/aws: VPC + EKS na AWS
-├── infra-db/                    # RDS PostgreSQL na AWS (Terraform)
-├── k8s/                         # Manifestos Kubernetes e overlays Kustomize
-├── scripts/                     # Smoke test e automação do AWS Academy (bootstrap, secrets, destroy)
+├── infra/                       # Cluster kind e PostgreSQL locais (Terraform)
+├── k8s/                         # Manifestos Kubernetes e overlays Kustomize (inclui Kong e coletor New Relic)
+├── scripts/                     # Smoke test do gateway e gerador de tráfego
 ├── postman/                     # Collections por microsserviço e collection completa
 ├── pom.xml                      # Root POM (packaging pom), dependencyManagement e plugins
 └── services/                    # Módulos dos microsserviços (Maven multi-módulo)
@@ -338,6 +361,8 @@ Depois do `terraform apply`, construa as imagens e carregue-as no cluster kind:
 
 ```powershell
 docker compose -f compose.app.yaml build
+docker pull ghcr.io/fiap-mechanics/mecanica-auth-cpf:latest
+docker tag ghcr.io/fiap-mechanics/mecanica-auth-cpf:latest mecanica/auth-cpf:local
 kind load docker-image mecanica/cliente:local mecanica/veiculo:local mecanica/funcionario:local mecanica/servico:local mecanica/estoque:local mecanica/atendimento:local mecanica/auth-cpf:local --name mecanica
 ```
 
@@ -441,9 +466,10 @@ imagens `kong` e `busybox` são fixadas por digest.
 
 ### Autenticação por CPF (function serverless)
 
-`POST /auth/cpf` com `{"cpf": "529.982.247-25"}` é atendido pela function `functions/auth-cpf` (Node.js 22/TypeScript),
-empacotada como imagem de AWS Lambda. O Kong invoca a function com o plugin `aws-lambda`: na AWS é a Lambda real
-(`functions/auth-cpf/infra`); no Compose e no kind é a mesma imagem com o Runtime Interface Emulator.
+`POST /auth/cpf` com `{"cpf": "529.982.247-25"}` é atendido pela function do repositório
+[fiap-mecanica-lambda](https://github.com/FIAP-Mechanics/fiap-mecanica-lambda) (Node.js 22/TypeScript), empacotada como imagem
+de AWS Lambda. O Kong invoca a function com o plugin `aws-lambda`: na AWS é a Lambda real `mecanica-auth-cpf-<ambiente>`; no Compose
+e no kind é a imagem `ghcr.io/fiap-mechanics/mecanica-auth-cpf:latest`, publicada por aquele repositório, com o Runtime Interface Emulator.
 
 A function valida o CPF (dígitos verificadores), consulta o cliente na view `v_cliente_autenticacao` do banco do `cliente`
 com um usuário PostgreSQL somente leitura (`auth_cpf_ro`) e devolve um JWT HS256 (`iss`, `sub`, `cliente_id`,
@@ -538,58 +564,62 @@ Limitações conhecidas antes de produção real:
 ## Deploy na AWS (AWS Academy)
 
 Dois ambientes completos (`homologacao` e `producao`), cada um com VPC, EKS, RDS PostgreSQL, Lambda `auth-cpf` e Kong
-como `LoadBalancer`. Ambos usam a `LabRole` existente do Learner Lab, porque o lab não permite criar usuários, roles ou
+como `LoadBalancer`. Cada peça é provisionada pelo seu próprio repositório; este repositório publica as imagens e aplica os
+manifests no cluster que já existe. Ambos usam a `LabRole` existente do Learner Lab, porque o lab não permite criar usuários, roles ou
 provedores OIDC.
 
 ```text
-GitHub Actions ─► infra/aws (VPC+EKS) ─► infra-db (RDS) ─► functions/auth-cpf (ECR+Lambda) ─► kubectl apply -k
+fiap-mecanica-k8s-infra (VPC+EKS) ─► fiap-mecanica-infra-dbs (RDS) ─► fiap-mecanica-lambda (ECR+Lambda) ─► este repo: kubectl apply -k
 Cliente ─► LoadBalancer ─► Kong ─► serviços (EKS) ─► RDS        Kong ─► Lambda auth-cpf ─► RDS (view somente leitura)
 ```
 
-| Terraform | State (S3) | Conteúdo |
+| Repositório | State (S3) | Conteúdo |
 |---|---|---|
-| `infra/aws` | `infra-k8s/<ambiente>.tfstate` | VPC, subnets, NAT, EKS e grupo de nós (homologação: 2 `t3.medium`; produção: 2 a 4 `t3.large`) |
-| `infra-db` | `infra-db/<ambiente>.tfstate` | RDS PostgreSQL 16 privado, acessível só pelos nós |
-| `functions/auth-cpf/infra` | `auth-cpf/<ambiente>.tfstate` | ECR, Lambda em subnets privadas, Secrets Manager |
+| fiap-mecanica-k8s-infra | `infra-k8s/<ambiente>.tfstate` | VPC, subnets, NAT, EKS e grupo de nós (homologação: 2 `t3.medium`; produção: 2 a 4 `t3.large`) |
+| fiap-mecanica-infra-dbs | `infra-db/<ambiente>.tfstate` | RDS PostgreSQL 16 privado, acessível só pelos nós |
+| fiap-mecanica-lambda | `auth-cpf/<ambiente>.tfstate` | ECR, Lambda em subnets privadas, Secrets Manager |
+| fiap-mecanica-k8s-infra (`observability/`) | `observability/<ambiente>.tfstate` | Dashboards e alertas do New Relic |
+
+O pipeline deste repositório lê `cluster_name` e `db_host` dos states `infra-k8s` e `infra-db` no S3.
 
 ### Passo a passo
 
 1. **Iniciar o lab** e copiar as credenciais (`AWS Details`) para `~/.aws/credentials` (perfil `default` com
    `aws_session_token`). Elas expiram em cerca de 4 horas.
-2. **Bucket do state e verificação da `LabRole`** (uma vez): `scripts/aws-lab-bootstrap.sh`.
-3. **Configurar o GitHub** (uma vez por ambiente): `gh auth login` e, na raiz do repositório,
+2. **Bucket do state e verificação da `LabRole`** (uma vez), no repositório `fiap-mecanica-k8s-infra`: `scripts/aws-lab-bootstrap.sh`.
+3. **Configurar o GitHub** (uma vez por ambiente): `gh auth login` e, no `fiap-mecanica-k8s-infra`,
    `scripts/aws-lab-secrets.sh homologacao` e `scripts/aws-lab-secrets.sh producao`. O script cria o Environment, a variável
-   `TF_STATE_BUCKET` e os secrets (`AWS_*`, `JWT_SECRET`, `DATABASE_PASSWORD`, `AUTH_CPF_DB_PASSWORD`, `ADMIN_PASSWORD`) e imprime
-   a senha do administrador. Para a [observabilidade](#observabilidade), defina antes `NEW_RELIC_LICENSE_KEY`, `NEW_RELIC_API_KEY`,
+   `TF_STATE_BUCKET` e os secrets (`AWS_*`, `JWT_SECRET`, `DATABASE_PASSWORD`, `AUTH_CPF_DB_PASSWORD`, `ADMIN_PASSWORD`) nos 4
+   repositórios e imprime a senha do administrador. Para a [observabilidade](#observabilidade), defina antes `NEW_RELIC_LICENSE_KEY`, `NEW_RELIC_API_KEY`,
    `NEW_RELIC_ACCOUNT_ID` e `ALERT_EMAIL` no terminal (opcionais). No GitHub, ative aprovação manual no Environment `producao`, proteja a `main` e torne públicos os
    pacotes do GHCR.
-4. **Implantar**: faça push na branch `homologacao` (ou `main`) ou execute o workflow *Deploy AWS*. Leva cerca de 25 minutos
-   (EKS e RDS). O último passo imprime o endereço do Kong (`http://<hostname-do-load-balancer>`).
+4. **Implantar**, nesta ordem: `fiap-mecanica-k8s-infra`, `fiap-mecanica-infra-dbs`, `fiap-mecanica-lambda` e, por último, este
+   repositório. Em cada um, faça push na branch `homologacao` (ou `main`) ou execute o workflow de deploy. O EKS e o RDS levam
+   cerca de 25 minutos. O último passo imprime o endereço do Kong (`http://<hostname-do-load-balancer>`).
 5. **Validar**: `scripts/smoke-test.sh http://<hostname> admin@mecanica.com <senha>` e a collection Postman com o
    `gatewayUrl` apontando para o hostname.
 6. **A cada nova sessão do lab**: credenciais novas em `~/.aws/credentials` e
    `RENOVAR_APENAS_CREDENCIAIS=1 scripts/aws-lab-secrets.sh <ambiente>`.
-7. **Destruir ao terminar**: `scripts/aws-lab-down.sh <ambiente>` (remove o namespace, o balanceador, a Lambda, o RDS e o EKS).
+7. **Destruir ao terminar**: `scripts/aws-lab-down.sh <ambiente>`, no `fiap-mecanica-k8s-infra` com os 4 repositórios clonados lado a lado (remove o namespace, o balanceador, a Lambda, o RDS e o EKS).
    Para remover também os dashboards e alertas do New Relic, exporte `NEW_RELIC_API_KEY` e `NEW_RELIC_ACCOUNT_ID` antes de rodar;
    sem elas essa etapa é ignorada.
    Duas stacks custam cerca de US$ 0,75 por hora; não deixe ligadas fora das sessões.
 
-Execução manual (sem o pipeline): `terraform init -backend-config="bucket=<bucket>" -backend-config="key=infra-k8s/<ambiente>.tfstate"
--backend-config="region=us-east-1" -backend-config="use_lockfile=true"` seguido de `terraform apply -var-file=envs/<ambiente>.tfvars` em
-`infra/aws`, `infra-db` e `functions/auth-cpf/infra` (nessa ordem), e `kubectl apply -k k8s/overlays/<production|homologacao>`.
+Execução manual (sem o pipeline): aplique o Terraform dos repositórios 2, 3 e 1 (instruções no README de cada um) e, aqui,
+`kubectl apply -k k8s/overlays/<production|homologacao>` com o kubeconfig do cluster (`aws eks update-kubeconfig`).
 
 ## CI/CD
 
 O GitHub Actions automatiza a validação e a implantação:
 
 - [Pull Request Validation](.github/workflows/maven.yml) executa build, testes e verificação de cobertura dos seis
-  microsserviços e testes da function `auth-cpf` em pull requests para `main`;
+  microsserviços em pull requests para `main`;
 - [Deploy AWS](.github/workflows/deploy-aws.yml) é acionado em pushes para `homologacao` (ambiente de homologação) e
-  `main` (produção, com aprovação do Environment do GitHub): testa e publica as imagens, aplica o Terraform da rede/EKS e
-  do RDS, publica a Lambda, instala o coletor de Kubernetes do New Relic, aplica os manifestos no EKS, executa o smoke test
-  pelo `LoadBalancer` do Kong e cria os dashboards e alertas (`observability/`);
+  `main` (produção, com aprovação do Environment do GitHub): testa e publica as imagens, instala o Metrics Server e o coletor
+  de Kubernetes do New Relic, aplica os manifestos no EKS e executa o smoke test pelo `LoadBalancer` do Kong. A rede, o EKS, o
+  RDS, a Lambda e os dashboards e alertas são provisionados pelos outros três repositórios;
 - [Continuous Deployment](.github/workflows/cd.yml) é acionado manualmente, executa novamente
-  os testes, publica as seis imagens dos serviços e a da function `auth-cpf` no GHCR, provisiona um cluster kind efêmero e o PostgreSQL com Terraform, aplica os
+  os testes, publica as seis imagens dos serviços no GHCR, provisiona um cluster kind efêmero e o PostgreSQL com Terraform, aplica os
   manifestos Kubernetes, valida o rollout e executa smoke tests do gateway e da autenticação por CPF.
 
 As imagens publicadas no GHCR devem estar com visibilidade pública. Assim, o cluster e quem estiver avaliando o
@@ -600,7 +630,8 @@ sendo usado somente pelo workflow para publicar as imagens.
 
 A observabilidade usa o **New Relic** (plano gratuito) com **OpenTelemetry nativo do Spring Boot 4** (Micrometer + OTLP),
 sem java agent. Métricas, traces e logs saem dos seis serviços e do Kong; o coletor de Kubernetes envia CPU, memória e
-logs dos contêineres. Os dashboards e alertas são criados por Terraform em [`observability/`](observability).
+logs dos contêineres. Os dashboards e alertas são criados por Terraform no repositório
+[fiap-mecanica-k8s-infra](https://github.com/FIAP-Mechanics/fiap-mecanica-k8s-infra) (pasta `observability/`).
 
 ```mermaid
 flowchart LR
@@ -711,15 +742,13 @@ A exportação vem **desligada** (`OBSERVABILITY_EXPORT_ENABLED=false`): sem con
 - **Docker Compose:** no `.env`, defina `OBSERVABILITY_EXPORT_ENABLED=true` e `NEW_RELIC_LICENSE_KEY=<chave>`
   (contas da região EU: `OTLP_ENDPOINT=https://otlp.eu01.nr-data.net`), depois `docker compose -f compose.app.yaml up -d`.
 - **AWS (pipeline):** exporte `NEW_RELIC_LICENSE_KEY`, `NEW_RELIC_API_KEY` (*User API key*), `NEW_RELIC_ACCOUNT_ID` e
-  `ALERT_EMAIL` e rode `scripts/aws-lab-secrets.sh <ambiente>`. O workflow *Deploy AWS* cria o Secret `newrelic-secrets`,
-  instala o coletor (`k8s/addons/newrelic/values.yaml`) e aplica o Terraform de `observability/`. Os overlays de
-  homologação e produção já habilitam a exportação.
-- **Terraform manual:** em `observability/`, `export NEW_RELIC_API_KEY=... NEW_RELIC_ACCOUNT_ID=...` e
-  `terraform init -backend-config="bucket=<bucket>" -backend-config="key=observability/<ambiente>.tfstate" -backend-config="region=us-east-1" -backend-config="use_lockfile=true"`,
-  seguido de `terraform apply -var-file=envs/<ambiente>.tfvars -var="alert_email=<e-mail>"`.
+  `ALERT_EMAIL` e rode `scripts/aws-lab-secrets.sh <ambiente>` no `fiap-mecanica-k8s-infra`. O workflow *Deploy AWS* cria o Secret `newrelic-secrets`
+  e instala o coletor (`k8s/addons/newrelic/values.yaml`); os dashboards e alertas são aplicados pelo pipeline do
+  `fiap-mecanica-k8s-infra`. Os overlays de homologação e produção já habilitam a exportação.
+- **Terraform manual:** veja o README do `fiap-mecanica-k8s-infra` (pasta `observability/`).
 
-O `scripts/aws-lab-down.sh` destrói primeiro os dashboards e alertas do ambiente (se `NEW_RELIC_API_KEY` e `NEW_RELIC_ACCOUNT_ID`
-estiverem exportados), para que a derrubada do cluster não dispare alertas de perda de sinal.
+O `scripts/aws-lab-down.sh` do `fiap-mecanica-k8s-infra` destrói primeiro os dashboards e alertas do ambiente (se
+`NEW_RELIC_API_KEY` e `NEW_RELIC_ACCOUNT_ID` estiverem exportados), para que a derrubada do cluster não dispare alertas de perda de sinal.
 
 Na nuvem (homologação e produção) a exportação vem ligada nos overlays. O workflow *Deploy AWS* a desliga sozinho
 (`OBSERVABILITY_EXPORT_ENABLED: "false"`) quando não há `NEW_RELIC_LICENSE_KEY`, e o Kong só ativa o plugin de traces se a
