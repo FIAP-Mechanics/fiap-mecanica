@@ -72,113 +72,8 @@ jobs:
           push: true
           tags: ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-${{ matrix.service }}:${{ steps.vars.outputs.tag }}
 
-  infra:
-    runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
-
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-      TF_VAR_state_bucket: ${{ vars.TF_STATE_BUCKET }}
-      TF_VAR_master_password: ${{ secrets.DATABASE_PASSWORD }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.10.5"
-
-      - name: Cluster EKS (infra-k8s)
-        working-directory: infra/aws
-        run: |
-          terraform init -input=false \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-            -backend-config="key=infra-k8s/${ENVIRONMENT}.tfstate" \
-            -backend-config="region=${AWS_REGION}" \
-            -backend-config="use_lockfile=true"
-          terraform apply -auto-approve -input=false -var-file="envs/${ENVIRONMENT}.tfvars"
-
-      - name: Banco RDS (infra-db)
-        working-directory: infra-db
-        run: |
-          terraform init -input=false \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-            -backend-config="key=infra-db/${ENVIRONMENT}.tfstate" \
-            -backend-config="region=${AWS_REGION}" \
-            -backend-config="use_lockfile=true"
-          terraform apply -auto-approve -input=false -var-file="envs/${ENVIRONMENT}.tfvars"
-
-  lambda:
-    needs: infra
-    runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
-
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-      TF_VAR_state_bucket: ${{ vars.TF_STATE_BUCKET }}
-      TF_VAR_db_password: ${{ secrets.AUTH_CPF_DB_PASSWORD }}
-      TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: functions/auth-cpf/package-lock.json
-
-      - name: Typecheck and test
-        working-directory: functions/auth-cpf
-        run: |
-          npm ci
-          npm run typecheck
-          npm test
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.10.5"
-
-      - name: Terraform init
-        working-directory: functions/auth-cpf/infra
-        run: |
-          terraform init -input=false \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-            -backend-config="key=auth-cpf/${ENVIRONMENT}.tfstate" \
-            -backend-config="region=${AWS_REGION}" \
-            -backend-config="use_lockfile=true"
-
-      - name: Provision ECR repository
-        working-directory: functions/auth-cpf/infra
-        run: terraform apply -auto-approve -input=false -var-file="envs/${ENVIRONMENT}.tfvars" -target=aws_ecr_repository.this
-
-      - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push image
-        working-directory: functions/auth-cpf/infra
-        run: |
-          repo=$(terraform output -raw ecr_repository_url)
-          tag=${GITHUB_SHA::12}
-          docker build -t "$repo:$tag" ..
-          docker push "$repo:$tag"
-          echo "TF_VAR_image_tag=$tag" >> "$GITHUB_ENV"
-
-      - name: Terraform apply
-        working-directory: functions/auth-cpf/infra
-        run: terraform apply -auto-approve -input=false -var-file="envs/${ENVIRONMENT}.tfvars"
-
   deploy:
-    needs: [build-and-push, lambda]
+    needs: build-and-push
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
 
@@ -199,12 +94,6 @@ jobs:
           echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
           echo "ns=mecanica-${{ github.ref_name == 'main' && 'production' || 'homologacao' }}" >> "$GITHUB_OUTPUT"
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.10.5"
-          terraform_wrapper: false
-
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
 
@@ -216,16 +105,11 @@ jobs:
       - name: Read infrastructure outputs
         id: infra
         run: |
-          for stack in infra-k8s infra-db; do
-            dir=$([ "$stack" = infra-k8s ] && echo infra/aws || echo infra-db)
-            (cd "$dir" && terraform init -input=false \
-              -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-              -backend-config="key=$stack/${ENVIRONMENT}.tfstate" \
-              -backend-config="region=${AWS_REGION}" \
-              -backend-config="use_lockfile=true" > /dev/null)
-          done
-          echo "cluster=$(terraform -chdir=infra/aws output -raw cluster_name)" >> "$GITHUB_OUTPUT"
-          echo "db_host=$(terraform -chdir=infra-db output -raw db_host)" >> "$GITHUB_OUTPUT"
+          read_output() {
+            aws s3 cp "s3://${{ vars.TF_STATE_BUCKET }}/$1/${ENVIRONMENT}.tfstate" - | jq -r ".outputs.$2.value"
+          }
+          echo "cluster=$(read_output infra-k8s cluster_name)" >> "$GITHUB_OUTPUT"
+          echo "db_host=$(read_output infra-db db_host)" >> "$GITHUB_OUTPUT"
 
       - name: Connect to EKS
         run: aws eks update-kubeconfig --name "${{ steps.infra.outputs.cluster }}" --region "$AWS_REGION"
@@ -319,37 +203,3 @@ jobs:
         run: |
           kubectl get pods,services,hpa,jobs -n "$NS" -o wide || true
           kubectl get events -n "$NS" --sort-by=.lastTimestamp || true
-
-  observability:
-    needs: deploy
-    runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'producao' || 'homologacao' }}
-
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-      NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
-      NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
-      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL || 'sem-destino@example.com' }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        if: ${{ env.NEW_RELIC_API_KEY != '' && env.NEW_RELIC_ACCOUNT_ID != '' }}
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.10.5"
-
-      - name: Dashboards e alertas (observability)
-        if: ${{ env.NEW_RELIC_API_KEY != '' && env.NEW_RELIC_ACCOUNT_ID != '' }}
-        working-directory: observability
-        run: |
-          terraform init -input=false \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-            -backend-config="key=observability/${ENVIRONMENT}.tfstate" \
-            -backend-config="region=${AWS_REGION}" \
-            -backend-config="use_lockfile=true"
-          terraform apply -auto-approve -input=false -var-file="envs/${ENVIRONMENT}.tfvars"

@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - homologacao
 
 jobs:
   build:
@@ -44,26 +45,3 @@ jobs:
           name: jacoco-report-${{ matrix.service }}
           path: services/${{ matrix.service }}/target/site/jacoco/
           if-no-files-found: warn
-  auth-cpf:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: functions/auth-cpf/package-lock.json
-
-      - name: Typecheck and test
-        working-directory: functions/auth-cpf
-        run: |
-          npm ci
-          npm run typecheck
-          npm test
-
-      - name: Build image
-        run: docker build functions/auth-cpf
