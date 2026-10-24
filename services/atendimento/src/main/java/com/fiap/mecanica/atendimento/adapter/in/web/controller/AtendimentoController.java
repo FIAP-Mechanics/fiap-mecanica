@@ -4,6 +4,7 @@ import com.fiap.mecanica.atendimento.adapter.in.web.presenter.AtendimentoPresent
 import com.fiap.mecanica.atendimento.adapter.in.web.request.AdicionarItensOrcamentoRequest;
 import com.fiap.mecanica.atendimento.adapter.in.web.request.DecisaoOrcamentoRequest;
 import com.fiap.mecanica.atendimento.adapter.in.web.request.IniciarAtendimentoRequest;
+import com.fiap.mecanica.atendimento.adapter.in.web.security.AcessoOrdemServico;
 import com.fiap.mecanica.atendimento.adapter.in.web.response.OrdemServicoDto;
 import com.fiap.mecanica.atendimento.adapter.in.web.response.StatusOrdemServicoDto;
 import com.fiap.mecanica.atendimento.adapter.in.web.response.TempoMedioExecucaoServicoDto;
@@ -21,6 +22,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.security.access.annotation.Secured;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -58,8 +60,11 @@ public class AtendimentoController {
     @GetMapping("/{id}")
     public OrdemServicoDto buscarPorId(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
-            @PathVariable String id) {
-        return AtendimentoPresenter.toDto(atendimentoUseCase.buscarPorId(id));
+            @PathVariable String id,
+            Authentication authentication) {
+        OrdemServico ordemServico = atendimentoUseCase.buscarPorId(id);
+        AcessoOrdemServico.validarAcesso(ordemServico, authentication);
+        return AtendimentoPresenter.toDto(ordemServico);
     }
 
     @Operation(summary = "Consultar status da ordem de serviço", description = "Retorna apenas o status atual de uma ordem de serviço pelo seu ID")
@@ -71,8 +76,25 @@ public class AtendimentoController {
     @GetMapping("/{id}/status")
     public StatusOrdemServicoDto consultarStatus(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
-            @PathVariable String id) {
-        return AtendimentoPresenter.toStatusDto(atendimentoUseCase.buscarPorId(id));
+            @PathVariable String id,
+            Authentication authentication) {
+        OrdemServico ordemServico = atendimentoUseCase.buscarPorId(id);
+        AcessoOrdemServico.validarAcesso(ordemServico, authentication);
+        return AtendimentoPresenter.toStatusDto(ordemServico);
+    }
+
+    @Operation(summary = "Listar minhas ordens de serviço", description = "Retorna as ordens de serviço do cliente identificado pelo token obtido em POST /auth/cpf, da mais recente para a mais antiga")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso"),
+            @ApiResponse(responseCode = "401", description = "Token ausente ou inválido", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Token sem perfil de cliente", content = @Content)
+    })
+    @Secured("ROLE_CLIENTE")
+    @GetMapping("/cliente/minhas")
+    public List<OrdemServicoDto> listarMinhas(Authentication authentication) {
+        return atendimentoUseCase.listarAtendimentosDoCliente(AcessoOrdemServico.clienteIdDe(authentication)).stream()
+                .map(AtendimentoPresenter::toDto)
+                .toList();
     }
 
     @Operation(summary = "Lista atendimentos em aberto", description = "Retorna todas as ordens de serviço que não estão entregues ou canceladas")
@@ -172,7 +194,9 @@ public class AtendimentoController {
     public OrdemServicoDto registrarDecisaoExternaOrcamento(
             @Parameter(description = "ID da ordem de serviço", example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable String id,
-            @Valid @RequestBody DecisaoOrcamentoRequest request) {
+            @Valid @RequestBody DecisaoOrcamentoRequest request,
+            Authentication authentication) {
+        AcessoOrdemServico.validarAcesso(atendimentoUseCase.buscarPorId(id), authentication);
         OrdemServico ordemServico = request.aprovado()
                 ? atendimentoUseCase.aprovarOrdemServico(id)
                 : atendimentoUseCase.cancelarOrdemServico(id);

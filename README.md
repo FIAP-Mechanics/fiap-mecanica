@@ -53,9 +53,10 @@ Os guias de execução estão nas seções [Docker](#subindo-toda-a-aplicação-
 | `services/atendimento` | 8086  | `postgres-atendimento:5437` | Ordens de serviço, autenticação JWT e notificações por e-mail |
 
 Cada serviço em `services/<nome>` é um módulo Maven independente, com seu próprio `pom.xml`, `compose.yaml`, banco de
-dados e ciclo de vida. Não há Gateway/proxy: os clientes das APIs acessam cada serviço diretamente pela sua porta.
+dados e ciclo de vida. Os serviços também podem ser acessados diretamente pela porta de cada um, mas a entrada recomendada é o API Gateway (Kong, `localhost:8080`).
 
-O serviço `atendimento` concentra a autenticação do sistema (`POST /auth/login`) e consome os demais serviços
+O serviço `atendimento` concentra a autenticação de funcionários (`POST /auth/login`) e a autenticação de clientes é feita
+por CPF em uma function serverless (`POST /auth/cpf`, ver [Autenticação por CPF](#autenticação-por-cpf-function-serverless)). O `atendimento` consome os demais serviços
 (`cliente`, `veiculo`, `servico`, `estoque`) via HTTP (`RestClient`).
 
 ## Fluxo da Ordem de Serviço
@@ -70,9 +71,10 @@ Todos os endpoints abaixo são expostos pelo serviço `atendimento` (porta 8086)
 5. O mecânico inicia o diagnóstico em `PATCH /atendimento/{id}/diagnostico/iniciar`.
 6. O mecânico adiciona diagnóstico, serviços e insumos em `POST /atendimento/{id}/diagnostico`.
 7. O sistema calcula o orçamento e altera a OS para `AGUARDANDO_APROVACAO`.
-8. O cliente acompanha a OS por `GET /atendimento/{id}` e registra a aprovação ou recusa do orçamento pelo canal público
-   `POST /atendimento/{id}/decisao-orcamento` (identificado apenas pelo ID da OS) — ou a atendente registra em nome do
-   cliente pelos endpoints internos abaixo.
+8. O cliente se autentica por CPF (`POST /auth/cpf`), acompanha as próprias OS por `GET /atendimento/cliente/minhas`,
+   `GET /atendimento/{id}` e `GET /atendimento/{id}/status`, e registra a aprovação ou recusa do orçamento em
+   `POST /atendimento/{id}/decisao-orcamento`. Com o token de cliente só é possível acessar OS do próprio cliente (as de
+   outros respondem 404). A atendente também pode registrar a decisão em nome do cliente pelos endpoints internos abaixo.
 9. Se aprovado (via `decisao-orcamento` ou `POST /atendimento/{id}/aprovar`, uso interno da atendente), o sistema baixa
    os insumos do estoque (`services/estoque`, porta 8085) e muda a OS para `EM_EXECUCAO`.
 10. Se recusado (via `decisao-orcamento` ou `POST /atendimento/{id}/cancelar`, uso interno da atendente), o cancelamento
@@ -132,14 +134,13 @@ As APIs administrativas usam JWT emitido pelo serviço `atendimento`. O token ca
 - `ATENDENTE`: opera clientes, veículos, estoque, abertura de atendimento, aprovação de orçamento, cancelamento e
   entrega da OS.
 - `MECANICO`: opera serviços, estoque, diagnóstico, inclusão de serviços/insumos na OS e finalização técnica.
-- Cliente: não possui login neste projeto; acompanha a OS pelo endpoint público `GET /atendimento/{id}`.
+- `CLIENTE`: autentica por CPF (`POST /auth/cpf`) e acessa apenas as próprias ordens de serviço: `GET /atendimento/cliente/minhas`,
+  `GET /atendimento/{id}`, `GET /atendimento/{id}/status` e `POST /atendimento/{id}/decisao-orcamento`.
 
 Endpoints públicos:
 
 - `POST /auth/login` (`services/atendimento`, porta 8086)
-- `GET /atendimento/{id}` (`services/atendimento`, porta 8086)
-- `POST /atendimento/{id}/decisao-orcamento` (`services/atendimento`, porta 8086) — canal de aprovação/recusa externa do
-  orçamento, identificado apenas pelo ID da OS
+- `POST /auth/cpf` (function de autenticação por CPF; só existe atrás do API Gateway)
 - Todos os endpoints `GET` dos demais serviços (`cliente`, `veiculo`, `funcionario`, `servico`, `estoque`)
 - `/actuator/health/**` de cada serviço
 - `/swagger-ui/**` e `/v3/api-docs/**` de cada serviço
@@ -166,8 +167,11 @@ O projeto possui Maven Wrapper, então não é necessário instalar Maven localm
 mecanica/
 ├── .github/workflows/           # Pipelines de CI/CD
 ├── docker/                      # Inicialização do PostgreSQL local
-├── infra/                       # Cluster e banco provisionados por Terraform
+├── functions/auth-cpf/          # Function serverless de autenticação por CPF (código, Dockerfile, Terraform, CI/CD)
+├── infra/                       # Cluster kind e PostgreSQL locais (Terraform); infra/aws: VPC + EKS na AWS
+├── infra-db/                    # RDS PostgreSQL na AWS (Terraform)
 ├── k8s/                         # Manifestos Kubernetes e overlays Kustomize
+├── scripts/                     # Smoke test e automação do AWS Academy (bootstrap, secrets, destroy)
 ├── postman/                     # Collections por microsserviço e collection completa
 ├── pom.xml                      # Root POM (packaging pom), dependencyManagement e plugins
 └── services/                    # Módulos dos microsserviços (Maven multi-módulo)
@@ -308,8 +312,9 @@ k8s/
 ├── base/                         # 6 Deployments, Services, ConfigMaps e HPAs
 ├── overlays/
 │   ├── local/                    # Secrets e imagens locais
-│   └── production/               # Imagens e banco externos
-└── addons/metrics-server/        # Addon aplicado separadamente
+│   ├── homologacao/              # EKS: imagens, RDS e Kong com LoadBalancer
+│   └── production/               # EKS: idem, com mais réplicas mínimas
+└── addons/                       # kong (local e aws), auth-cpf, rds, metrics-server
 ```
 
 Configuração principal:
@@ -333,8 +338,10 @@ Depois do `terraform apply`, construa as imagens e carregue-as no cluster kind:
 
 ```powershell
 docker compose -f compose.app.yaml build
-kind load docker-image mecanica/cliente:local mecanica/veiculo:local mecanica/funcionario:local mecanica/servico:local mecanica/estoque:local mecanica/atendimento:local --name mecanica
+kind load docker-image mecanica/cliente:local mecanica/veiculo:local mecanica/funcionario:local mecanica/servico:local mecanica/estoque:local mecanica/atendimento:local mecanica/auth-cpf:local --name mecanica
 ```
+
+Se mudar `auth-cpf-view.sql` e reaplicar o overlay, apague antes o Job `auth-cpf-db-init` (`kubectl delete job auth-cpf-db-init -n mecanica`): o template de um Job é imutável.
 
 Crie os arquivos locais de Secrets, ignorados pelo Git:
 
@@ -342,6 +349,7 @@ Crie os arquivos locais de Secrets, ignorados pelo Git:
 Copy-Item k8s/overlays/local/secrets/shared.env.example k8s/overlays/local/secrets/shared.env
 Copy-Item k8s/overlays/local/secrets/atendimento.env.example k8s/overlays/local/secrets/atendimento.env
 Copy-Item k8s/overlays/local/secrets/external-services.env.example k8s/overlays/local/secrets/external-services.env
+Copy-Item k8s/overlays/local/secrets/auth-cpf.env.example k8s/overlays/local/secrets/auth-cpf.env
 ```
 
 Instale o Metrics Server e aplique a aplicação:
@@ -389,10 +397,12 @@ produção o Service é `LoadBalancer`. Rotas:
 |---|---|---|
 | `/cliente`, `/veiculos`, `/funcionarios`, `/servicos`, `/estoque` | respectivos serviços | `GET` público; demais métodos exigem JWT |
 | `/auth/login` | atendimento | público |
-| `GET /atendimento/{id}`, `GET /atendimento/{id}/status`, `POST /atendimento/{id}/decisao-orcamento` | atendimento | público |
-| demais rotas de `/atendimento` e `/templates` | atendimento | exigem JWT |
+| `POST /auth/cpf` | function `auth-cpf` (Lambda) | público, com rate limit de 20 req/min por IP |
+| `GET /cliente/documento` | cliente | exige JWT (retorna dados pessoais) |
+| `/atendimento/*` e `/templates` | atendimento | exigem JWT (de funcionário ou de cliente, conforme a role do endpoint) |
 
-O Kong valida a assinatura (HS256), o `iss` e o `exp` do token emitido por `POST /auth/login`, e os serviços continuam
+O Kong valida a assinatura (HS256), o `iss` e o `exp` dos tokens emitidos por `POST /auth/login` (funcionários) e por
+`POST /auth/cpf` (clientes), e os serviços continuam
 validando o token. Também adiciona o cabeçalho `X-Request-ID` (correlação), CORS e rate limiting (600 req/min por IP).
 Exemplo:
 
@@ -428,6 +438,52 @@ Em produção, o overlay ajusta `CORS_ORIGIN` para o domínio real e `KONG_REAL_
 rate limiting identifique o IP do cliente atrás do LoadBalancer (ajuste `KONG_TRUSTED_IPS` ao CIDR do balanceador). As
 imagens `kong` e `busybox` são fixadas por digest.
 
+### Autenticação por CPF (function serverless)
+
+`POST /auth/cpf` com `{"cpf": "529.982.247-25"}` é atendido pela function `functions/auth-cpf` (Node.js 22/TypeScript),
+empacotada como imagem de AWS Lambda. O Kong invoca a function com o plugin `aws-lambda`: na AWS é a Lambda real
+(`functions/auth-cpf/infra`); no Compose e no kind é a mesma imagem com o Runtime Interface Emulator.
+
+A function valida o CPF (dígitos verificadores), consulta o cliente na view `v_cliente_autenticacao` do banco do `cliente`
+com um usuário PostgreSQL somente leitura (`auth_cpf_ro`) e devolve um JWT HS256 (`iss`, `sub`, `cliente_id`,
+`roles: ["CLIENTE"]`, validade de 1 hora) aceito pelo Kong e pelos serviços. CPF inválido responde 400; CPF inexistente ou
+cliente inativo respondem 401 com a mesma mensagem (evita enumeração de CPFs). Os logs são JSON e carregam o
+`X-Request-ID` do Kong como `correlation_id`.
+
+```powershell
+curl -X POST http://localhost:8080/auth/cpf -H "Content-Type: application/json" -d '{"cpf":"529.982.247-25"}'
+curl http://localhost:8080/atendimento/cliente/minhas -H "Authorization: Bearer <access_token>"
+```
+
+```mermaid
+sequenceDiagram
+    actor C as Cliente
+    participant K as Kong (API Gateway)
+    participant L as Function auth-cpf (Lambda)
+    participant DB as PostgreSQL (view v_cliente_autenticacao)
+    participant A as atendimento
+    C->>K: POST /auth/cpf {cpf}
+    K->>K: rate limit (20/min) e X-Request-ID
+    K->>L: invoca a function (plugin aws-lambda)
+    L->>L: normaliza e valida o CPF
+    alt CPF inválido
+        L-->>K: 400
+    else CPF válido
+        L->>DB: SELECT id, ativo WHERE documento = cpf
+        alt inexistente ou inativo
+            L-->>K: 401
+        else cliente ativo
+            L-->>K: 200 access_token (HS256, roles CLIENTE)
+        end
+    end
+    K-->>C: resposta
+    C->>K: GET /atendimento/cliente/minhas (Bearer token)
+    K->>K: valida assinatura, iss e exp
+    K->>A: encaminha com X-Request-ID
+    A->>A: role CLIENTE e filtro por cliente_id do token
+    A-->>C: ordens de serviço do próprio cliente
+```
+
 ### Secrets
 
 | Secret                      | Chaves esperadas                                                  |
@@ -435,6 +491,7 @@ imagens `kong` e `busybox` são fixadas por digest.
 | `mecanica-shared-secrets`   | `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `JWT_SECRET`            |
 | `atendimento-secrets`       | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD` |
 | `external-services-secrets` | `EXTERNAL_SERVICE_TOKEN`, reservado para integrações futuras      |
+| `auth-cpf-secrets`          | `AUTH_CPF_DB_PASSWORD`, senha do usuário somente leitura da function de CPF (só no overlay local) |
 
 O `JWT_SECRET` deve ser igual nos seis serviços e ter ao menos 32 bytes. Kubernetes Secrets em Base64 não são
 criptografia; em produção, use um gerenciador de segredos ou External Secrets e nunca versione valores reais.
@@ -442,24 +499,13 @@ criptografia; em produção, use um gerenciador de segredos ou External Secrets 
 Trocar `DATABASE_PASSWORD` no Secret não altera a senha de um PostgreSQL já inicializado. Da mesma forma,
 `ADMIN_PASSWORD` é usado somente ao criar o administrador inicial; rotações precisam ser coordenadas no banco.
 
-### Produção
+### Produção e homologação na AWS
 
-Antes de aplicar `k8s/overlays/production`:
-
-1. Substitua `postgres.example.internal` pelo DNS real do banco.
-2. Configure o issuer JWT, SMTP e endereços de notificação.
-3. Use registry e tags imutáveis para as seis imagens.
-4. Crie os seis bancos lógicos no PostgreSQL externo.
-5. Materialize os Secrets no namespace `mecanica-production` usando o gerenciador de segredos.
-
-```powershell
-kubectl apply -k k8s/addons/metrics-server/overlays/production
-kubectl apply -k k8s/overlays/production
-kubectl wait --for=condition=available deployment --all -n mecanica-production --timeout=300s
-```
-
-O overlay de produção não cria o PostgreSQL nem persiste credenciais; o Service `postgres-mecanica` funciona apenas como
-alias DNS para o banco externo.
+Veja o passo a passo completo em [Deploy na AWS (AWS Academy)](#deploy-na-aws-aws-academy). Os overlays
+`k8s/overlays/homologacao` e `k8s/overlays/production` apontam o Service `postgres-mecanica` (`ExternalName`) para o RDS,
+sobem o Kong como `LoadBalancer` (que invoca a Lambda com as credenciais da `LabRole` dos nós) e executam dois Jobs: um cria
+os seis bancos lógicos no RDS e o outro aplica a view `v_cliente_autenticacao`. Os Secrets são criados pelo pipeline a
+partir dos secrets do GitHub; nenhum valor sensível é versionado.
 
 ### Validação
 
@@ -469,6 +515,7 @@ Sem acessar um cluster, valide a renderização:
 kubectl kustomize k8s/base
 kubectl kustomize k8s/overlays/local
 kubectl kustomize k8s/overlays/production
+kubectl kustomize k8s/overlays/homologacao
 kubectl kustomize k8s/addons/metrics-server/overlays/local
 kubectl kustomize k8s/addons/metrics-server/overlays/production
 ```
@@ -486,17 +533,60 @@ Limitações conhecidas antes de produção real:
 - o HPA de memória de aplicações JVM deve ser calibrado com métricas reais;
 - o script SQL local só executa quando o PVC do PostgreSQL está vazio.
 
+## Deploy na AWS (AWS Academy)
+
+Dois ambientes completos (`homologacao` e `producao`), cada um com VPC, EKS, RDS PostgreSQL, Lambda `auth-cpf` e Kong
+como `LoadBalancer`. Ambos usam a `LabRole` existente do Learner Lab, porque o lab não permite criar usuários, roles ou
+provedores OIDC.
+
+```text
+GitHub Actions ─► infra/aws (VPC+EKS) ─► infra-db (RDS) ─► functions/auth-cpf (ECR+Lambda) ─► kubectl apply -k
+Cliente ─► LoadBalancer ─► Kong ─► serviços (EKS) ─► RDS        Kong ─► Lambda auth-cpf ─► RDS (view somente leitura)
+```
+
+| Terraform | State (S3) | Conteúdo |
+|---|---|---|
+| `infra/aws` | `infra-k8s/<ambiente>.tfstate` | VPC, subnets, NAT, EKS e grupo de nós (homologação: 2 `t3.medium`; produção: 2 a 4 `t3.large`) |
+| `infra-db` | `infra-db/<ambiente>.tfstate` | RDS PostgreSQL 16 privado, acessível só pelos nós |
+| `functions/auth-cpf/infra` | `auth-cpf/<ambiente>.tfstate` | ECR, Lambda em subnets privadas, Secrets Manager |
+
+### Passo a passo
+
+1. **Iniciar o lab** e copiar as credenciais (`AWS Details`) para `~/.aws/credentials` (perfil `default` com
+   `aws_session_token`). Elas expiram em cerca de 4 horas.
+2. **Bucket do state e verificação da `LabRole`** (uma vez): `scripts/aws-lab-bootstrap.sh`.
+3. **Configurar o GitHub** (uma vez por ambiente): `gh auth login` e, na raiz do repositório,
+   `scripts/aws-lab-secrets.sh homologacao` e `scripts/aws-lab-secrets.sh producao`. O script cria o Environment, a variável
+   `TF_STATE_BUCKET` e os secrets (`AWS_*`, `JWT_SECRET`, `DATABASE_PASSWORD`, `AUTH_CPF_DB_PASSWORD`, `ADMIN_PASSWORD`) e imprime
+   a senha do administrador. No GitHub, ative aprovação manual no Environment `producao`, proteja a `main` e torne públicos os
+   pacotes do GHCR.
+4. **Implantar**: faça push na branch `homologacao` (ou `main`) ou execute o workflow *Deploy AWS*. Leva cerca de 25 minutos
+   (EKS e RDS). O último passo imprime o endereço do Kong (`http://<hostname-do-load-balancer>`).
+5. **Validar**: `scripts/smoke-test.sh http://<hostname> admin@mecanica.com <senha>` e a collection Postman com o
+   `gatewayUrl` apontando para o hostname.
+6. **A cada nova sessão do lab**: credenciais novas em `~/.aws/credentials` e
+   `RENOVAR_APENAS_CREDENCIAIS=1 scripts/aws-lab-secrets.sh <ambiente>`.
+7. **Destruir ao terminar**: `scripts/aws-lab-down.sh <ambiente>` (remove o namespace, o balanceador, a Lambda, o RDS e o EKS).
+   Duas stacks custam cerca de US$ 0,75 por hora; não deixe ligadas fora das sessões.
+
+Execução manual (sem o pipeline): `terraform init -backend-config="bucket=<bucket>" -backend-config="key=infra-k8s/<ambiente>.tfstate"
+-backend-config="region=us-east-1" -backend-config="use_lockfile=true"` seguido de `terraform apply -var-file=envs/<ambiente>.tfvars` em
+`infra/aws`, `infra-db` e `functions/auth-cpf/infra` (nessa ordem), e `kubectl apply -k k8s/overlays/<production|homologacao>`.
+
 ## CI/CD
 
 O GitHub Actions automatiza a validação e a implantação:
 
 - [Pull Request Validation](.github/workflows/maven.yml) executa build, testes e verificação de cobertura dos seis
-  microsserviços em pull requests para `main`;
-- [Continuous Deployment](.github/workflows/cd.yml) é acionado em pushes para `main` ou manualmente, executa novamente
-  os testes, publica as seis imagens no GHCR, provisiona um cluster kind efêmero e o PostgreSQL com Terraform, aplica os
-  manifestos Kubernetes e valida o rollout.
+  microsserviços e testes da function `auth-cpf` em pull requests para `main`;
+- [Deploy AWS](.github/workflows/deploy-aws.yml) é acionado em pushes para `homologacao` (ambiente de homologação) e
+  `main` (produção, com aprovação do Environment do GitHub): testa e publica as imagens, aplica o Terraform da rede/EKS e
+  do RDS, publica a Lambda, aplica os manifestos no EKS e executa o smoke test pelo `LoadBalancer` do Kong;
+- [Continuous Deployment](.github/workflows/cd.yml) é acionado manualmente, executa novamente
+  os testes, publica as seis imagens dos serviços e a da function `auth-cpf` no GHCR, provisiona um cluster kind efêmero e o PostgreSQL com Terraform, aplica os
+  manifestos Kubernetes, valida o rollout e executa smoke tests do gateway e da autenticação por CPF.
 
-As seis imagens publicadas no GHCR devem estar com visibilidade pública. Assim, o cluster e quem estiver avaliando o
+As imagens publicadas no GHCR devem estar com visibilidade pública. Assim, o cluster e quem estiver avaliando o
 projeto podem baixá-las sem configurar `GHCR_TOKEN` ou uma credencial de pull. O `GITHUB_TOKEN` automático continua
 sendo usado somente pelo workflow para publicar as imagens.
 

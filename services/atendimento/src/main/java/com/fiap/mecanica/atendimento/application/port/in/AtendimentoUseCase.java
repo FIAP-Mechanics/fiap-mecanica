@@ -16,6 +16,8 @@ public interface AtendimentoUseCase {
 
     List<OrdemServico> listarAtendimentosEmAberto();
 
+    List<OrdemServico> listarAtendimentosDoCliente(Long clienteId);
+
     List<TempoMedioExecucaoServico> listarTempoMedioExecucaoServicos();
 
     OrdemServico iniciarDiagnostico(String id);

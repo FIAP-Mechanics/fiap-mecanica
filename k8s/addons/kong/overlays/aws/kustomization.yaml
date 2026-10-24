@@ -1,8 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: mecanica-production
-
 resources:
   - ../../base
 
@@ -28,15 +26,20 @@ patches:
             initContainers:
             - name: render-config
               env:
-              # Restrinja à origem do front-end real (hoje o mesmo domínio do JWT_ISSUER de produção).
-              - name: CORS_ORIGIN
-                value: https://api.mecanica.example.com
+              - name: LAMBDA_HOST
+                value: lambda.us-east-1.amazonaws.com
+              - name: LAMBDA_PORT
+                value: "443"
+              - name: LAMBDA_REGION
+                value: us-east-1
+              - name: LAMBDA_DISABLE_HTTPS
+                value: "false"
+              - name: LAMBDA_AWS_KEY
+                value: ""
+              - name: LAMBDA_AWS_SECRET
+                value: ""
             containers:
             - name: kong
               env:
-              # Atrás do LoadBalancer, o IP do cliente vem em X-Forwarded-For; sem isso o rate limiting
-              # (limit_by: ip) contaria todo o tráfego como um único IP. Ajuste trusted_ips ao CIDR do balanceador.
               - name: KONG_REAL_IP_HEADER
                 value: X-Forwarded-For
-              - name: KONG_TRUSTED_IPS
-                value: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16

@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/part-of: oficina-mecanica
 spec:
   type: ExternalName
-  externalName: postgres.example.internal
+  externalName: rds.invalid
   ports:
   - name: postgresql
     port: 5432

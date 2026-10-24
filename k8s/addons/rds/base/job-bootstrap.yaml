@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rds-bootstrap
+  labels:
+    app.kubernetes.io/name: rds-bootstrap
+    app.kubernetes.io/part-of: oficina-mecanica
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rds-bootstrap
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: psql
+        image: postgres:16-alpine
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -ec
+        - |
+          until pg_isready; do sleep 3; done
+          for banco in cliente veiculo funcionario servico estoque atendimento; do
+            psql -tAc "select 1 from pg_database where datname='mecanica_$banco'" | grep -q 1 \
+              || psql -v ON_ERROR_STOP=1 -c "create database mecanica_$banco"
+          done
+        env:
+        - name: PGHOST
+          value: postgres-mecanica
+        - name: PGDATABASE
+          value: postgres
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: mecanica-shared-secrets
+              key: DATABASE_USERNAME
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mecanica-shared-secrets
+              key: DATABASE_PASSWORD
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            memory: 64Mi

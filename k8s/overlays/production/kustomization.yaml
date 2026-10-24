@@ -5,7 +5,9 @@ namespace: mecanica-production
 
 resources:
   - ../../base
-  - database/postgresql-external-service.yaml
+  - ../../addons/kong/overlays/aws
+  - ../../addons/rds/base
+  - ../../addons/auth-cpf/overlays/cloud
 
 patches:
   - path: patches/atendimento-config.yaml
@@ -34,6 +36,29 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: kong
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: kong
+      spec:
+        template:
+          spec:
+            initContainers:
+            - name: render-config
+              env:
+              - name: LAMBDA_FUNCTION
+                value: mecanica-auth-cpf-producao
+            containers:
+            - name: kong
+              env:
+              - name: KONG_TRUSTED_IPS
+                value: 10.20.0.0/16
 
 images:
   - name: mecanica/cliente

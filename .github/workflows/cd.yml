@@ -1,9 +1,6 @@
 name: Continuous Deployment
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
@@ -69,8 +66,58 @@ jobs:
             ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-${{ matrix.service }}:${{ steps.vars.outputs.tag }}
             ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-${{ matrix.service }}:latest
 
+  build-and-push-auth-cpf:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/auth-cpf/package-lock.json
+
+      - name: Typecheck and test
+        working-directory: functions/auth-cpf
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
+      - name: Compute image vars
+        id: vars
+        run: |
+          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push auth-cpf
+        uses: docker/build-push-action@v6
+        with:
+          context: functions/auth-cpf
+          push: true
+          tags: |
+            ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-auth-cpf:${{ steps.vars.outputs.tag }}
+            ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-auth-cpf:latest
+
   provision-and-deploy:
-    needs: build-and-push
+    needs: [build-and-push, build-and-push-auth-cpf]
     runs-on: ubuntu-latest
 
     permissions:
@@ -103,6 +150,7 @@ jobs:
         run: |
           cp k8s/overlays/local/secrets/shared.env.example k8s/overlays/local/secrets/shared.env
           cp k8s/overlays/local/secrets/atendimento.env.example k8s/overlays/local/secrets/atendimento.env
+          cp k8s/overlays/local/secrets/auth-cpf.env.example k8s/overlays/local/secrets/auth-cpf.env
           cp k8s/overlays/local/secrets/external-services.env.example k8s/overlays/local/secrets/external-services.env
 
       - name: Terraform apply (cluster kind efêmero + PostgreSQL)
@@ -128,7 +176,8 @@ jobs:
             mecanica/funcionario=ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-funcionario:${{ steps.vars.outputs.tag }} \
             mecanica/servico=ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-servico:${{ steps.vars.outputs.tag }} \
             mecanica/estoque=ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-estoque:${{ steps.vars.outputs.tag }} \
-            mecanica/atendimento=ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-atendimento:${{ steps.vars.outputs.tag }}
+            mecanica/atendimento=ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-atendimento:${{ steps.vars.outputs.tag }} \
+            mecanica/auth-cpf=ghcr.io/${{ steps.vars.outputs.owner }}/mecanica-auth-cpf:${{ steps.vars.outputs.tag }}
 
       - name: Apply application manifests
         run: kubectl apply -k k8s/overlays/local
@@ -138,6 +187,11 @@ jobs:
           for service in cliente veiculo funcionario servico estoque atendimento; do
             kubectl rollout status deployment/"$service" -n mecanica --timeout=300s
           done
+
+      - name: Wait for auth-cpf and its database view
+        run: |
+          kubectl rollout status deployment/auth-cpf -n mecanica --timeout=180s
+          kubectl wait --for=condition=complete job/auth-cpf-db-init -n mecanica --timeout=300s
 
       - name: Wait for API Gateway (Kong)
         run: kubectl rollout status deployment/kong -n mecanica --timeout=180s
@@ -151,6 +205,21 @@ jobs:
           [ "$(code "$gw/cliente")" = 200 ] || { echo "GET público falhou"; exit 1; }
           [ "$(code -X POST "$gw/cliente" -H 'Content-Type: application/json' -d '{}')" = 401 ] || { echo "POST sem token deveria dar 401"; exit 1; }
           [ "$(code -X POST "$gw/cliente" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{}')" != 401 ] || { echo "POST com token válido não deveria dar 401"; exit 1; }
+
+      - name: Smoke test da autenticação por CPF
+        run: |
+          gw=http://localhost:8080
+          json='Content-Type: application/json'
+          admin=$(curl -sf -X POST "$gw/auth/login" -H "$json" \
+            -d '{"email":"admin@mecanica.com","senha":"admin123"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+          curl -sf -X POST "$gw/cliente" -H "Authorization: Bearer $admin" -H "$json" -d '{"nome":"Cliente Smoke","documento":"529.982.247-25","email":"smoke@mecanica.com","telefone":"31999999999","endereco":{"cep":"30000-000","estado":"MG","cidade":"Belo Horizonte","bairro":"Centro","rua":"Rua A","numero":"1"}}' > /dev/null
+          code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+          [ "$(code -X POST "$gw/auth/cpf" -H "$json" -d '{"cpf":"111.111.111-11"}')" = 400 ] || { echo "CPF inválido deveria dar 400"; exit 1; }
+          [ "$(code -X POST "$gw/auth/cpf" -H "$json" -d '{"cpf":"168.995.350-09"}')" = 401 ] || { echo "CPF inexistente deveria dar 401"; exit 1; }
+          token=$(curl -sf -X POST "$gw/auth/cpf" -H "$json" -d '{"cpf":"529.982.247-25"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+          [ "$(code "$gw/atendimento/cliente/minhas")" = 401 ] || { echo "minhas sem token deveria dar 401"; exit 1; }
+          [ "$(code "$gw/atendimento/cliente/minhas" -H "Authorization: Bearer $token")" = 200 ] || { echo "minhas com token de cliente deveria dar 200"; exit 1; }
+          [ "$(code "$gw/atendimento/abertos" -H "Authorization: Bearer $token")" = 403 ] || { echo "token de cliente não deveria listar abertos"; exit 1; }
 
       - name: Show HPA status
         run: kubectl get hpa -n mecanica

@@ -11,4 +11,6 @@ public interface OrdemServicoSpringDataRepository extends JpaRepository<OrdemSer
     List<OrdemServicoJpaEntity> findAllByStatusNotIn(List<Status> status);
 
     List<OrdemServicoJpaEntity> findAllByStatusIn(List<Status> status);
+
+    List<OrdemServicoJpaEntity> findAllByClienteId(Long clienteId);
 }

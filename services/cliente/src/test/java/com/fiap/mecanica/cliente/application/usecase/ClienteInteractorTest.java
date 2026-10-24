@@ -5,6 +5,8 @@ import com.fiap.mecanica.cliente.application.port.out.ClienteGateway;
 import com.fiap.mecanica.cliente.domain.Cliente;
 import com.fiap.mecanica.cliente.domain.Endereco;
 import com.fiap.mecanica.cliente.exception.ClienteExistente;
+import com.fiap.mecanica.cliente.exception.ClienteInativoException;
+import com.fiap.mecanica.cliente.exception.ClienteJaAtivoException;
 import com.fiap.mecanica.cliente.exception.ClienteNotFound;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -250,6 +252,109 @@ class ClienteInteractorTest {
         assertThat(salvo.getEmail()).isEqualTo(EMAIL_ORIGINAL);
         assertThat(salvo.getTelefone()).isEqualTo(TELEFONE_ORIGINAL);
         assertThat(salvo.getEndereco()).isEqualTo(ENDERECO_ORIGINAL);
+    }
+
+    @Test
+    void naoDeveListarClientesInativos() {
+        Cliente ativo = criarCliente();
+        when(clienteGateway.buscarTodos()).thenReturn(List.of(ativo, criarClienteInativo()));
+
+        List<Cliente> resultado = interactor.buscarClientes();
+
+        assertThat(resultado).containsExactly(ativo);
+    }
+
+    @Test
+    void deveLancarClienteInativoQuandoBuscarPorIdDeClienteInativo() {
+        when(clienteGateway.buscarPorId(ID_EXISTENTE)).thenReturn(Optional.of(criarClienteInativo()));
+
+        assertThatThrownBy(() -> interactor.buscarClientePorId(ID_EXISTENTE))
+                .isInstanceOf(ClienteInativoException.class)
+                .hasMessage("O Cliente com ID " + ID_EXISTENTE + " encontra-se inativo");
+    }
+
+    @Test
+    void deveLancarClienteInativoQuandoBuscarPorDocumentoDeClienteInativo() {
+        when(clienteGateway.buscarPorDocumento(DOCUMENTO_ORIGINAL)).thenReturn(Optional.of(criarClienteInativo()));
+
+        assertThatThrownBy(() -> interactor.buscarClientePorDocumento(DOCUMENTO_ORIGINAL))
+                .isInstanceOf(ClienteInativoException.class)
+                .hasMessage("O Cliente com ID " + ID_EXISTENTE + " encontra-se inativo");
+    }
+
+    // ===================== excluirCliente =====================
+
+    @Test
+    void deveDesativarClienteQuandoEstiverAtivo() {
+        when(clienteGateway.buscarPorId(ID_EXISTENTE)).thenReturn(Optional.of(criarCliente()));
+        when(clienteGateway.salvar(any(Cliente.class))).thenAnswer(invocacao -> invocacao.getArgument(0));
+
+        Cliente resultado = interactor.excluirCliente(ID_EXISTENTE);
+
+        assertThat(resultado.isAtivo()).isFalse();
+        verify(clienteGateway).salvar(clienteCaptor.capture());
+        assertThat(clienteCaptor.getValue().isAtivo()).isFalse();
+    }
+
+    @Test
+    void deveLancarClienteNotFoundAoExcluirQuandoIdNaoExistir() {
+        when(clienteGateway.buscarPorId(ID_INEXISTENTE)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> interactor.excluirCliente(ID_INEXISTENTE))
+                .isInstanceOf(ClienteNotFound.class);
+
+        verify(clienteGateway, never()).salvar(any());
+    }
+
+    @Test
+    void deveLancarClienteInativoAoExcluirQuandoJaEstiverInativo() {
+        when(clienteGateway.buscarPorId(ID_EXISTENTE)).thenReturn(Optional.of(criarClienteInativo()));
+
+        assertThatThrownBy(() -> interactor.excluirCliente(ID_EXISTENTE))
+                .isInstanceOf(ClienteInativoException.class);
+
+        verify(clienteGateway, never()).salvar(any());
+    }
+
+    // ===================== reativarCliente =====================
+
+    @Test
+    void deveReativarClienteQuandoEstiverInativo() {
+        when(clienteGateway.buscarPorId(ID_EXISTENTE)).thenReturn(Optional.of(criarClienteInativo()));
+        when(clienteGateway.salvar(any(Cliente.class))).thenAnswer(invocacao -> invocacao.getArgument(0));
+
+        Cliente resultado = interactor.reativarCliente(ID_EXISTENTE);
+
+        assertThat(resultado.isAtivo()).isTrue();
+        verify(clienteGateway).salvar(clienteCaptor.capture());
+        assertThat(clienteCaptor.getValue().isAtivo()).isTrue();
+    }
+
+    @Test
+    void deveLancarClienteJaAtivoAoReativarQuandoEstiverAtivo() {
+        when(clienteGateway.buscarPorId(ID_EXISTENTE)).thenReturn(Optional.of(criarCliente()));
+
+        assertThatThrownBy(() -> interactor.reativarCliente(ID_EXISTENTE))
+                .isInstanceOf(ClienteJaAtivoException.class)
+                .hasMessage("O Cliente com id " + ID_EXISTENTE + " já se encontra ativo.");
+
+        verify(clienteGateway, never()).salvar(any());
+    }
+
+    @Test
+    void deveLancarClienteNotFoundAoReativarQuandoIdNaoExistir() {
+        when(clienteGateway.buscarPorId(ID_INEXISTENTE)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> interactor.reativarCliente(ID_INEXISTENTE))
+                .isInstanceOf(ClienteNotFound.class);
+
+        verify(clienteGateway, never()).salvar(any());
+    }
+
+    private Cliente criarClienteInativo() {
+        Cliente cliente = criarCliente();
+        cliente.setAtivo(false);
+        return cliente;
     }
 
     private Cliente criarCliente() {

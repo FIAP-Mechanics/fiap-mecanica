@@ -23,4 +23,7 @@ public class ClienteJpaEntity {
     private String telefone;
     @Embedded
     private EnderecoJpaEmbeddable endereco;
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "boolean not null default true")
+    private boolean ativo = true;
 }
