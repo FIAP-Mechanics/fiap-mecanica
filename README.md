@@ -4,8 +4,8 @@ Monorepo de microsserviços para gerenciamento de uma oficina mecânica. O siste
 serviços, estoque/insumos, abertura e acompanhamento de ordens de serviço, cálculo de orçamento, notificações,
 autenticação JWT e controle de permissões por perfil.
 
-O projeto está organizado como um monorepo Maven multi-módulo, sem API Gateway: cada serviço é acessado diretamente pela
-sua própria porta.
+O projeto está organizado como um monorepo Maven multi-módulo. No Kubernetes, a entrada única é o API Gateway
+[Kong](#api-gateway-kong); no Docker Compose, cada serviço continua acessível pela sua própria porta.
 
 ## Objetivo
 
@@ -19,7 +19,8 @@ administrador e cliente.
 
 ![Diagrama de componentes da aplicação](img/componentes-aplicacao.png)
 
-Não há API Gateway: cada serviço é acessado diretamente pela sua porta. Apenas `atendimento` chama os demais serviços,
+No Kubernetes, o tráfego externo entra pelo API Gateway (Kong, ver [API Gateway](#api-gateway-kong)); no Docker
+Compose, cada serviço é acessado diretamente pela sua porta. Apenas `atendimento` chama os demais serviços,
 via HTTP (nunca via banco ou dependência Maven entre módulos).
 
 ### Infraestrutura provisionada
@@ -238,7 +239,8 @@ docker compose -f compose.app.yaml up -d --build
 ```
 
 O PostgreSQL desse compose cria um banco independente para cada microsserviço. As APIs ficam disponíveis nas portas
-`8081` a `8086`, compatíveis com a collection unificada do Postman.
+`8081` a `8086` e também pelo API Gateway (Kong) em `http://localhost:8080` (ver [API Gateway](#api-gateway-kong)). O
+Kong usa a mesma configuração do Kubernetes (`k8s/addons/kong/base/kong.yml.tpl`).
 
 Cada imagem compila somente o microsserviço indicado no argumento `SERVICE`. Os containers são considerados saudáveis
 quando `GET /actuator/health/readiness` responde com sucesso.
@@ -360,7 +362,8 @@ kubectl get pods,services,hpa -n mecanica
 kubectl top pods -n mecanica
 ```
 
-Como os Services são `ClusterIP`, use port-forward para acesso externo. Exemplo:
+O acesso externo é feito pelo API Gateway (próxima seção). Para acessar um serviço diretamente, use port-forward.
+Exemplo:
 
 ```powershell
 kubectl port-forward service/atendimento 8086:8086 -n mecanica
@@ -368,6 +371,62 @@ kubectl port-forward service/atendimento 8086:8086 -n mecanica
 
 Se o Compose estiver usando as portas 8081 a 8086, encerre-o antes do port-forward. Para a collection completa,
 encaminhe também os Services das portas 8081 a 8085.
+
+### API Gateway (Kong)
+
+O Kong roda em modo DB-less (configuração declarativa em `k8s/addons/kong/base/kong.yml.tpl`) e é a entrada única do
+cluster. No ambiente local ele já é aplicado junto com a aplicação (`kubectl apply -k k8s/overlays/local`), porque
+precisa do Secret `mecanica-shared-secrets` com o nome gerado pelo Kustomize:
+
+```powershell
+kubectl rollout status deployment/kong -n mecanica
+```
+
+No kind, o gateway fica em `http://localhost:8080` (NodePort 30080, variável Terraform `gateway_host_port`). Em
+produção o Service é `LoadBalancer`. Rotas:
+
+| Prefixo | Serviço | Acesso |
+|---|---|---|
+| `/cliente`, `/veiculos`, `/funcionarios`, `/servicos`, `/estoque` | respectivos serviços | `GET` público; demais métodos exigem JWT |
+| `/auth/login` | atendimento | público |
+| `GET /atendimento/{id}`, `GET /atendimento/{id}/status`, `POST /atendimento/{id}/decisao-orcamento` | atendimento | público |
+| demais rotas de `/atendimento` e `/templates` | atendimento | exigem JWT |
+
+O Kong valida a assinatura (HS256), o `iss` e o `exp` do token emitido por `POST /auth/login`, e os serviços continuam
+validando o token. Também adiciona o cabeçalho `X-Request-ID` (correlação), CORS e rate limiting (600 req/min por IP).
+Exemplo:
+
+```powershell
+curl -X POST http://localhost:8080/auth/login -H "Content-Type: application/json" -d '{"email":"admin@mecanica.com","senha":"admin123"}'
+```
+
+Fluxo de autenticação e de uma chamada protegida:
+
+```mermaid
+sequenceDiagram
+    actor C as Cliente da API
+    participant K as Kong (API Gateway)
+    participant A as atendimento
+    participant S as Serviço de destino
+    C->>K: POST /auth/login (email, senha)
+    K->>A: rota pública, sem JWT
+    A-->>K: access_token (HS256, iss, roles)
+    K-->>C: access_token
+    C->>K: POST /cliente (Authorization: Bearer token)
+    K->>K: valida assinatura, iss e exp (plugin jwt)
+    alt token ausente, inválido ou expirado
+        K-->>C: 401 Unauthorized
+    else token válido
+        K->>S: encaminha com X-Request-ID
+        S->>S: valida o JWT novamente (OAuth2 Resource Server)
+        S-->>K: resposta
+        K-->>C: resposta
+    end
+```
+
+Em produção, o overlay ajusta `CORS_ORIGIN` para o domínio real e `KONG_REAL_IP_HEADER`/`KONG_TRUSTED_IPS` para que o
+rate limiting identifique o IP do cliente atrás do LoadBalancer (ajuste `KONG_TRUSTED_IPS` ao CIDR do balanceador). As
+imagens `kong` e `busybox` são fixadas por digest.
 
 ### Secrets
 
@@ -511,6 +570,11 @@ Para usar:
 2. Suba o banco do serviço (`docker compose -f services/<nome>/compose.yaml up -d`) e inicie a aplicação
    (`./mvnw -pl services/<nome> spring-boot:run`).
 3. Na collection unificada, execute primeiro `00 - Autenticação > Login e salvar token` (porta 8086).
+4. Para chamar pelo API Gateway, importe também um environment de `postman/environments/` e selecione-o:
+   - [`gateway.postman_environment.json`](postman/environments/gateway.postman_environment.json): todas as
+     chamadas passam pelo Kong em `http://localhost:8080` (Compose ou kind);
+   - [`direto.postman_environment.json`](postman/environments/direto.postman_environment.json): portas `8081` a
+     `8086` dos serviços, igual ao comportamento padrão da collection.
 
 O script do request de login salva o token JWT automaticamente na variável `accessToken`. Os cadastros também atualizam
 automaticamente `clienteId`, `veiculoId`, `funcionarioId`, `servicoId` e `insumoId` para uso nas requisições seguintes.
