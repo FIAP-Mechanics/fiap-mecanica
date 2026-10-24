@@ -3,6 +3,7 @@ package com.fiap.mecanica.atendimento.application.usecase;
 import com.fiap.mecanica.atendimento.application.command.InsumoQuantidadeCommand;
 import com.fiap.mecanica.atendimento.application.command.ServicoQuantidadeCommand;
 import com.fiap.mecanica.atendimento.application.port.in.AtendimentoUseCase;
+import com.fiap.mecanica.atendimento.application.port.out.AtendimentoMetricasGateway;
 import com.fiap.mecanica.atendimento.application.port.out.ClienteIntegracaoGateway;
 import com.fiap.mecanica.atendimento.application.port.out.EstoqueIntegracaoGateway;
 import com.fiap.mecanica.atendimento.application.port.out.NotificationGateway;
@@ -37,6 +38,7 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
     private final ServicoIntegracaoGateway servicoIntegracaoGateway;
     private final EstoqueIntegracaoGateway estoqueIntegracaoGateway;
     private final NotificationGateway notificationGateway;
+    private final AtendimentoMetricasGateway metricasGateway;
 
     private static final Map<Status, Integer> PRIORIDADE_LISTAGEM = Map.of(
             Status.EM_EXECUCAO, 0,
@@ -50,13 +52,15 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
                                   VeiculoIntegracaoGateway veiculoIntegracaoGateway,
                                   ServicoIntegracaoGateway servicoIntegracaoGateway,
                                   EstoqueIntegracaoGateway estoqueIntegracaoGateway,
-                                  NotificationGateway notificationGateway) {
+                                  NotificationGateway notificationGateway,
+                                  AtendimentoMetricasGateway metricasGateway) {
         this.ordemServicoGateway = ordemServicoGateway;
         this.clienteIntegracaoGateway = clienteIntegracaoGateway;
         this.veiculoIntegracaoGateway = veiculoIntegracaoGateway;
         this.servicoIntegracaoGateway = servicoIntegracaoGateway;
         this.estoqueIntegracaoGateway = estoqueIntegracaoGateway;
         this.notificationGateway = notificationGateway;
+        this.metricasGateway = metricasGateway;
     }
 
     @Override
@@ -80,7 +84,9 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
         adicionarItensAoOrcamento(servicos, insumos, orcamento);
 
         ordemServico.setOrcamento(orcamento);
-        return ordemServicoGateway.salvar(ordemServico);
+        OrdemServico salva = ordemServicoGateway.salvar(ordemServico);
+        metricasGateway.registrarOrdemCriada();
+        return salva;
     }
 
     @Override
@@ -169,8 +175,8 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
     @Override
     public OrdemServico iniciarDiagnostico(String id) {
         OrdemServico ordemServico = findOrdemServico(id);
-        ordemServico.atualizarStatus(Status.EM_DIAGNOSTICO);
-        return ordemServicoGateway.salvar(ordemServico);
+        MudancaStatus mudanca = mudarStatus(ordemServico, Status.EM_DIAGNOSTICO);
+        return salvar(ordemServico, mudanca);
     }
 
     @Override
@@ -190,9 +196,9 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
 
         adicionarItensAoOrcamento(servicos, insumos, orcamento);
 
-        ordemServico.atualizarStatus(Status.AGUARDANDO_APROVACAO);
+        MudancaStatus mudanca = mudarStatus(ordemServico, Status.AGUARDANDO_APROVACAO);
         notificarCliente(ordemServico, CodigoTemplate.AUTORIZAR_ORCAMENTO);
-        return ordemServicoGateway.salvar(ordemServico);
+        return salvar(ordemServico, mudanca);
     }
 
     @Override
@@ -212,26 +218,26 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
             }
         }
 
-        ordemServico.atualizarStatus(Status.EM_EXECUCAO);
+        MudancaStatus mudanca = mudarStatus(ordemServico, Status.EM_EXECUCAO);
 
-        return ordemServicoGateway.salvar(ordemServico);
+        return salvar(ordemServico, mudanca);
     }
 
     @Override
     public OrdemServico cancelarOrdemServico(String id) {
         OrdemServico ordemServico = findOrdemServico(id);
-        ordemServico.atualizarStatus(Status.CANCELADA);
-        return ordemServicoGateway.salvar(ordemServico);
+        MudancaStatus mudanca = mudarStatus(ordemServico, Status.CANCELADA);
+        return salvar(ordemServico, mudanca);
     }
 
     @Override
     public OrdemServico finalizarOrdemServico(String id) {
         OrdemServico ordemServico = findOrdemServico(id);
 
-        ordemServico.atualizarStatus(Status.FINALIZADA);
+        MudancaStatus mudanca = mudarStatus(ordemServico, Status.FINALIZADA);
         notificarCliente(ordemServico, CodigoTemplate.RETIRAR_VEICULO);
 
-        return ordemServicoGateway.salvar(ordemServico);
+        return salvar(ordemServico, mudanca);
     }
 
     private void adicionarItensAoOrcamento(List<ServicoQuantidadeCommand> servicosRequest,
@@ -255,10 +261,28 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
     @Override
     public OrdemServico entregarVeiculo(String id) {
         OrdemServico ordemServico = findOrdemServico(id);
-        ordemServico.atualizarStatus(Status.ENTREGUE);
+        MudancaStatus mudanca = mudarStatus(ordemServico, Status.ENTREGUE);
         notificarCliente(ordemServico, CodigoTemplate.VEICULO_RETIRADO);
 
-        return ordemServicoGateway.salvar(ordemServico);
+        return salvar(ordemServico, mudanca);
+    }
+
+    private MudancaStatus mudarStatus(OrdemServico ordemServico, Status novoStatus) {
+        if (ordemServico.getStatus() == novoStatus) {
+            return null;
+        }
+        MudancaStatus mudanca = new MudancaStatus(ordemServico.getStatus(), novoStatus,
+                ordemServico.tempoNoStatusAtual(LocalDateTime.now()));
+        ordemServico.atualizarStatus(novoStatus);
+        return mudanca;
+    }
+
+    private OrdemServico salvar(OrdemServico ordemServico, MudancaStatus mudanca) {
+        OrdemServico salva = ordemServicoGateway.salvar(ordemServico);
+        if (mudanca != null) {
+            metricasGateway.registrarTransicao(mudanca.statusAnterior(), mudanca.novoStatus(), mudanca.permanencia());
+        }
+        return salva;
     }
 
     private void notificarCliente(OrdemServico ordemServico, CodigoTemplate codigoTemplate) {
@@ -269,6 +293,9 @@ public class AtendimentoInteractor implements AtendimentoUseCase {
     private OrdemServico findOrdemServico(String id) {
         return ordemServicoGateway.buscarPorId(id)
                 .orElseThrow(() -> new OrdemServicoNaoEncontradaException(id));
+    }
+
+    private record MudancaStatus(Status statusAnterior, Status novoStatus, Duration permanencia) {
     }
 
     private static class TempoMedioServico {

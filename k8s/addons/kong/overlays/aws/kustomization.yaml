@@ -38,6 +38,8 @@ patches:
                 value: ""
               - name: LAMBDA_AWS_SECRET
                 value: ""
+              - name: OTEL_ENABLED
+                value: "true"
             containers:
             - name: kong
               env:

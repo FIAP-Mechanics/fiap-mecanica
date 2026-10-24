@@ -350,6 +350,7 @@ Copy-Item k8s/overlays/local/secrets/shared.env.example k8s/overlays/local/secre
 Copy-Item k8s/overlays/local/secrets/atendimento.env.example k8s/overlays/local/secrets/atendimento.env
 Copy-Item k8s/overlays/local/secrets/external-services.env.example k8s/overlays/local/secrets/external-services.env
 Copy-Item k8s/overlays/local/secrets/auth-cpf.env.example k8s/overlays/local/secrets/auth-cpf.env
+Copy-Item k8s/overlays/local/secrets/newrelic.env.example k8s/overlays/local/secrets/newrelic.env
 ```
 
 Instale o Metrics Server e aplique a aplicação:
@@ -492,6 +493,7 @@ sequenceDiagram
 | `atendimento-secrets`       | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD` |
 | `external-services-secrets` | `EXTERNAL_SERVICE_TOKEN`, reservado para integrações futuras      |
 | `auth-cpf-secrets`          | `AUTH_CPF_DB_PASSWORD`, senha do usuário somente leitura da function de CPF (só no overlay local) |
+| `newrelic-secrets`          | `NEW_RELIC_LICENSE_KEY` (opcional; sem ela a exportação de telemetria fica desligada), ver [Observabilidade](#observabilidade) |
 
 O `JWT_SECRET` deve ser igual nos seis serviços e ter ao menos 32 bytes. Kubernetes Secrets em Base64 não são
 criptografia; em produção, use um gerenciador de segredos ou External Secrets e nunca versione valores reais.
@@ -558,7 +560,8 @@ Cliente ─► LoadBalancer ─► Kong ─► serviços (EKS) ─► RDS       
 3. **Configurar o GitHub** (uma vez por ambiente): `gh auth login` e, na raiz do repositório,
    `scripts/aws-lab-secrets.sh homologacao` e `scripts/aws-lab-secrets.sh producao`. O script cria o Environment, a variável
    `TF_STATE_BUCKET` e os secrets (`AWS_*`, `JWT_SECRET`, `DATABASE_PASSWORD`, `AUTH_CPF_DB_PASSWORD`, `ADMIN_PASSWORD`) e imprime
-   a senha do administrador. No GitHub, ative aprovação manual no Environment `producao`, proteja a `main` e torne públicos os
+   a senha do administrador. Para a [observabilidade](#observabilidade), defina antes `NEW_RELIC_LICENSE_KEY`, `NEW_RELIC_API_KEY`,
+   `NEW_RELIC_ACCOUNT_ID` e `ALERT_EMAIL` no terminal (opcionais). No GitHub, ative aprovação manual no Environment `producao`, proteja a `main` e torne públicos os
    pacotes do GHCR.
 4. **Implantar**: faça push na branch `homologacao` (ou `main`) ou execute o workflow *Deploy AWS*. Leva cerca de 25 minutos
    (EKS e RDS). O último passo imprime o endereço do Kong (`http://<hostname-do-load-balancer>`).
@@ -567,6 +570,8 @@ Cliente ─► LoadBalancer ─► Kong ─► serviços (EKS) ─► RDS       
 6. **A cada nova sessão do lab**: credenciais novas em `~/.aws/credentials` e
    `RENOVAR_APENAS_CREDENCIAIS=1 scripts/aws-lab-secrets.sh <ambiente>`.
 7. **Destruir ao terminar**: `scripts/aws-lab-down.sh <ambiente>` (remove o namespace, o balanceador, a Lambda, o RDS e o EKS).
+   Para remover também os dashboards e alertas do New Relic, exporte `NEW_RELIC_API_KEY` e `NEW_RELIC_ACCOUNT_ID` antes de rodar;
+   sem elas essa etapa é ignorada.
    Duas stacks custam cerca de US$ 0,75 por hora; não deixe ligadas fora das sessões.
 
 Execução manual (sem o pipeline): `terraform init -backend-config="bucket=<bucket>" -backend-config="key=infra-k8s/<ambiente>.tfstate"
@@ -581,7 +586,8 @@ O GitHub Actions automatiza a validação e a implantação:
   microsserviços e testes da function `auth-cpf` em pull requests para `main`;
 - [Deploy AWS](.github/workflows/deploy-aws.yml) é acionado em pushes para `homologacao` (ambiente de homologação) e
   `main` (produção, com aprovação do Environment do GitHub): testa e publica as imagens, aplica o Terraform da rede/EKS e
-  do RDS, publica a Lambda, aplica os manifestos no EKS e executa o smoke test pelo `LoadBalancer` do Kong;
+  do RDS, publica a Lambda, instala o coletor de Kubernetes do New Relic, aplica os manifestos no EKS, executa o smoke test
+  pelo `LoadBalancer` do Kong e cria os dashboards e alertas (`observability/`);
 - [Continuous Deployment](.github/workflows/cd.yml) é acionado manualmente, executa novamente
   os testes, publica as seis imagens dos serviços e a da function `auth-cpf` no GHCR, provisiona um cluster kind efêmero e o PostgreSQL com Terraform, aplica os
   manifestos Kubernetes, valida o rollout e executa smoke tests do gateway e da autenticação por CPF.
@@ -589,6 +595,157 @@ O GitHub Actions automatiza a validação e a implantação:
 As imagens publicadas no GHCR devem estar com visibilidade pública. Assim, o cluster e quem estiver avaliando o
 projeto podem baixá-las sem configurar `GHCR_TOKEN` ou uma credencial de pull. O `GITHUB_TOKEN` automático continua
 sendo usado somente pelo workflow para publicar as imagens.
+
+## Observabilidade
+
+A observabilidade usa o **New Relic** (plano gratuito) com **OpenTelemetry nativo do Spring Boot 4** (Micrometer + OTLP),
+sem java agent. Métricas, traces e logs saem dos seis serviços e do Kong; o coletor de Kubernetes envia CPU, memória e
+logs dos contêineres. Os dashboards e alertas são criados por Terraform em [`observability/`](observability).
+
+```mermaid
+flowchart LR
+    usuario([Cliente ou funcionário]) --> lb[Load Balancer]
+    subgraph aws["AWS (EKS, RDS e Lambda)"]
+        lb --> kong[Kong API Gateway]
+        subgraph eks["Cluster EKS"]
+            kong --> atendimento
+            kong --> cliente
+            kong --> veiculo
+            kong --> servico
+            kong --> estoque
+            kong --> funcionario
+            atendimento -- HTTP --> cliente
+            atendimento -- HTTP --> veiculo
+            atendimento -- HTTP --> servico
+            atendimento -- HTTP --> estoque
+            coletor["Coletor Kubernetes<br/>(nr-k8s-otel-collector)"]
+        end
+        kong -- "POST /auth/cpf" --> lambda["Lambda auth-cpf"]
+        lambda --> rds[("RDS PostgreSQL")]
+        atendimento --> rds
+        cliente --> rds
+        veiculo --> rds
+        servico --> rds
+        estoque --> rds
+        funcionario --> rds
+    end
+    kong -. "spans OTLP" .-> nr["New Relic<br/>dashboards, alertas, logs e traces"]
+    atendimento -. "métricas, traces e logs" .-> nr
+    cliente -. OTLP .-> nr
+    veiculo -. OTLP .-> nr
+    servico -. OTLP .-> nr
+    estoque -. OTLP .-> nr
+    funcionario -. OTLP .-> nr
+    coletor -. "CPU, memória e logs" .-> nr
+```
+
+### O que é monitorado
+
+| Requisito | Como é atendido | Onde ver |
+|---|---|---|
+| Latência das APIs | `http.server.requests` (histograma por serviço, rota e status) | Dashboard, página **APIs** |
+| CPU e memória do Kubernetes | Coletor `nr-k8s-otel-collector` (Helm), por pod e por nó | Dashboard, página **Kubernetes** |
+| Healthchecks e uptime | Probes do Actuator, `process.uptime` e alerta de perda de sinal | Página **Saúde e uptime** |
+| Alertas de falha no processamento de OS | 5xx no `atendimento`, falha de integração e falha de e-mail | Política de alertas |
+| Logs JSON com correlação | `request_id` e `trace.id` em todos os logs | Página **Logs** |
+| Volume diário de OS | `os.criadas` | Página **Negócio** |
+| Tempo médio por status | `os.status.duracao{status}` (diagnóstico, execução, finalização e demais) | Página **Negócio** |
+| Erros e falhas nas integrações | `http.client.requests` do `atendimento` para os outros serviços | Página **Negócio** |
+
+### Logs estruturados e correlação
+
+Todos os serviços escrevem logs em JSON no stdout (`logging.structured.format.console`). Cada requisição gera uma linha:
+
+```json
+{"@timestamp":"2026-10-17T03:06:38.223Z","message":"Requisição concluída","level":"INFO","trace.id":"00749b4be4e7df894e26ecdc2c327311","span.id":"08db29214df093ca","request_id":"5258dadb-df07-450a-91db-45e373725ceb","metodo":"POST","rota":"/atendimento/iniciar","status":200,"duracao_ms":33,"service.name":"atendimento-service","deployment.environment":"compose"}
+```
+
+- O Kong gera o `X-Request-ID`; o `RequestIdFilter` de cada serviço o coloca no MDC (`request_id`) e o devolve no response.
+  O `atendimento` repassa o mesmo cabeçalho nas chamadas a `cliente`, `veiculo`, `servico` e `estoque`.
+- O `trace.id` e o `span.id` vêm do Micrometer Tracing e acompanham o cabeçalho W3C `traceparent`, também propagado nas
+  chamadas entre serviços e emitido pelo Kong.
+- O log de acesso do Kong também é JSON e traz o mesmo `request_id`; a Lambda `auth-cpf` registra `correlation_id` com o mesmo valor.
+- Os probes do Actuator (`/actuator/**`) não geram logs, métricas nem spans.
+
+Para seguir uma requisição: pegue o `request_id` no log do Kong (ou no header `X-Request-ID` da resposta) e busque por ele
+nos logs dos serviços, ou abra o trace pelo `trace.id`.
+
+### Métricas de negócio
+
+| Métrica | Tipo | Descrição |
+|---|---|---|
+| `os.criadas` | contador | Ordens de serviço abertas (volume diário) |
+| `os.status.duracao{status}` | timer (ms) | Tempo que a OS ficou em cada status antes de mudar |
+| `os.transicoes{de,para}` | contador | Transições de status |
+| `notificacao.falhas` | contador | Falhas no envio de e-mail |
+
+Além delas, os serviços exportam as métricas padrão do Micrometer (`http.server.requests`, `http.client.requests`,
+JVM, Hikari e `process.uptime`). O `atendimento` usa o `RestClient.Builder` do Spring Boot, com timeouts de conexão (2 s) e
+leitura (10 s), o que gera `http.client.requests` por serviço de destino (`client.name`).
+
+### Traces
+
+Um trace completo atravessa o gateway e os serviços (Kong, `atendimento`, `cliente` e `veiculo` na abertura de uma OS),
+com a amostragem de 100%. No New Relic, abra **APM e serviços** (ou *Distributed tracing*) e filtre por
+`deployment.environment`.
+
+### Alertas
+
+| Condição | Dispara quando |
+|---|---|
+| Falha no processamento de ordens de serviço | O `atendimento` responde 5xx (5 min) |
+| Falha na integração entre serviços | `http.client.requests` com 5xx ou sem resposta |
+| Falha no envio de notificações por e-mail | `notificacao.falhas` > 0 |
+| Latência p95 das APIs | p95 acima de 1500 ms por 5 min |
+| Serviço sem enviar dados (uptime) | Um serviço deixa de reportar métricas por 5 min |
+| Pod reprovado no healthcheck | Pod não pronto (readiness) por 5 min |
+| Memória dos contêineres | Mais de 90% do limite por 5 min |
+
+Os alertas chegam por e-mail (`ALERT_EMAIL`).
+
+### Como ativar
+
+A exportação vem **desligada** (`OBSERVABILITY_EXPORT_ENABLED=false`): sem conta, tudo roda normalmente e os logs JSON e o
+`trace.id` continuam no stdout. Para ligar, crie uma conta gratuita do New Relic e use a *License Key* (tipo *Ingest*).
+
+- **Docker Compose:** no `.env`, defina `OBSERVABILITY_EXPORT_ENABLED=true` e `NEW_RELIC_LICENSE_KEY=<chave>`
+  (contas da região EU: `OTLP_ENDPOINT=https://otlp.eu01.nr-data.net`), depois `docker compose -f compose.app.yaml up -d`.
+- **AWS (pipeline):** exporte `NEW_RELIC_LICENSE_KEY`, `NEW_RELIC_API_KEY` (*User API key*), `NEW_RELIC_ACCOUNT_ID` e
+  `ALERT_EMAIL` e rode `scripts/aws-lab-secrets.sh <ambiente>`. O workflow *Deploy AWS* cria o Secret `newrelic-secrets`,
+  instala o coletor (`k8s/addons/newrelic/values.yaml`) e aplica o Terraform de `observability/`. Os overlays de
+  homologação e produção já habilitam a exportação.
+- **Terraform manual:** em `observability/`, `export NEW_RELIC_API_KEY=... NEW_RELIC_ACCOUNT_ID=...` e
+  `terraform init -backend-config="bucket=<bucket>" -backend-config="key=observability/<ambiente>.tfstate" -backend-config="region=us-east-1" -backend-config="use_lockfile=true"`,
+  seguido de `terraform apply -var-file=envs/<ambiente>.tfvars -var="alert_email=<e-mail>"`.
+
+O `scripts/aws-lab-down.sh` destrói primeiro os dashboards e alertas do ambiente (se `NEW_RELIC_API_KEY` e `NEW_RELIC_ACCOUNT_ID`
+estiverem exportados), para que a derrubada do cluster não dispare alertas de perda de sinal.
+
+Na nuvem (homologação e produção) a exportação vem ligada nos overlays. O workflow *Deploy AWS* a desliga sozinho
+(`OBSERVABILITY_EXPORT_ENABLED: "false"`) quando não há `NEW_RELIC_LICENSE_KEY`, e o Kong só ativa o plugin de traces se a
+chave existir. O endpoint OTLP do Kong segue o `OTLP_ENDPOINT` do `common-config`, o mesmo usado pelos serviços.
+
+- **Ambientes do Terraform:** `local`, `homologacao` e `producao` (`envs/<ambiente>.tfvars`). O Compose e o kind enviam
+  `deployment.environment=local`; aplicar `envs/local.tfvars` cria o dashboard e os alertas para acompanhar a stack local
+  (os painéis de Kubernetes só têm dados com o coletor instalado).
+- **Kubernetes:** o coletor `nr-k8s-otel-collector` grava métricas OpenTelemetry na tabela `Metric` (`k8s.pod.*`,
+  `container.*`, `kube_*`), filtradas por `k8s.cluster.name` e `k8s.namespace.name`; os logs vão para `Log` com `request_id` e
+  `trace.id` já extraídos do JSON.
+
+### Demonstração
+
+`scripts/gerar-trafego.sh <url-do-gateway> <email-admin> <senha-admin> [quantidade] [pausa]` percorre o ciclo completo da OS
+(abertura, diagnóstico, aprovação, execução, finalização e entrega), cancela uma a cada quatro e provoca um erro de estoque
+insuficiente e uma consulta a OS inexistente (erros 4xx). Para gerar também um erro 5xx, que dispara o alerta de falha no
+processamento e aparece nos painéis de integração, informe como parar e retomar o serviço de estoque:
+
+```bash
+PARAR_ESTOQUE_CMD='docker compose -f compose.app.yaml stop estoque' \
+RETOMAR_ESTOQUE_CMD='docker compose -f compose.app.yaml start estoque' \
+scripts/gerar-trafego.sh http://localhost:8080 <email-admin> <senha-admin>
+```
+
+Use-o para popular os dashboards antes de gravar a demonstração.
 
 ## Configuração do Serviço `atendimento`
 

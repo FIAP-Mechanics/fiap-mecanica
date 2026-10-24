@@ -1,5 +1,9 @@
 package com.fiap.mecanica.atendimento.adapter.out.notification;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import com.fiap.mecanica.atendimento.application.port.out.AtendimentoMetricasGateway;
 import com.fiap.mecanica.atendimento.application.port.out.ClienteIntegracaoGateway;
 import com.fiap.mecanica.atendimento.application.port.out.TemplateGateway;
 import com.fiap.mecanica.atendimento.domain.CodigoTemplate;
@@ -11,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -38,6 +43,9 @@ class EmailNotificationGatewayTest {
 
     @Mock
     private JavaMailSender mailSender;
+
+    @Mock
+    private AtendimentoMetricasGateway metricasGateway;
 
     @Captor
     private ArgumentCaptor<SimpleMailMessage> messageCaptor;
@@ -165,10 +173,53 @@ class EmailNotificationGatewayTest {
                 .doesNotThrowAnyException();
 
         verify(mailSender).send(any(SimpleMailMessage.class));
+        verify(metricasGateway).registrarFalhaNotificacao();
+    }
+
+    @Test
+    void deveMascararDestinatarioNoLogDeFalhaDeEnvio() {
+        EmailNotificationGateway gateway = criarGateway(EMAIL_REMETENTE, EMAIL_ADMIN);
+        CodigoTemplate codigo = CodigoTemplate.RETIRAR_VEICULO;
+        when(templateGateway.buscarPorCodigo(codigo.name())).thenReturn(Optional.of(criarTemplate(codigo)));
+        doThrow(new MailSendException("falha")).when(mailSender).send(any(SimpleMailMessage.class));
+        Logger logger = (Logger) LoggerFactory.getLogger(EmailNotificationGateway.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            gateway.notificarCliente(codigo, criarCliente(), NOME_CLIENTE, PLACA_VEICULO);
+        } finally {
+            logger.detachAppender(appender);
+        }
+
+        assertThat(appender.list).hasSize(1);
+        String mensagem = appender.list.getFirst().getFormattedMessage();
+        assertThat(mensagem).contains("c***@teste.com").doesNotContain(EMAIL_CLIENTE);
+    }
+
+    @Test
+    void deveMascararPorCompletoDestinatarioSemFormatoDeEmail() {
+        EmailNotificationGateway gateway = criarGateway(EMAIL_REMETENTE, "invalido");
+        CodigoTemplate codigo = CodigoTemplate.REPOSICAO_ESTOQUE;
+        when(templateGateway.buscarPorCodigo(codigo.name())).thenReturn(Optional.of(criarTemplateSimples(codigo)));
+        doThrow(new MailSendException("falha")).when(mailSender).send(any(SimpleMailMessage.class));
+        Logger logger = (Logger) LoggerFactory.getLogger(EmailNotificationGateway.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            gateway.notificarFuncionarios(codigo, "Insumo X");
+        } finally {
+            logger.detachAppender(appender);
+        }
+
+        assertThat(appender.list.getFirst().getFormattedMessage()).contains("destinatario=***");
     }
 
     private EmailNotificationGateway criarGateway(String emailRemetente, String emailAtualizacoes) {
-        return new EmailNotificationGateway(templateGateway, mailSender, emailAtualizacoes, emailRemetente);
+        return new EmailNotificationGateway(templateGateway, mailSender, emailAtualizacoes, emailRemetente, metricasGateway);
     }
 
     private ClienteIntegracaoGateway.ClienteIntegracao criarCliente() {

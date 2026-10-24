@@ -54,6 +54,8 @@ patches:
               env:
               - name: LAMBDA_FUNCTION
                 value: mecanica-auth-cpf-homologacao
+              - name: DEPLOYMENT_ENVIRONMENT
+                value: homologacao
             containers:
             - name: kong
               env:

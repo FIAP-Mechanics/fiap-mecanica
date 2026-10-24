@@ -9,8 +9,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Data
@@ -49,6 +51,15 @@ public class OrdemServico {
                 .dataHora(LocalDateTime.now())
                 .build();
         this.historicoDeEventos.add(evento);
+    }
+
+    public Duration tempoNoStatusAtual(LocalDateTime referencia) {
+        LocalDateTime inicio = historicoDeEventos.stream()
+                .map(TrocaStatus::getDataHora)
+                .max(Comparator.naturalOrder())
+                .orElse(dataCriacao);
+        if (inicio == null) return Duration.ZERO;
+        return Duration.between(inicio, referencia);
     }
 
     private void validarTransicao(Status novoStatus) {
