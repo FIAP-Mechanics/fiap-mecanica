@@ -421,10 +421,10 @@ produção o Service é `LoadBalancer`. Rotas:
 
 | Prefixo | Serviço | Acesso |
 |---|---|---|
-| `/cliente`, `/veiculos`, `/funcionarios`, `/servicos`, `/estoque` | respectivos serviços | `GET` público; demais métodos exigem JWT |
+| `/cliente` e subrotas | cliente | todos os métodos exigem JWT; consultas de dados pessoais exigem role `ADMIN` ou `ATENDENTE` |
+| `/veiculos`, `/funcionarios`, `/servicos`, `/estoque` | respectivos serviços | `GET` público; demais métodos exigem JWT |
 | `/auth/login` | atendimento | público |
 | `POST /auth/cpf` | function `auth-cpf` (Lambda) | público, com rate limit de 20 req/min por IP |
-| `GET /cliente/documento` | cliente | exige JWT (retorna dados pessoais) |
 | `/atendimento/*` e `/templates` | atendimento | exigem JWT (de funcionário ou de cliente, conforme a role do endpoint) |
 
 O Kong valida a assinatura (HS256), o `iss` e o `exp` dos tokens emitidos por `POST /auth/login` (funcionários) e por

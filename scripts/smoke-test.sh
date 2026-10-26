@@ -12,7 +12,9 @@ campo() { python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"
 admin=$(curl -sf -X POST "$gw/auth/login" -H "$json" \
   -d "{\"email\":\"$admin_email\",\"senha\":\"$admin_password\"}" | campo)
 
-[ "$(code "$gw/cliente")" = 200 ] || falha "GET público de /cliente"
+[ "$(code "$gw/cliente")" = 401 ] || falha "GET sem token de /cliente deveria dar 401"
+[ "$(code "$gw/cliente/1")" = 401 ] || falha "GET sem token de /cliente/1 deveria dar 401"
+[ "$(code "$gw/cliente" -H "Authorization: Bearer $admin")" = 200 ] || falha "GET de /cliente com token admin deveria dar 200"
 [ "$(code -X POST "$gw/cliente" -H "$json" -d '{}')" = 401 ] || falha "POST sem token deveria dar 401"
 
 code -X POST "$gw/cliente" -H "Authorization: Bearer $admin" -H "$json" \
