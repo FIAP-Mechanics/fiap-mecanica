@@ -2,6 +2,7 @@ HELP.md
 target/
 .env
 .env.*
+/.secrets
 !.env.example
 !**/*.env.example
 k8s/overlays/*/secrets/*.env

@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-gw=${1:?uso: smoke-test.sh <url-do-gateway> <email-admin> <senha-admin>}
+gw=${1:?uso: ADMIN_PASSWORD=... smoke-test.sh <url-do-gateway> <email-admin>}
 admin_email=${2:?}
-admin_password=${3:?}
+: "${ADMIN_PASSWORD:?Defina ADMIN_PASSWORD no ambiente.}"
 json='Content-Type: application/json'
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 falha() { echo "FALHA: $1"; exit 1; }
 campo() { python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])'; }
 
-admin=$(curl -sf -X POST "$gw/auth/login" -H "$json" \
-  -d "{\"email\":\"$admin_email\",\"senha\":\"$admin_password\"}" | campo)
+admin=$(ADMIN_EMAIL="$admin_email" python3 -c \
+  'import json, os; print(json.dumps({"email": os.environ["ADMIN_EMAIL"], "senha": os.environ["ADMIN_PASSWORD"]}))' \
+  | curl -sf -X POST "$gw/auth/login" -H "$json" --data-binary @- | campo)
 
 [ "$(code "$gw/cliente")" = 401 ] || falha "GET sem token de /cliente deveria dar 401"
 [ "$(code "$gw/cliente/1")" = 401 ] || falha "GET sem token de /cliente/1 deveria dar 401"
