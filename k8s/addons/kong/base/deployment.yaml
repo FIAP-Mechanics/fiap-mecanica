@@ -35,36 +35,39 @@ spec:
       initContainers:
       # Gera o kong.yml final injetando issuer e segredo JWT, sem deixá-los em ConfigMap.
       - name: render-config
-        image: busybox:1.37@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+        image: python:3.13-alpine
         imagePullPolicy: IfNotPresent
         command:
-        - sh
-        - -ec
+        - python3
+        - -c
+        args:
         - |
-          esc() { printf '%s' "$1" | sed -e 's/[\/&|]/\\&/g'; }
-          if [ -n "$OTLP_ENDPOINT" ]; then OTEL_TRACES_ENDPOINT="$OTLP_ENDPOINT/v1/traces"; fi
-          if [ -z "$OTEL_API_KEY" ]; then OTEL_ENABLED=false; fi
-          sed -e "s|__JWT_ISSUER__|$(esc "$JWT_ISSUER")|g" \
-              -e "s|__JWT_SECRET__|$(esc "$JWT_SECRET")|g" \
-              -e "s|__CORS_ORIGIN__|$(esc "$CORS_ORIGIN")|g" \
-              -e "s|__LAMBDA_HOST__|$(esc "$LAMBDA_HOST")|g" \
-              -e "s|__LAMBDA_PORT__|$(esc "$LAMBDA_PORT")|g" \
-              -e "s|__LAMBDA_FUNCTION__|$(esc "$LAMBDA_FUNCTION")|g" \
-              -e "s|__LAMBDA_REGION__|$(esc "$LAMBDA_REGION")|g" \
-              -e "s|__LAMBDA_AWS_KEY__|$(esc "$LAMBDA_AWS_KEY")|g" \
-              -e "s|__LAMBDA_AWS_SECRET__|$(esc "$LAMBDA_AWS_SECRET")|g" \
-              -e "s|__LAMBDA_DISABLE_HTTPS__|$(esc "$LAMBDA_DISABLE_HTTPS")|g" \
-              -e "s|__OTEL_ENABLED__|$(esc "$OTEL_ENABLED")|g" \
-              -e "s|__OTEL_TRACES_ENDPOINT__|$(esc "$OTEL_TRACES_ENDPOINT")|g" \
-              -e "s|__OTEL_API_KEY__|$(esc "$OTEL_API_KEY")|g" \
-              -e "s|__DEPLOYMENT_ENVIRONMENT__|$(esc "$DEPLOYMENT_ENVIRONMENT")|g" \
-              /template/kong.yml.tpl > /config/kong.yml
-          if [ -z "$LAMBDA_AWS_KEY" ]; then
-            sed -i -e '/aws_key:/d' -e '/aws_secret:/d' /config/kong.yml
-          fi
-          if [ -z "$OTEL_API_KEY" ]; then
-            sed -i -e '/^      headers:$/,/^        api-key:/d' /config/kong.yml
-          fi
+          import json
+          import os
+          from pathlib import Path
+
+          template = Path('/template/kong.yml.tpl').read_text()
+          if not os.getenv('LAMBDA_AWS_KEY'):
+              template = '\n'.join(line for line in template.split('\n')
+                                   if not line.strip().startswith(('aws_key:', 'aws_secret:')))
+          if not os.getenv('OTEL_API_KEY'):
+              template = template.replace('      headers:\n        api-key: "__OTEL_API_KEY__"\n', '')
+
+          values = {key: os.getenv(key, '') for key in (
+              'JWT_ISSUER', 'JWT_SECRET', 'CORS_ORIGIN', 'LAMBDA_HOST',
+              'LAMBDA_PORT', 'LAMBDA_FUNCTION', 'LAMBDA_REGION',
+              'LAMBDA_AWS_KEY', 'LAMBDA_AWS_SECRET', 'LAMBDA_DISABLE_HTTPS',
+              'OTEL_ENABLED', 'OTEL_TRACES_ENDPOINT', 'OTEL_API_KEY',
+              'DEPLOYMENT_ENVIRONMENT')}
+          if os.getenv('OTLP_ENDPOINT'):
+              values['OTEL_TRACES_ENDPOINT'] = os.environ['OTLP_ENDPOINT'].rstrip('/') + '/v1/traces'
+          if not values['OTEL_API_KEY']:
+              values['OTEL_ENABLED'] = 'false'
+          plain = {'LAMBDA_PORT', 'LAMBDA_DISABLE_HTTPS', 'OTEL_ENABLED'}
+          for key, value in values.items():
+              escaped = value if key in plain else json.dumps(value, ensure_ascii=False)[1:-1]
+              template = template.replace(f'__{key}__', escaped)
+          Path('/config/kong.yml').write_text(template)
         env:
         - name: CORS_ORIGIN
           value: "*"
@@ -119,7 +122,7 @@ spec:
             cpu: 10m
             memory: 16Mi
           limits:
-            memory: 32Mi
+            memory: 64Mi
         volumeMounts:
         - name: template
           mountPath: /template

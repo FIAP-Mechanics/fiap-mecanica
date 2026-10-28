@@ -28,6 +28,9 @@ patches:
       - op: replace
         path: /spec/minReplicas
         value: 2
+      - op: replace
+        path: /spec/maxReplicas
+        value: 3
   - target:
       group: apps
       version: v1
@@ -36,6 +39,12 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
+      - op: replace
+        path: /spec/strategy/rollingUpdate/maxUnavailable
+        value: 1
+      - op: replace
+        path: /spec/strategy/rollingUpdate/maxSurge
+        value: 0
   - target:
       group: apps
       version: v1

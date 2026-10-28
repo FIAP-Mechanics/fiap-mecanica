@@ -195,6 +195,15 @@ jobs:
       - name: Apply application manifests
         run: kubectl apply -k k8s/overlays/${{ env.ENVIRONMENT == 'producao' && 'production' || 'homologacao' }}
 
+      - name: Restart application pods to load current configuration
+        if: ${{ env.ENVIRONMENT == 'producao' }}
+        env:
+          NS: ${{ steps.vars.outputs.ns }}
+        run: |
+          for service in cliente veiculo funcionario servico estoque atendimento; do
+            kubectl rollout restart deployment/"$service" -n "$NS"
+          done
+
       - name: Wait for rollout
         env:
           NS: ${{ steps.vars.outputs.ns }}
