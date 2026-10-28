@@ -421,10 +421,10 @@ produção o Service é `LoadBalancer`. Rotas:
 
 | Prefixo | Serviço | Acesso |
 |---|---|---|
-| `/cliente`, `/veiculos`, `/funcionarios`, `/servicos`, `/estoque` | respectivos serviços | `GET` público; demais métodos exigem JWT |
+| `/cliente` e subrotas | cliente | todos os métodos exigem JWT; consultas de dados pessoais exigem role `ADMIN` ou `ATENDENTE` |
+| `/veiculos`, `/funcionarios`, `/servicos`, `/estoque` | respectivos serviços | `GET` público; demais métodos exigem JWT |
 | `/auth/login` | atendimento | público |
 | `POST /auth/cpf` | function `auth-cpf` (Lambda) | público, com rate limit de 20 req/min por IP |
-| `GET /cliente/documento` | cliente | exige JWT (retorna dados pessoais) |
 | `/atendimento/*` e `/templates` | atendimento | exigem JWT (de funcionário ou de cliente, conforme a role do endpoint) |
 
 O Kong valida a assinatura (HS256), o `iss` e o `exp` dos tokens emitidos por `POST /auth/login` (funcionários) e por
@@ -596,7 +596,7 @@ O pipeline deste repositório lê `cluster_name` e `db_host` dos states `infra-k
 4. **Implantar**, nesta ordem: `fiap-mecanica-k8s-infra`, `fiap-mecanica-infra-dbs`, `fiap-mecanica-lambda` e, por último, este
    repositório. Em cada um, faça push na branch `homologacao` (ou `main`) ou execute o workflow de deploy. O EKS e o RDS levam
    cerca de 25 minutos. O último passo imprime o endereço do Kong (`http://<hostname-do-load-balancer>`).
-5. **Validar**: `scripts/smoke-test.sh http://<hostname> admin@mecanica.com <senha>` e a collection Postman com o
+5. **Validar**: defina `ADMIN_PASSWORD` no ambiente do processo e rode `scripts/smoke-test.sh http://<hostname> admin@mecanica.com`; use também a collection Postman com o
    `gatewayUrl` apontando para o hostname.
 6. **A cada nova sessão do lab**: credenciais novas em `~/.aws/credentials` e
    `RENOVAR_APENAS_CREDENCIAIS=1 scripts/aws-lab-secrets.sh <ambiente>`.
@@ -612,6 +612,12 @@ Execução manual (sem o pipeline): aplique o Terraform dos repositórios 2, 3 e
 
 O GitHub Actions automatiza a validação e a implantação:
 
+O job de deploy usa os **Environment secrets** do GitHub em `Settings > Environments > producao` ou `homologacao`:
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `DATABASE_PASSWORD`, `JWT_SECRET`,
+`ADMIN_PASSWORD` e `AUTH_CPF_DB_PASSWORD`. Configure `TF_STATE_BUCKET` como **Environment variable** no mesmo lugar.
+`NEW_RELIC_LICENSE_KEY` é opcional. As credenciais temporárias da AWS Academy devem ser renovadas nesses
+Environments quando o Learner Lab reiniciar; o workflow não lê arquivos locais de credenciais.
+
 - [Pull Request Validation](.github/workflows/maven.yml) executa build, testes e verificação de cobertura dos seis
   microsserviços em pull requests para `main`;
 - [Deploy AWS](.github/workflows/deploy-aws.yml) é acionado em pushes para `homologacao` (ambiente de homologação) e
@@ -625,6 +631,11 @@ O GitHub Actions automatiza a validação e a implantação:
 As imagens publicadas no GHCR devem estar com visibilidade pública. Assim, o cluster e quem estiver avaliando o
 projeto podem baixá-las sem configurar `GHCR_TOKEN` ou uma credencial de pull. O `GITHUB_TOKEN` automático continua
 sendo usado somente pelo workflow para publicar as imagens.
+
+Para uma validação manual completa dos endpoints, `scripts/validate-gateway.mjs` testa autenticação, permissões,
+cadastros e o fluxo de uma ordem de serviço. Ele usa `GATEWAY` e `ADMIN_PASSWORD` do ambiente do processo e exige
+`CONFIRM_PRODUCTION_WRITES=YES` para liberar escritas. Cria cadastros de teste, desativa-os ao final e deixa a OS de
+teste no histórico. Execute somente em um ambiente no qual esses dados QA sejam permitidos.
 
 ## Observabilidade
 

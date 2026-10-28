@@ -82,10 +82,25 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
       NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Check required Environment secrets and variables
+        env:
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          AUTH_CPF_DB_PASSWORD: ${{ secrets.AUTH_CPF_DB_PASSWORD }}
+        run: |
+          for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN DATABASE_PASSWORD JWT_SECRET ADMIN_PASSWORD AUTH_CPF_DB_PASSWORD TF_STATE_BUCKET; do
+            if [ -z "${!name}" ]; then
+              echo "Missing required GitHub Environment secret or variable: $name" >&2
+              exit 1
+            fi
+          done
 
       - name: Compute vars
         id: vars
@@ -106,7 +121,7 @@ jobs:
         id: infra
         run: |
           read_output() {
-            aws s3 cp "s3://${{ vars.TF_STATE_BUCKET }}/$1/${ENVIRONMENT}.tfstate" - | jq -r ".outputs.$2.value"
+            aws s3 cp "s3://${TF_STATE_BUCKET}/$1/${ENVIRONMENT}.tfstate" - | jq -r ".outputs.$2.value"
           }
           echo "cluster=$(read_output infra-k8s cluster_name)" >> "$GITHUB_OUTPUT"
           echo "db_host=$(read_output infra-db db_host)" >> "$GITHUB_OUTPUT"
@@ -120,22 +135,43 @@ jobs:
       - name: Create namespace and secrets
         env:
           NS: ${{ steps.vars.outputs.ns }}
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          AUTH_CPF_DB_PASSWORD: ${{ secrets.AUTH_CPF_DB_PASSWORD }}
         run: |
           kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f -
-          secret() { kubectl create secret generic "$@" -n "$NS" --dry-run=client -o yaml | kubectl apply -f -; }
-          secret mecanica-shared-secrets \
-            --from-literal=DATABASE_USERNAME=mecanica \
-            --from-literal=DATABASE_PASSWORD='${{ secrets.DATABASE_PASSWORD }}' \
-            --from-literal=JWT_SECRET='${{ secrets.JWT_SECRET }}'
-          secret atendimento-secrets \
-            --from-literal=ADMIN_EMAIL=admin@mecanica.com \
-            --from-literal=ADMIN_PASSWORD='${{ secrets.ADMIN_PASSWORD }}' \
-            --from-literal=MAIL_USERNAME=skip \
-            --from-literal=MAIL_PASSWORD=skip
-          secret auth-cpf-secrets \
-            --from-literal=AUTH_CPF_DB_PASSWORD='${{ secrets.AUTH_CPF_DB_PASSWORD }}'
-          secret newrelic-secrets \
-            --from-literal=NEW_RELIC_LICENSE_KEY='${{ secrets.NEW_RELIC_LICENSE_KEY }}'
+          python3 - <<'PY' | kubectl apply -f -
+          import json
+          import os
+
+          namespace = os.environ['NS']
+          secrets = {
+              'mecanica-shared-secrets': {
+                  'DATABASE_USERNAME': 'mecanica',
+                  'DATABASE_PASSWORD': os.environ['DATABASE_PASSWORD'],
+                  'JWT_SECRET': os.environ['JWT_SECRET'],
+              },
+              'atendimento-secrets': {
+                  'ADMIN_EMAIL': 'admin@mecanica.com',
+                  'ADMIN_PASSWORD': os.environ['ADMIN_PASSWORD'],
+                  'MAIL_USERNAME': 'skip',
+                  'MAIL_PASSWORD': 'skip',
+              },
+              'auth-cpf-secrets': {
+                  'AUTH_CPF_DB_PASSWORD': os.environ['AUTH_CPF_DB_PASSWORD'],
+              },
+              'newrelic-secrets': {
+                  'NEW_RELIC_LICENSE_KEY': os.environ.get('NEW_RELIC_LICENSE_KEY', ''),
+              },
+          }
+          items = [
+              {'apiVersion': 'v1', 'kind': 'Secret', 'metadata': {'name': name, 'namespace': namespace},
+               'type': 'Opaque', 'stringData': data}
+              for name, data in secrets.items()
+          ]
+          print(json.dumps({'apiVersion': 'v1', 'kind': 'List', 'items': items}))
+          PY
 
       - name: Point overlay at the images just published
         working-directory: k8s/overlays/${{ env.ENVIRONMENT == 'producao' && 'production' || 'homologacao' }}
@@ -187,6 +223,7 @@ jobs:
       - name: Smoke test
         env:
           NS: ${{ steps.vars.outputs.ns }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           for i in $(seq 1 60); do
             host=$(kubectl get svc kong -n "$NS" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
@@ -194,7 +231,7 @@ jobs:
             sleep 10
           done
           echo "Gateway: http://$host"
-          scripts/smoke-test.sh "http://$host" admin@mecanica.com '${{ secrets.ADMIN_PASSWORD }}'
+          scripts/smoke-test.sh "http://$host" admin@mecanica.com
 
       - name: Show Kubernetes diagnostics on failure
         if: failure()

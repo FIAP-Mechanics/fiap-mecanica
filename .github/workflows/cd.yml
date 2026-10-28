@@ -153,7 +153,8 @@ jobs:
           token=$(curl -sf -X POST "$gw/auth/login" -H 'Content-Type: application/json' \
             -d '{"email":"admin@mecanica.com","senha":"admin123"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
           code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
-          [ "$(code "$gw/cliente")" = 200 ] || { echo "GET público falhou"; exit 1; }
+          [ "$(code "$gw/cliente")" = 401 ] || { echo "GET de clientes sem token deveria dar 401"; exit 1; }
+          [ "$(code "$gw/cliente" -H "Authorization: Bearer $token")" = 200 ] || { echo "GET de clientes com token admin deveria dar 200"; exit 1; }
           [ "$(code -X POST "$gw/cliente" -H 'Content-Type: application/json' -d '{}')" = 401 ] || { echo "POST sem token deveria dar 401"; exit 1; }
           [ "$(code -X POST "$gw/cliente" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{}')" != 401 ] || { echo "POST com token válido não deveria dar 401"; exit 1; }
 

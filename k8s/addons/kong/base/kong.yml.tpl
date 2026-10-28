@@ -3,7 +3,7 @@ _transform: true
 
 # Template: __JWT_ISSUER__, __JWT_SECRET__ e __CORS_ORIGIN__ são substituídos pelo initContainer do Deployment
 # a partir de JWT_ISSUER (ConfigMap atendimento-config), JWT_SECRET (Secret mecanica-shared-secrets) e CORS_ORIGIN.
-# Mesma regra de acesso dos serviços: GET é público nos serviços de cadastro; escrita exige JWT.
+# Dados de clientes exigem JWT em todos os métodos; nos outros cadastros, GET é público e escrita exige JWT.
 # Regex usam regex_priority: rotas mais específicas vencem a rota protegida do mesmo prefixo (0).
 # __LAMBDA_*__ configuram o plugin aws-lambda de /auth/cpf (RIE local ou AWS Lambda real).
 
@@ -44,25 +44,11 @@ plugins:
         deployment.environment: "__DEPLOYMENT_ENVIRONMENT__"
 
 services:
-  # --- Serviços de cadastro: GET público, demais métodos com JWT ---
+  # --- Clientes: todos os métodos com JWT; o serviço valida as roles ---
   - name: cliente
     url: http://cliente:8081
     routes:
-      - name: cliente-documento
-        paths: ["~/cliente/documento$"]
-        regex_priority: 20
-        strip_path: false
-        plugins:
-          - name: jwt
-            config:
-              key_claim_name: iss
-              claims_to_verify: [exp]
-              run_on_preflight: false
-      - name: cliente-leitura
-        paths: [/cliente]
-        methods: [GET, HEAD, OPTIONS]
-        strip_path: false
-      - name: cliente-escrita
+      - name: cliente-protegido
         paths: [/cliente]
         strip_path: false
         plugins:
@@ -72,6 +58,7 @@ services:
               claims_to_verify: [exp]
               run_on_preflight: false
 
+  # --- Demais serviços de cadastro: GET público, escrita com JWT ---
   - name: veiculo
     url: http://veiculo:8082
     routes:

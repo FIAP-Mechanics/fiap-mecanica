@@ -41,6 +41,7 @@ public class ClienteController {
                     content = @Content(schema = @Schema(implementation = ClienteDto.class))),
             @ApiResponse(responseCode = "404", description = "Cliente não encontrado", content = @Content)
     })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
     @GetMapping
     public List<ClienteDto> getList() {
         List<Cliente> clientes = clienteUseCase.buscarClientes();
@@ -55,6 +56,7 @@ public class ClienteController {
                     content = @Content(schema = @Schema(implementation = ClienteDto.class))),
             @ApiResponse(responseCode = "404", description = "Cliente não encontrado", content = @Content)
     })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
     @GetMapping("/documento")
     public ClienteDto getByDocumento(
             @Parameter(description = "CPF ou CNPJ do cliente") @RequestParam String documento
@@ -68,6 +70,7 @@ public class ClienteController {
                     content = @Content(schema = @Schema(implementation = ClienteDto.class))),
             @ApiResponse(responseCode = "404", description = "Cliente não encontrado", content = @Content)
     })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
     @GetMapping("/{id}")
     public ClienteDto get(
             @Parameter(description = "ID do cliente") @PathVariable Long id
@@ -154,6 +157,7 @@ public class ClienteController {
             @ApiResponse(responseCode = "200", description = "Lista de veículos retornada com sucesso"),
             @ApiResponse(responseCode = "404", description = "Cliente não encontrado", content = @Content)
     })
+    @Secured({"ROLE_ADMIN", "ROLE_ATENDENTE"})
     @GetMapping("/{id}/veiculos")
     public List<VeiculoDto> listarVeiculos(
             @Parameter(description = "ID do cliente") @PathVariable Long id) {
