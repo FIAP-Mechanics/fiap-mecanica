@@ -40,6 +40,8 @@ administrador e cliente.
 
 ## Arquitetura
 
+Para uma visão dos quatro repositórios, das tecnologias e do caminho do desenvolvimento local até a AWS, veja [Arquitetura geral e fluxo de deploy](ARQUITETURA.md).
+
 ### Componentes da aplicação
 
 ![Diagrama de componentes da aplicação](img/componentes-aplicacao.png)
