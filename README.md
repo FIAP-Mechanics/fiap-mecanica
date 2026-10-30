@@ -40,6 +40,8 @@ administrador e cliente.
 
 ## Arquitetura
 
+Para uma visão dos quatro repositórios, das tecnologias e do caminho do desenvolvimento local até a AWS, veja [Arquitetura geral e fluxo de deploy](ARQUITETURA.md).
+
 ### Componentes da aplicação
 
 ![Diagrama de componentes da aplicação](img/componentes-aplicacao.png)
@@ -582,28 +584,57 @@ Cliente ─► LoadBalancer ─► Kong ─► serviços (EKS) ─► RDS       
 
 O pipeline deste repositório lê `cluster_name` e `db_host` dos states `infra-k8s` e `infra-db` no S3.
 
+### Environments e credenciais dos quatro repositórios
+
+`homologacao` e `producao` têm recursos AWS separados. Os Environments do GitHub também são independentes em **cada**
+repositório: os secrets cadastrados em `fiap-mecanica` não são herdados pelos workflows de Kubernetes, banco ou Lambda.
+Cadastre os valores em **Settings > Environments > homologacao** ou **producao** do repositório correspondente:
+
+| Repositório | Secrets obrigatórios por ambiente | Variables |
+|---|---|---|
+| [Kubernetes](https://github.com/FIAP-Mechanics/fiap-mecanica-k8s-infra) | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | `TF_STATE_BUCKET` |
+| [Banco](https://github.com/FIAP-Mechanics/fiap-mecanica-infra-dbs) | Os três `AWS_*` e `DATABASE_PASSWORD` | `TF_STATE_BUCKET` |
+| [Lambda](https://github.com/FIAP-Mechanics/fiap-mecanica-lambda) | Os três `AWS_*`, `AUTH_CPF_DB_PASSWORD` e `JWT_SECRET` | `TF_STATE_BUCKET` |
+| Aplicação (este repositório) | Os três `AWS_*`, `DATABASE_PASSWORD`, `AUTH_CPF_DB_PASSWORD`, `JWT_SECRET` e `ADMIN_PASSWORD` | `TF_STATE_BUCKET` |
+
+Os três `AWS_*` devem vir da mesma sessão ativa do Learner Lab e ser renovados nos quatro repositórios quando a sessão
+expirar. Dentro de um mesmo ambiente, `DATABASE_PASSWORD` deve coincidir entre banco e aplicação; `AUTH_CPF_DB_PASSWORD` e
+`JWT_SECRET`, entre Lambda e aplicação. Homologação pode usar valores próprios. Em produção já implantada, preserve as
+senhas atuais ou planeje uma rotação coordenada: o GitHub informa se um secret existe, mas não permite ler seu valor de volta.
+`AWS_REGION` é opcional nos outros repositórios e usa `us-east-1` por padrão; este workflow usa `us-east-1`.
+`NEW_RELIC_API_KEY`, `NEW_RELIC_ACCOUNT_ID`, `NEW_RELIC_LICENSE_KEY` e `ALERT_EMAIL` são opcionais para observabilidade.
+
 ### Passo a passo
 
 1. **Iniciar o lab** e copiar as credenciais (`AWS Details`) para `~/.aws/credentials` (perfil `default` com
    `aws_session_token`). Elas expiram em cerca de 4 horas.
 2. **Bucket do state e verificação da `LabRole`** (uma vez), no repositório `fiap-mecanica-k8s-infra`: `scripts/aws-lab-bootstrap.sh`.
-3. **Configurar o GitHub** (uma vez por ambiente): `gh auth login` e, no `fiap-mecanica-k8s-infra`,
-   `scripts/aws-lab-secrets.sh homologacao` e `scripts/aws-lab-secrets.sh producao`. O script cria o Environment, a variável
-   `TF_STATE_BUCKET` e os secrets (`AWS_*`, `JWT_SECRET`, `DATABASE_PASSWORD`, `AUTH_CPF_DB_PASSWORD`, `ADMIN_PASSWORD`) nos 4
-   repositórios e imprime a senha do administrador. Para a [observabilidade](#observabilidade), defina antes `NEW_RELIC_LICENSE_KEY`, `NEW_RELIC_API_KEY`,
-   `NEW_RELIC_ACCOUNT_ID` e `ALERT_EMAIL` no terminal (opcionais). No GitHub, ative aprovação manual no Environment `producao`, proteja a `main` e torne públicos os
-   pacotes do GHCR.
+3. **Configurar o GitHub**: cadastre os secrets e a variable `TF_STATE_BUCKET` no Environment correto de **cada** repositório,
+   conforme a [tabela acima](#environments-e-credenciais-dos-quatro-repositórios). As senhas compartilhadas entre repositórios devem
+   ter o mesmo valor dentro de cada ambiente. O script `aws-lab-secrets.sh` do repositório de Kubernetes é opcional; sua execução
+   completa gera novas senhas quando elas não são informadas, então não o use para renovar uma sessão já implantada. A aprovação
+   de produção e a proteção das branches são configuradas no GitHub.
 4. **Implantar**, nesta ordem: `fiap-mecanica-k8s-infra`, `fiap-mecanica-infra-dbs`, `fiap-mecanica-lambda` e, por último, este
    repositório. Em cada um, faça push na branch `homologacao` (ou `main`) ou execute o workflow de deploy. O EKS e o RDS levam
    cerca de 25 minutos. O último passo imprime o endereço do Kong (`http://<hostname-do-load-balancer>`).
 5. **Validar**: defina `ADMIN_PASSWORD` no ambiente do processo e rode `scripts/smoke-test.sh http://<hostname> admin@mecanica.com`; use também a collection Postman com o
    `gatewayUrl` apontando para o hostname.
-6. **A cada nova sessão do lab**: credenciais novas em `~/.aws/credentials` e
-   `RENOVAR_APENAS_CREDENCIAIS=1 scripts/aws-lab-secrets.sh <ambiente>`.
+6. **A cada nova sessão do lab**: atualize os três secrets `AWS_*` nos quatro repositórios e em cada ambiente que será usado.
+   Quem tiver `aws` e `gh` instalados pode usar `RENOVAR_APENAS_CREDENCIAIS=1 scripts/aws-lab-secrets.sh <ambiente>` a partir do
+   repositório de Kubernetes, com o perfil AWS da sessão ativa.
 7. **Destruir ao terminar**: `scripts/aws-lab-down.sh <ambiente>`, no `fiap-mecanica-k8s-infra` com os 4 repositórios clonados lado a lado (remove o namespace, o balanceador, a Lambda, o RDS e o EKS).
    Para remover também os dashboards e alertas do New Relic, exporte `NEW_RELIC_API_KEY` e `NEW_RELIC_ACCOUNT_ID` antes de rodar;
    sem elas essa etapa é ignorada.
-   Duas stacks custam cerca de US$ 0,75 por hora; não deixe ligadas fora das sessões.
+    Acompanhe o consumo de créditos do Learner Lab e desprovisione ambientes que não estiver usando.
+
+### Falhas comuns no deploy
+
+- `terraform init` com `Invalid Value` e `The value cannot be empty`: falta a variable `TF_STATE_BUCKET` no Environment
+  selecionado. Depois de cadastrá-la, inicie um novo run.
+- `Check required Environment secrets and variables`: falta um dos secrets obrigatórios da tabela no Environment do run.
+- `ExpiredTokenException` ou `InvalidClientTokenId`: atualize os três secrets `AWS_*` da sessão ativa nos quatro repositórios.
+- Output de EKS, RDS ou Lambda ausente: confira se o workflow anterior terminou com sucesso e se todos usam o mesmo bucket,
+  com chaves de state distintas para cada componente e ambiente.
 
 Execução manual (sem o pipeline): aplique o Terraform dos repositórios 2, 3 e 1 (instruções no README de cada um) e, aqui,
 `kubectl apply -k k8s/overlays/<production|homologacao>` com o kubeconfig do cluster (`aws eks update-kubeconfig`).
