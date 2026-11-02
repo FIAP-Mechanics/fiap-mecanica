@@ -103,9 +103,6 @@
         {
           "name": "Decisão Externa do Orçamento",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
             "header": [],
             "body": {
