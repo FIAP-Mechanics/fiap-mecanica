@@ -24,13 +24,15 @@ Ordem de provisionamento: 2 → 3 → 1 → 4. Os repositórios se ligam por sta
 
 - **Swagger:** cada serviço publica `/swagger-ui.html` (portas `8081` a `8086` no Compose; o Kong não expõe o Swagger).
   A function de CPF tem o [`openapi.yaml`](https://github.com/FIAP-Mechanics/fiap-mecanica-lambda/blob/main/openapi.yaml).
-- **Postman:** [`postman/`](postman) (collection completa, uma por serviço e environments `gateway` e `direto`); veja a seção [Postman](#postman).
+- **Postman:** [collection completa](postman/mecanica-completa.postman_collection.json) · [environment Kong](postman/environments/gateway.postman_environment.json) · [outras collections](postman/).
 - **Dockerfile:** [`Dockerfile`](Dockerfile) único, parametrizado por `SERVICE`, que gera a imagem de cada microsserviço.
 
 | Ambiente | API Gateway (Kong) | Dashboard New Relic |
 |---|---|---|
-| Homologação | _preencher após o deploy_ | _preencher após o deploy_ |
-| Produção | _preencher após o deploy_ | _preencher após o deploy_ |
+| Homologação | Não confirmado | Não confirmado |
+| Produção | Não confirmado | Não confirmado |
+
+Consulte os [deploys no GitHub Actions](https://github.com/FIAP-Mechanics/fiap-mecanica/actions/workflows/deploy-aws.yml).
 
 ## Objetivo
 
@@ -42,17 +44,33 @@ administrador e cliente.
 
 ### Componentes da aplicação
 
-![Diagrama de componentes da aplicação](img/componentes-aplicacao.png)
+```mermaid
+flowchart LR
+    subgraph aws["AWS"]
+        lb[Load Balancer] --> kong
+        subgraph eks["EKS"]
+            kong[Kong] --> atendimento[Atendimento]
+            kong --> servicos[Cliente, veículo, funcionário, serviço e estoque]
+            atendimento --> servicos
+        end
+        kong --> lambda[Lambda: autenticação por CPF]
+        atendimento --> rds[(RDS PostgreSQL)]
+        servicos --> rds
+        lambda --> rds
+    end
+    usuario[Cliente ou funcionário] --> lb
+    eks -. métricas, logs e traces .-> nr[New Relic]
+```
 
 No Kubernetes, o tráfego externo entra pelo API Gateway (Kong, ver [API Gateway](#api-gateway-kong)); no Docker
 Compose, cada serviço é acessado diretamente pela sua porta. Apenas `atendimento` chama os demais serviços,
 via HTTP (nunca via banco ou dependência Maven entre módulos).
 
-### Infraestrutura provisionada
+### Infraestrutura local
 
 ![Diagrama de infraestrutura provisionada](img/infra-provisionada.png)
 
-O Terraform provisiona **apenas** a infraestrutura de base (cluster + namespace + banco); os Deployments/Services/HPA da
+O Terraform local provisiona a infraestrutura de base (cluster kind + namespace + banco); os Deployments/Services/HPA da
 aplicação são aplicados à parte via `kubectl apply -k` sobre `/k8s` — ver a seção
 [Infraestrutura como Código (Terraform)](#infraestrutura-como-código-terraform) para a lista completa de recursos.
 
@@ -60,8 +78,7 @@ aplicação são aplicados à parte via `kubectl apply -k` sobre `/k8s` — ver 
 
 ![Diagrama de fluxo de deploy (CI/CD)](img/fluxo-deploy.png)
 
-O cluster do CI é efêmero: criado e destruído a cada execução, prova real de que o provisionamento com Terraform e o
-deploy com Kustomize funcionam de ponta a ponta a cada push.
+O workflow manual de CD cria um cluster kind efêmero para validar os manifests e o gateway.
 
 Os guias de execução estão nas seções [Docker](#subindo-toda-a-aplicação-com-docker), [Kubernetes](#kubernetes),
 [Terraform](#infraestrutura-como-código-terraform) e [CI/CD](#cicd).
@@ -166,7 +183,7 @@ Endpoints públicos:
 
 - `POST /auth/login` (`services/atendimento`, porta 8086)
 - `POST /auth/cpf` (function de autenticação por CPF; só existe atrás do API Gateway)
-- Todos os endpoints `GET` dos demais serviços (`cliente`, `veiculo`, `funcionario`, `servico`, `estoque`)
+- Os endpoints `GET` de `veiculo`, `funcionario`, `servico` e `estoque`; os dados de `cliente` exigem autenticação.
 - `/actuator/health/**` de cada serviço
 - `/swagger-ui/**` e `/v3/api-docs/**` de cada serviço
 
@@ -587,23 +604,26 @@ O pipeline deste repositório lê `cluster_name` e `db_host` dos states `infra-k
 1. **Iniciar o lab** e copiar as credenciais (`AWS Details`) para `~/.aws/credentials` (perfil `default` com
    `aws_session_token`). Elas expiram em cerca de 4 horas.
 2. **Bucket do state e verificação da `LabRole`** (uma vez), no repositório `fiap-mecanica-k8s-infra`: `scripts/aws-lab-bootstrap.sh`.
-3. **Configurar o GitHub** (uma vez por ambiente): `gh auth login` e, no `fiap-mecanica-k8s-infra`,
-   `scripts/aws-lab-secrets.sh homologacao` e `scripts/aws-lab-secrets.sh producao`. O script cria o Environment, a variável
-   `TF_STATE_BUCKET` e os secrets (`AWS_*`, `JWT_SECRET`, `DATABASE_PASSWORD`, `AUTH_CPF_DB_PASSWORD`, `ADMIN_PASSWORD`) nos 4
-   repositórios e imprime a senha do administrador. Para a [observabilidade](#observabilidade), defina antes `NEW_RELIC_LICENSE_KEY`, `NEW_RELIC_API_KEY`,
-   `NEW_RELIC_ACCOUNT_ID` e `ALERT_EMAIL` no terminal (opcionais). No GitHub, ative aprovação manual no Environment `producao`, proteja a `main` e torne públicos os
-   pacotes do GHCR.
+3. **Configurar o GitHub** em `Settings > Environments` de cada repositório e ambiente:
+
+   | Repositório | Secrets | Variable |
+   |---|---|---|
+   | Kubernetes | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | `TF_STATE_BUCKET` |
+   | Banco | Os três `AWS_*` e `DATABASE_PASSWORD` | `TF_STATE_BUCKET` |
+   | Lambda | Os três `AWS_*`, `AUTH_CPF_DB_PASSWORD`, `JWT_SECRET` | `TF_STATE_BUCKET` |
+   | Aplicação | Os três `AWS_*`, `DATABASE_PASSWORD`, `AUTH_CPF_DB_PASSWORD`, `JWT_SECRET`, `ADMIN_PASSWORD` | `TF_STATE_BUCKET` |
+
+   No mesmo ambiente, use a mesma senha do banco no banco e na aplicação, e as mesmas `AUTH_CPF_DB_PASSWORD` e `JWT_SECRET` na Lambda e na aplicação. As credenciais temporárias AWS precisam ser renovadas após expirarem. O script `aws-lab-secrets.sh` pode gerar novas senhas; preserve os valores existentes ao atualizar um ambiente já implantado.
 4. **Implantar**, nesta ordem: `fiap-mecanica-k8s-infra`, `fiap-mecanica-infra-dbs`, `fiap-mecanica-lambda` e, por último, este
    repositório. Em cada um, faça push na branch `homologacao` (ou `main`) ou execute o workflow de deploy. O EKS e o RDS levam
    cerca de 25 minutos. O último passo imprime o endereço do Kong (`http://<hostname-do-load-balancer>`).
-5. **Validar**: defina `ADMIN_PASSWORD` no ambiente do processo e rode `scripts/smoke-test.sh http://<hostname> admin@mecanica.com`; use também a collection Postman com o
-   `gatewayUrl` apontando para o hostname.
+5. **Validar**: defina `ADMIN_PASSWORD` no ambiente do processo e rode `scripts/smoke-test.sh http://<hostname> admin@mecanica.com`; no Postman, configure as sete variáveis de URL do environment com o endereço do Kong.
 6. **A cada nova sessão do lab**: credenciais novas em `~/.aws/credentials` e
    `RENOVAR_APENAS_CREDENCIAIS=1 scripts/aws-lab-secrets.sh <ambiente>`.
 7. **Destruir ao terminar**: `scripts/aws-lab-down.sh <ambiente>`, no `fiap-mecanica-k8s-infra` com os 4 repositórios clonados lado a lado (remove o namespace, o balanceador, a Lambda, o RDS e o EKS).
    Para remover também os dashboards e alertas do New Relic, exporte `NEW_RELIC_API_KEY` e `NEW_RELIC_ACCOUNT_ID` antes de rodar;
    sem elas essa etapa é ignorada.
-   Duas stacks custam cerca de US$ 0,75 por hora; não deixe ligadas fora das sessões.
+   Acompanhe o consumo do ambiente no lab.
 
 Execução manual (sem o pipeline): aplique o Terraform dos repositórios 2, 3 e 1 (instruções no README de cada um) e, aqui,
 `kubectl apply -k k8s/overlays/<production|homologacao>` com o kubeconfig do cluster (`aws eks update-kubeconfig`).
@@ -619,7 +639,7 @@ O job de deploy usa os **Environment secrets** do GitHub em `Settings > Environm
 Environments quando o Learner Lab reiniciar; o workflow não lê arquivos locais de credenciais.
 
 - [Pull Request Validation](.github/workflows/maven.yml) executa build, testes e verificação de cobertura dos seis
-  microsserviços em pull requests para `main`;
+  microsserviços em pull requests para `main` e `homologacao`;
 - [Deploy AWS](.github/workflows/deploy-aws.yml) é acionado em pushes para `homologacao` (ambiente de homologação) e
   `main` (produção, com aprovação do Environment do GitHub): testa e publica as imagens, instala o Metrics Server e o coletor
   de Kubernetes do New Relic, aplica os manifestos no EKS e executa o smoke test pelo `LoadBalancer` do Kong. A rede, o EKS, o
@@ -752,8 +772,9 @@ A exportação vem **desligada** (`OBSERVABILITY_EXPORT_ENABLED=false`): sem con
 
 - **Docker Compose:** no `.env`, defina `OBSERVABILITY_EXPORT_ENABLED=true` e `NEW_RELIC_LICENSE_KEY=<chave>`
   (contas da região EU: `OTLP_ENDPOINT=https://otlp.eu01.nr-data.net`), depois `docker compose -f compose.app.yaml up -d`.
-- **AWS (pipeline):** exporte `NEW_RELIC_LICENSE_KEY`, `NEW_RELIC_API_KEY` (*User API key*), `NEW_RELIC_ACCOUNT_ID` e
-  `ALERT_EMAIL` e rode `scripts/aws-lab-secrets.sh <ambiente>` no `fiap-mecanica-k8s-infra`. O workflow *Deploy AWS* cria o Secret `newrelic-secrets`
+- **AWS (pipeline):** configure o secret `NEW_RELIC_LICENSE_KEY` no Environment da aplicação. No mesmo Environment do repositório
+  `fiap-mecanica-k8s-infra`, configure os secrets `NEW_RELIC_API_KEY` e `NEW_RELIC_ACCOUNT_ID` e a variable `ALERT_EMAIL`.
+  O workflow *Deploy AWS* cria o Secret `newrelic-secrets`
   e instala o coletor (`k8s/addons/newrelic/values.yaml`); os dashboards e alertas são aplicados pelo pipeline do
   `fiap-mecanica-k8s-infra`. Os overlays de homologação e produção já habilitam a exportação.
 - **Terraform manual:** veja o README do `fiap-mecanica-k8s-infra` (pasta `observability/`).
@@ -862,6 +883,12 @@ Para usar:
      chamadas passam pelo Kong em `http://localhost:8080` (Compose ou kind);
    - [`direto.postman_environment.json`](postman/environments/direto.postman_environment.json): portas `8081` a
      `8086` dos serviços, igual ao comportamento padrão da collection.
+
+Para a AWS, substitua o endereço local pelo hostname do Kong nas sete variáveis `gatewayUrl`, `clienteUrl`, `veiculoUrl`,
+`funcionarioUrl`, `servicoUrl`, `estoqueUrl` e `atendimentoUrl` do environment `gateway`. Ajuste a senha no login para a
+configurada no ambiente. A autenticação por CPF exige cliente cadastrado e ativo.
+
+Nas collections individuais, preencha `baseUrl` e `token` com o endereço do serviço ou Kong e um JWT válido.
 
 O script do request de login salva o token JWT automaticamente na variável `accessToken`. Os cadastros também atualizam
 automaticamente `clienteId`, `veiculoId`, `funcionarioId`, `servicoId` e `insumoId` para uso nas requisições seguintes.
