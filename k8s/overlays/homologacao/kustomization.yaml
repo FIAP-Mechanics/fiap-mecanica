@@ -28,6 +28,14 @@ patches:
       - op: replace
         path: /spec/minReplicas
         value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 3
+      - op: test
+        path: /spec/metrics/1/resource/name
+        value: memory
+      - op: remove
+        path: /spec/metrics/1
   - target:
       group: apps
       version: v1
