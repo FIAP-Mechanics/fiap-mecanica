@@ -183,7 +183,7 @@ public class AtendimentoController {
         return AtendimentoPresenter.toDto(atendimentoUseCase.cancelarOrdemServico(id));
     }
 
-    @Operation(summary = "Registrar decisão externa do orçamento", description = "Canal público para o cliente aprovar ou recusar o orçamento da ordem de serviço, identificado apenas pelo ID")
+    @Operation(summary = "Registrar decisão externa do orçamento", description = "Cliente autenticado decide o orçamento da própria ordem de serviço; funcionários autorizados também podem registrar a decisão")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Decisão registrada com sucesso",
                     content = @Content(schema = @Schema(implementation = OrdemServicoDto.class))),
