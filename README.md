@@ -973,3 +973,4 @@ Se o login falhar após limpar volumes:
 - aguarde o serviço `atendimento` terminar de subir;
 - confira nos logs se o admin padrão foi criado;
 - use as credenciais padrão ou as variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD` configuradas.
+
